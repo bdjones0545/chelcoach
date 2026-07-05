@@ -159,9 +159,36 @@ export const uploadInitRequestSchema = z.object({
 });
 export type UploadInitRequest = z.infer<typeof uploadInitRequestSchema>;
 
+/** Accepted upload constraints — server-authoritative, shared source of truth. */
+export const uploadRules = {
+  acceptExtensions: [".mp4", ".mov"],
+  acceptMimeTypes: ["video/mp4", "video/quicktime"],
+  maxBytes: 2 * 1024 ** 3, // 2 GB
+  maxLabel: "2 GB",
+} as const;
+
+export interface UploadValidationError {
+  code: Extract<ErrorCode, "unsupported_file" | "oversized_file">;
+  message: string;
+}
+
+/** Validate declared upload metadata against the rules. Returns null when valid. */
+export function validateUploadMetadata(input: UploadInitRequest): UploadValidationError | null {
+  const name = input.filename.toLowerCase();
+  const extOk = uploadRules.acceptExtensions.some((ext) => name.endsWith(ext));
+  const mimeOk = (uploadRules.acceptMimeTypes as readonly string[]).includes(input.contentType);
+  if (!extOk && !mimeOk) {
+    return { code: "unsupported_file", message: "Unsupported file type. Upload an MP4 or MOV clip." };
+  }
+  if (input.sizeBytes > uploadRules.maxBytes) {
+    return { code: "oversized_file", message: `File exceeds the ${uploadRules.maxLabel} limit.` };
+  }
+  return null;
+}
+
 export interface UploadInitResponse {
   clipId: string;
-  /** Short-lived signed upload URL (Phase 1). */
+  /** Where the client uploads the file bytes (Phase 2: server-proxied PUT). */
   uploadUrl: string;
 }
 

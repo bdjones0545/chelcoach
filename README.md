@@ -70,7 +70,8 @@ All optional — the app runs on mock data with none set. Copy `.env.example` �
 | `VITE_API_BASE_URL` | frontend | `http://localhost:3001` | Backend base URL (used only when the flag is on). |
 | `PORT` | backend | `3001` | API server port. |
 | `CORS_ORIGIN` | backend | allow all (dev) | Comma-separated allowed origins. |
-| `DATABASE_URL` | backend | — | Postgres URL. **Not required yet** (Phase 2). |
+| `STORAGE_BACKEND` | backend | auto | Object storage: `memory` \| `replit`. Auto = `replit` on Replit, else `memory`. CI/dev use `memory`. |
+| `DATABASE_URL` | backend | — | Postgres URL. **Not required yet** (used from the database phase). |
 
 ## Local development
 
@@ -100,7 +101,9 @@ To try the live read path: run the server, set `VITE_USE_BACKEND_REPORTS=true` i
 - ✅ **Phase 0** — Shared Analysis Contract + Drizzle schema + Express skeleton.
 - ✅ **Phase 1** — Deterministic static-report API loop (`commit` → poll → report).
 - ✅ **Frontend read flag** — UI can consume the backend report with zero shape drift.
-- ⏭️ **Next (Phase 2)** — Real upload + object storage.
+- ✅ **Phase 2** — Real video upload + object storage (init → PUT bytes → commit). Report is
+  still the static sample (no ffmpeg/AI yet).
+- ⏭️ **Next (Phase 3)** — ffmpeg frame extraction.
 
 Full detail: [docs/phase-status.md](docs/phase-status.md) ·
 [docs/backend-plan.md](docs/backend-plan.md) · [docs/backend-setup-replit.md](docs/backend-setup-replit.md)

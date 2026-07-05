@@ -37,17 +37,32 @@ backend one step at a time.
 - Shared types imported **type-only** → `zod` is never bundled into the frontend.
 - Graceful degradation: any backend failure silently keeps the identical-content mock report.
 
-## ⏭️ Next — Phase 2: Real upload + object storage
+## ✅ Phase 2 — Real upload + object storage (complete)
 
-The next (riskier) phase introduces external systems, gated behind this repository-hardening step:
+Real video upload wired end to end, still with no ffmpeg/AI (a committed clip gets the static
+sample report):
 
-- `POST /api/uploads/init` → server-side validation + short-lived signed upload URL.
-- Direct-to-object-storage upload; `POST /api/clips/:id/commit` verifies the object and
-  enqueues a real job.
-- Postgres-backed clip/job records replace the in-memory store; the Processing screen polls
-  real status.
-- **Still deferred:** ffmpeg frame extraction (Phase 3), AI analysis (Phase 4), auth & payments
-  (later).
+- **Object storage abstraction** ([`server/src/storage.ts`](../server/src/storage.ts)) — two
+  backends: `memory` (default off-Replit; used by dev + CI) and `replit`
+  (`@replit/object-storage`, GCS-backed, lazy-imported so CI never loads it). Select via
+  `STORAGE_BACKEND`.
+- **Upload flow** (server-proxied — Replit Object Storage has no presigned URLs):
+  - `POST /api/uploads/init` → validates filename / MIME / size (server-authoritative
+    `validateUploadMetadata`), creates a clip (`uploading`), returns `{ clipId, uploadUrl }`.
+  - `PUT /api/clips/:id/file` → stores the raw bytes in object storage → clip `queued`.
+  - `POST /api/clips/:id/commit` → finalizes → `complete` + static report.
+- **Clip metadata** stored per clip: id, filename, MIME, declared + stored size, storage key,
+  status, report. In-memory for now (Drizzle/Postgres in a later phase).
+- **Frontend upload path** (behind `VITE_USE_BACKEND_REPORTS`, default off): the Upload screen
+  really uploads the selected file with a progress bar, then transitions into the existing
+  processing/report flow. Flag off = unchanged mock behavior.
+- **Smoke test** extended to 9 checks: validation (415/413), full init → PUT → commit → report
+  loop on the memory backend, and demo back-compat.
+
+## ⏭️ Next — Phase 3: ffmpeg frame extraction
+
+- Sample frames from the stored clip (capped fps/count), generate a poster + thumbnails.
+- **Still deferred:** AI analysis (Phase 4), Postgres persistence, auth & payments (later).
 
 ## What CI guarantees today
 
