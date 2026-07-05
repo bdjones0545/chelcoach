@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" role="img" aria-label="Tactical rink diagram — great neutral-zone play">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0c1324"/>
+      <stop offset="1" stop-color="#070d1f"/>
+    </linearGradient>
+    <radialGradient id="ice" cx="0.5" cy="0.5" r="0.75">
+      <stop offset="0" stop-color="#1b2440"/>
+      <stop offset="1" stop-color="#10182b"/>
+    </radialGradient>
+    <radialGradient id="heat-green" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#4ae176" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#4ae176" stop-opacity="0"/>
+    </radialGradient>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#4ae176"/>
+    </marker>
+  </defs>
+
+  <rect width="800" height="450" fill="url(#bg)"/>
+  <!-- rink -->
+  <rect x="36" y="40" width="728" height="370" rx="72" fill="url(#ice)" stroke="rgba(255,255,255,0.14)" stroke-width="2"/>
+  <line x1="95" y1="60" x2="95" y2="390" stroke="#ffb4ab" stroke-width="2" opacity="0.45"/>
+  <line x1="705" y1="60" x2="705" y2="390" stroke="#ffb4ab" stroke-width="2" opacity="0.45"/>
+  <line x1="300" y1="40" x2="300" y2="410" stroke="#98cbff" stroke-width="5" opacity="0.6"/>
+  <line x1="500" y1="40" x2="500" y2="410" stroke="#98cbff" stroke-width="5" opacity="0.6"/>
+  <line x1="400" y1="40" x2="400" y2="410" stroke="#ffb4ab" stroke-width="5" opacity="0.8"/>
+  <circle cx="400" cy="225" r="52" fill="none" stroke="#98cbff" stroke-width="2" opacity="0.4"/>
+  <circle cx="400" cy="225" r="4" fill="#ffb4ab"/>
+  <g fill="none" stroke="#ffb4ab" stroke-width="2" opacity="0.35">
+    <circle cx="170" cy="140" r="40"/><circle cx="170" cy="310" r="40"/>
+    <circle cx="630" cy="140" r="40"/><circle cx="630" cy="310" r="40"/>
+  </g>
+
+  <!-- green success overlay: defensive triangle forcing a turnover -->
+  <circle cx="320" cy="240" r="150" fill="url(#heat-green)"/>
+  <polygon points="250,150 210,320 375,250" fill="#4ae176" fill-opacity="0.12" stroke="#4ae176" stroke-width="2" stroke-opacity="0.7"/>
+  <g fill="#4ae176">
+    <circle cx="250" cy="150" r="9"/><circle cx="210" cy="320" r="9"/><circle cx="375" cy="250" r="9"/>
+  </g>
+  <path d="M375,250 C 430,210 470,190 510,175" fill="none" stroke="#4ae176" stroke-width="3" stroke-dasharray="2 0" marker-end="url(#arrow-green)"/>
+  <circle cx="518" cy="172" r="7" fill="#98cbff"/>
+  <text x="60" y="392" font-family="'JetBrains Mono', monospace" font-size="15" letter-spacing="2" fill="#4ae176" opacity="0.85">GAP CONTROL 94%</text>
+</svg>

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="Coach profile">
+  <defs>
+    <linearGradient id="ice" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#98cbff"/>
+      <stop offset="1" stop-color="#00a3ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="96" height="96" rx="48" fill="url(#ice)"/>
+  <!-- coach silhouette -->
+  <circle cx="48" cy="38" r="17" fill="#0c1324"/>
+  <path d="M18,86 C18,63 30,56 48,56 C66,56 78,63 78,86 Z" fill="#0c1324"/>
+  <!-- headset -->
+  <path d="M31,36 A 17 17 0 0 1 65 36" fill="none" stroke="#0c1324" stroke-width="4" stroke-linecap="round"/>
+  <rect x="62" y="34" width="7" height="12" rx="3" fill="#0c1324"/>
+  <path d="M62,46 C 60,54 56,56 51,56" fill="none" stroke="#0c1324" stroke-width="3" stroke-linecap="round"/>
+</svg>

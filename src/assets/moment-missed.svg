@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" role="img" aria-label="Tactical rink diagram — missed cross-crease passing lane">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0c1324"/>
+      <stop offset="1" stop-color="#070d1f"/>
+    </linearGradient>
+    <radialGradient id="ice" cx="0.5" cy="0.5" r="0.75">
+      <stop offset="0" stop-color="#1b2440"/>
+      <stop offset="1" stop-color="#10182b"/>
+    </radialGradient>
+    <radialGradient id="heat-red" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ff8a8a" stop-opacity="0.4"/>
+      <stop offset="1" stop-color="#ff8a8a" stop-opacity="0"/>
+    </radialGradient>
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#ffb4ab"/>
+    </marker>
+  </defs>
+
+  <rect width="800" height="450" fill="url(#bg)"/>
+  <rect x="36" y="40" width="728" height="370" rx="72" fill="url(#ice)" stroke="rgba(255,255,255,0.14)" stroke-width="2"/>
+  <line x1="95" y1="60" x2="95" y2="390" stroke="#ffb4ab" stroke-width="2" opacity="0.45"/>
+  <line x1="705" y1="60" x2="705" y2="390" stroke="#ffb4ab" stroke-width="2" opacity="0.45"/>
+  <line x1="300" y1="40" x2="300" y2="410" stroke="#98cbff" stroke-width="5" opacity="0.6"/>
+  <line x1="500" y1="40" x2="500" y2="410" stroke="#98cbff" stroke-width="5" opacity="0.6"/>
+  <line x1="400" y1="40" x2="400" y2="410" stroke="#ffb4ab" stroke-width="5" opacity="0.8"/>
+  <circle cx="400" cy="225" r="52" fill="none" stroke="#98cbff" stroke-width="2" opacity="0.4"/>
+  <circle cx="400" cy="225" r="4" fill="#ffb4ab"/>
+  <!-- goal crease + net at right (attacking zone) -->
+  <path d="M705,190 A 40 40 0 0 1 705 260" fill="#98cbff" fill-opacity="0.12" stroke="#98cbff" stroke-width="2" opacity="0.5"/>
+
+  <!-- red missed-lane overlay -->
+  <circle cx="628" cy="140" r="120" fill="url(#heat-red)"/>
+  <!-- puck carrier (you) -->
+  <circle cx="560" cy="320" r="10" fill="#98cbff"/>
+  <text x="548" y="352" font-family="'JetBrains Mono', monospace" font-size="12" fill="#bec7d4">YOU</text>
+  <!-- open teammate, weak side -->
+  <circle cx="628" cy="140" r="14" fill="none" stroke="#ffb4ab" stroke-width="3" stroke-dasharray="6 6"/>
+  <circle cx="628" cy="140" r="8" fill="#4ae176"/>
+  <text x="588" y="112" font-family="'JetBrains Mono', monospace" font-size="12" fill="#ffb4ab">OPEN 1.2s</text>
+  <!-- defender between -->
+  <circle cx="580" cy="220" r="9" fill="#33394c" stroke="#bec7d4" stroke-width="1.5"/>
+  <!-- the missed passing lane -->
+  <path d="M560,320 C 600,250 620,190 628,150" fill="none" stroke="#ffb4ab" stroke-width="3" stroke-dasharray="9 7" marker-end="url(#arrow-red)"/>
+  <text x="60" y="392" font-family="'JetBrains Mono', monospace" font-size="15" letter-spacing="2" fill="#ffb4ab" opacity="0.85">MISSED LANE · xG 0.68</text>
+</svg>

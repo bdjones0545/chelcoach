@@ -1,0 +1,10 @@
+{
+  "name": "chelcoach-shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared ChelCoach Analysis Contract (Zod schemas + inferred types).",
+  "dependencies": {
+    "zod": "^3.25.76"
+  }
+}

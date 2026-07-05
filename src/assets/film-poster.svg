@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" role="img" aria-label="Live film-room tactical view of the defensive transition">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0c1324"/>
+      <stop offset="1" stop-color="#050a18"/>
+    </linearGradient>
+    <radialGradient id="ice" cx="0.5" cy="0.42" r="0.8">
+      <stop offset="0" stop-color="#1d2748"/>
+      <stop offset="1" stop-color="#0d1526"/>
+    </radialGradient>
+    <radialGradient id="play" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#00a3ff" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#00a3ff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="scan" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#98cbff" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#98cbff" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#98cbff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1280" height="720" fill="url(#bg)"/>
+  <!-- perspective ice sheet -->
+  <polygon points="140,150 1140,150 1240,660 40,660" fill="url(#ice)" stroke="rgba(255,255,255,0.12)" stroke-width="2"/>
+  <!-- blue lines (converging in perspective) -->
+  <line x1="430" y1="150" x2="360" y2="660" stroke="#98cbff" stroke-width="6" opacity="0.55"/>
+  <line x1="850" y1="150" x2="920" y2="660" stroke="#98cbff" stroke-width="6" opacity="0.55"/>
+  <line x1="640" y1="150" x2="640" y2="660" stroke="#ffb4ab" stroke-width="6" opacity="0.75"/>
+  <ellipse cx="640" cy="410" rx="150" ry="60" fill="none" stroke="#98cbff" stroke-width="2" opacity="0.4"/>
+
+  <!-- current-play highlight -->
+  <circle cx="760" cy="430" r="240" fill="url(#play)"/>
+  <!-- players -->
+  <g>
+    <circle cx="520" cy="380" r="14" fill="#98cbff"/>
+    <circle cx="700" cy="450" r="15" fill="#98cbff"/>
+    <circle cx="880" cy="360" r="13" fill="#ffb4ab"/>
+    <circle cx="600" cy="300" r="12" fill="#ffb4ab"/>
+    <circle cx="820" cy="500" r="14" fill="#4ae176"/>
+  </g>
+  <path d="M700,450 C 760,410 820,390 878,364" fill="none" stroke="#98cbff" stroke-width="4" opacity="0.8" stroke-dasharray="10 8"/>
+
+  <!-- scan sweep -->
+  <rect x="140" y="330" width="1000" height="120" fill="url(#scan)"/>
+
+  <!-- telemetry chips -->
+  <g font-family="'JetBrains Mono', monospace" font-size="22" fill="#dce1fb">
+    <rect x="60" y="60" width="230" height="48" rx="8" fill="rgba(30,41,59,0.7)" stroke="rgba(255,255,255,0.1)"/>
+    <circle cx="88" cy="84" r="6" fill="#4ae176"/>
+    <text x="106" y="92">P3 · 14:22</text>
+    <rect x="990" y="60" width="230" height="48" rx="8" fill="rgba(30,41,59,0.7)" stroke="rgba(255,255,255,0.1)"/>
+    <text x="1012" y="92" fill="#98cbff">34.2 km/h</text>
+  </g>
+</svg>

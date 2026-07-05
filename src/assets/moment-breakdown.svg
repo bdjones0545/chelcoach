@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" role="img" aria-label="Tactical rink diagram — defensive zone breakdown and odd-man rush">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0c1324"/>
+      <stop offset="1" stop-color="#070d1f"/>
+    </linearGradient>
+    <radialGradient id="ice" cx="0.5" cy="0.5" r="0.75">
+      <stop offset="0" stop-color="#1b2440"/>
+      <stop offset="1" stop-color="#10182b"/>
+    </radialGradient>
+    <radialGradient id="heat-red" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ff8a8a" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#ff8a8a" stop-opacity="0"/>
+    </radialGradient>
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#ffb4ab"/>
+    </marker>
+  </defs>
+
+  <rect width="800" height="450" fill="url(#bg)"/>
+  <rect x="36" y="40" width="728" height="370" rx="72" fill="url(#ice)" stroke="rgba(255,255,255,0.14)" stroke-width="2"/>
+  <line x1="95" y1="60" x2="95" y2="390" stroke="#ffb4ab" stroke-width="2" opacity="0.45"/>
+  <line x1="705" y1="60" x2="705" y2="390" stroke="#ffb4ab" stroke-width="2" opacity="0.45"/>
+  <line x1="300" y1="40" x2="300" y2="410" stroke="#98cbff" stroke-width="5" opacity="0.6"/>
+  <line x1="500" y1="40" x2="500" y2="410" stroke="#98cbff" stroke-width="5" opacity="0.6"/>
+  <line x1="400" y1="40" x2="400" y2="410" stroke="#ffb4ab" stroke-width="5" opacity="0.8"/>
+  <circle cx="400" cy="225" r="52" fill="none" stroke="#98cbff" stroke-width="2" opacity="0.4"/>
+  <circle cx="400" cy="225" r="4" fill="#ffb4ab"/>
+  <!-- own-zone crease + net (left) -->
+  <path d="M95,190 A 40 40 0 0 0 95 260" fill="#ffb4ab" fill-opacity="0.1" stroke="#98cbff" stroke-width="2" opacity="0.5"/>
+
+  <!-- open shooting lane heat -->
+  <circle cx="150" cy="225" r="120" fill="url(#heat-red)"/>
+
+  <!-- defenders bunched to one side (out of position) -->
+  <g fill="#33394c" stroke="#98cbff" stroke-width="1.5">
+    <circle cx="250" cy="150" r="10"/>
+    <circle cx="300" cy="185" r="10"/>
+    <circle cx="270" cy="235" r="10"/>
+  </g>
+  <!-- flag the two out-of-position defenders -->
+  <circle cx="250" cy="150" r="18" fill="none" stroke="#ffb4ab" stroke-width="3" stroke-dasharray="6 6"/>
+  <circle cx="300" cy="185" r="18" fill="none" stroke="#ffb4ab" stroke-width="3" stroke-dasharray="6 6"/>
+
+  <!-- attackers with odd-man rush -->
+  <g fill="#ffb4ab">
+    <circle cx="230" cy="300" r="9"/>
+    <circle cx="180" cy="250" r="9"/>
+  </g>
+  <path d="M230,300 C 190,270 165,245 120,228" fill="none" stroke="#ffb4ab" stroke-width="3" stroke-dasharray="9 7" marker-end="url(#arrow-red)"/>
+  <text x="60" y="392" font-family="'JetBrains Mono', monospace" font-size="15" letter-spacing="2" fill="#ffb4ab" opacity="0.85">3-ON-2 · COHESION 38%</text>
+</svg>

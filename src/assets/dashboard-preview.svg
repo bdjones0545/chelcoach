@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" role="img" aria-label="Preview of the full ChelCoach analytics film-room dashboard">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0c1324"/>
+      <stop offset="1" stop-color="#070d1f"/>
+    </linearGradient>
+    <linearGradient id="barA" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#00a3ff"/>
+      <stop offset="1" stop-color="#98cbff"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#98cbff"/>
+      <stop offset="1" stop-color="#4ae176"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1280" height="720" fill="url(#bg)"/>
+  <rect x="0" y="0" width="1280" height="72" fill="rgba(25,31,49,0.8)"/>
+  <text x="48" y="46" font-family="Oswald, sans-serif" font-size="26" font-weight="700" fill="#98cbff" letter-spacing="1">CHELCOACH · FILM ROOM</text>
+
+  <!-- rating gauge tile -->
+  <rect x="48" y="104" width="360" height="300" rx="16" fill="rgba(30,41,59,0.7)" stroke="rgba(255,255,255,0.1)"/>
+  <circle cx="228" cy="250" r="96" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="18"/>
+  <circle cx="228" cy="250" r="96" fill="none" stroke="url(#ring)" stroke-width="18" stroke-linecap="round"
+          stroke-dasharray="452" stroke-dashoffset="110" transform="rotate(-90 228 250)"/>
+  <text x="228" y="258" text-anchor="middle" font-family="Oswald, sans-serif" font-size="64" font-weight="700" fill="#98cbff">742</text>
+  <text x="228" y="360" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="18" fill="#bec7d4">CHEL RATING</text>
+
+  <!-- bar chart tile -->
+  <rect x="440" y="104" width="440" height="300" rx="16" fill="rgba(30,41,59,0.7)" stroke="rgba(255,255,255,0.1)"/>
+  <text x="472" y="150" font-family="'JetBrains Mono', monospace" font-size="18" fill="#bec7d4">CATEGORY GRADES</text>
+  <g>
+    <rect x="480" y="230" width="48" height="140" rx="4" fill="url(#barA)"/>
+    <rect x="548" y="280" width="48" height="90" rx="4" fill="#ffb4ab"/>
+    <rect x="616" y="210" width="48" height="160" rx="4" fill="#4ae176"/>
+    <rect x="684" y="300" width="48" height="70" rx="4" fill="#ffb4ab"/>
+    <rect x="752" y="250" width="48" height="120" rx="4" fill="url(#barA)"/>
+    <rect x="820" y="268" width="48" height="102" rx="4" fill="#4ae176"/>
+  </g>
+
+  <!-- sparkline tile -->
+  <rect x="912" y="104" width="320" height="300" rx="16" fill="rgba(30,41,59,0.7)" stroke="rgba(255,255,255,0.1)"/>
+  <text x="944" y="150" font-family="'JetBrains Mono', monospace" font-size="18" fill="#bec7d4">RATING TREND</text>
+  <polyline points="944,340 992,320 1040,330 1088,280 1136,290 1184,230"
+            fill="none" stroke="#4ae176" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <g fill="#4ae176">
+    <circle cx="944" cy="340" r="5"/><circle cx="1040" cy="330" r="5"/><circle cx="1136" cy="290" r="5"/><circle cx="1184" cy="230" r="6"/>
+  </g>
+
+  <!-- timeline tile -->
+  <rect x="48" y="436" width="1184" height="230" rx="16" fill="rgba(30,41,59,0.7)" stroke="rgba(255,255,255,0.1)"/>
+  <text x="80" y="486" font-family="'JetBrains Mono', monospace" font-size="18" fill="#98cbff">PLAYBACK TIMELINE</text>
+  <line x1="80" y1="560" x2="1200" y2="560" stroke="rgba(255,255,255,0.12)" stroke-width="4"/>
+  <line x1="80" y1="560" x2="470" y2="560" stroke="#98cbff" stroke-width="4"/>
+  <g stroke="#0c1324" stroke-width="3">
+    <circle cx="200" cy="560" r="12" fill="#4ae176"/>
+    <circle cx="360" cy="560" r="12" fill="#ffb4ab"/>
+    <circle cx="620" cy="560" r="12" fill="#4ae176"/>
+    <circle cx="860" cy="560" r="12" fill="#00a3ff"/>
+    <circle cx="1080" cy="560" r="12" fill="#ffb4ab"/>
+  </g>
+  <rect x="466" y="536" width="4" height="48" fill="#98cbff"/>
+  <text x="80" y="628" font-family="Inter, sans-serif" font-size="20" fill="#bec7d4">AI Coach Commentary · 42 tagged coaching moments</text>
+</svg>
