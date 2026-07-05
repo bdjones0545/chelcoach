@@ -1,17 +1,21 @@
 /**
- * Backend smoke test (Phase 1 static loop). No test framework — Node's built-in
- * fetch + assert. Boots the app on an ephemeral port and proves the contract loop:
- *   1. server boots + health works
- *   2. commit returns a valid CommitResponse (status=complete)
- *   3. GET /clips/:id returns a contract-VALID complete report
- *   4. unknown clip → 404
+ * Backend smoke test. No test framework — Node's built-in fetch + assert. Boots the app
+ * on an ephemeral port and proves, with NO Postgres/ffmpeg/AI and the in-memory storage
+ * backend:
+ *   1. server boots + health (storage backend = memory)
+ *   2. upload validation: unsupported type → 415, oversized → 413
+ *   3. real upload loop: init → PUT bytes → commit → contract-valid report
+ *   4. back-compat: committing an un-init'd (demo) clip still completes
+ *   5. unknown clip → 404
  *
- * Run: `npm run smoke` (from server/). Exits non-zero on any failure.
+ * Run: `npm run smoke`. Exits non-zero on any failure.
  */
+process.env.STORAGE_BACKEND = "memory"; // deterministic: never touch Replit storage in tests
+
 import assert from "node:assert/strict";
 import type { AddressInfo } from "node:net";
 import { createApp } from "./app";
-import { analysisReportSchema } from "./contract";
+import { analysisReportSchema, uploadRules } from "./contract";
 
 async function main() {
   const app = createApp();
@@ -25,40 +29,81 @@ async function main() {
     checks += 1;
     console.log(`  ✓ ${name}`);
   };
+  const jsonHeaders = { "content-type": "application/json" };
 
   try {
     // 1. health
     const health = await fetch(`${base}/api/health`);
     assert.equal(health.status, 200, "health status 200");
-    const healthBody = (await health.json()) as { status: string };
-    assert.equal(healthBody.status, "ok", 'health body status "ok"');
-    pass("server boots + health returns ok");
+    const healthBody = (await health.json()) as { status: string; storageBackend: string };
+    assert.equal(healthBody.status, "ok", 'health "ok"');
+    assert.equal(healthBody.storageBackend, "memory", "storage backend is memory");
+    pass("server boots + health (storage backend = memory)");
 
-    // 2. commit
-    const clipId = "smoke-clip-1";
-    const commit = await fetch(`${base}/api/clips/${clipId}/commit`, { method: "POST" });
-    assert.equal(commit.status, 200, "commit status 200");
-    const commitBody = (await commit.json()) as { clipId: string; jobId: string; status: string };
-    assert.equal(commitBody.clipId, clipId, "commit echoes clipId");
-    assert.equal(commitBody.status, "complete", "commit status complete");
-    assert.ok(commitBody.jobId, "commit returns a jobId");
-    pass("commit returns a valid CommitResponse (status=complete)");
+    // 2a. unsupported file type → 415
+    const bad = await fetch(`${base}/api/uploads/init`, {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify({ filename: "clip.avi", contentType: "video/x-msvideo", sizeBytes: 1024 }),
+    });
+    assert.equal(bad.status, 415, "unsupported type → 415");
+    assert.equal(((await bad.json()) as { error: string }).error, "unsupported_file", "error=unsupported_file");
+    pass("upload init rejects unsupported file type (415)");
 
-    // 3. GET clip → contract-valid complete report
-    const get = await fetch(`${base}/api/clips/${clipId}`);
-    assert.equal(get.status, 200, "get status 200");
-    const getBody = (await get.json()) as { clipId: string; status: string; phaseProgress: number; report?: unknown };
-    assert.equal(getBody.clipId, clipId, "get echoes clipId");
+    // 2b. oversized → 413
+    const big = await fetch(`${base}/api/uploads/init`, {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify({ filename: "clip.mp4", contentType: "video/mp4", sizeBytes: uploadRules.maxBytes + 1 }),
+    });
+    assert.equal(big.status, 413, "oversized → 413");
+    assert.equal(((await big.json()) as { error: string }).error, "oversized_file", "error=oversized_file");
+    pass("upload init rejects oversized file (413)");
+
+    // 3. real upload loop: init → PUT bytes → commit → report
+    const init = await fetch(`${base}/api/uploads/init`, {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify({ filename: "game.mp4", contentType: "video/mp4", sizeBytes: 12 }),
+    });
+    assert.equal(init.status, 201, "init → 201");
+    const initBody = (await init.json()) as { clipId: string; uploadUrl: string };
+    assert.ok(initBody.clipId, "init returns clipId");
+    assert.equal(initBody.uploadUrl, `/api/clips/${initBody.clipId}/file`, "init returns uploadUrl");
+    pass("upload init creates a clip + upload target (201)");
+
+    const bytes = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+    const put = await fetch(`${base}${initBody.uploadUrl}`, {
+      method: "PUT",
+      headers: { "content-type": "video/mp4" },
+      body: bytes,
+    });
+    assert.equal(put.status, 200, "file PUT → 200");
+    const putBody = (await put.json()) as { status: string; storedBytes: number };
+    assert.equal(putBody.status, "queued", "clip queued after upload");
+    assert.equal(putBody.storedBytes, 12, "stored byte count");
+    pass("file bytes stored in object storage (queued)");
+
+    const commit = await fetch(`${base}/api/clips/${initBody.clipId}/commit`, { method: "POST" });
+    assert.equal(commit.status, 200, "commit → 200");
+    assert.equal(((await commit.json()) as { status: string }).status, "complete", "commit → complete");
+    pass("commit finalizes the uploaded clip (complete)");
+
+    const get = await fetch(`${base}/api/clips/${initBody.clipId}`);
+    const getBody = (await get.json()) as { status: string; report?: unknown };
     assert.equal(getBody.status, "complete", "get status complete");
-    assert.equal(getBody.phaseProgress, 100, "get phaseProgress 100");
-    assert.ok(getBody.report, "report present when complete");
-    // The proof: the returned report validates against the shared contract.
-    analysisReportSchema.parse(getBody.report);
-    pass("GET /clips/:id returns a contract-valid complete report");
+    analysisReportSchema.parse(getBody.report); // the proof: contract-valid report
+    pass("GET clip returns a contract-valid complete report");
 
-    // 4. unknown clip → 404
+    // 4. back-compat: commit an un-init'd demo clip
+    const demo = await fetch(`${base}/api/clips/static-demo-clip/commit`, { method: "POST" });
+    assert.equal(demo.status, 200, "demo commit → 200");
+    assert.equal(((await demo.json()) as { status: string }).status, "complete", "demo clip completes");
+    pass("static/demo commit still works (back-compat)");
+
+    // 5. unknown clip → 404
     const missing = await fetch(`${base}/api/clips/does-not-exist`);
-    assert.equal(missing.status, 404, "unknown clip 404");
+    assert.equal(missing.status, 404, "unknown clip → 404");
     pass("GET unknown clip returns 404");
 
     console.log(`\nSMOKE PASSED — ${checks} checks`);

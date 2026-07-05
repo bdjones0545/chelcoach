@@ -6,6 +6,8 @@ import GlassPanel from "../components/GlassPanel";
 import Icon from "../components/Icon";
 import TopAppBar from "../components/TopAppBar";
 import { uploadErrors, uploadRules } from "../data/mockData";
+import { useReport } from "../state/ReportContext";
+import { USE_BACKEND_REPORTS } from "../lib/reportApi";
 
 const checklist = [
   { title: "AI analyzes positioning", detail: "Real-time heatmaps & gap tracking." },
@@ -13,11 +15,6 @@ const checklist = [
   { title: "Finds missed opportunities", detail: "Detects open lanes and passing options." },
   { title: "Builds your coaching report", detail: "Tailored drills based on your mistakes." },
 ];
-
-interface SelectedFile {
-  name: string;
-  size: number;
-}
 
 function formatBytes(bytes: number): string {
   if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
@@ -35,12 +32,14 @@ function isSupported(file: File): boolean {
 
 export default function Upload() {
   const navigate = useNavigate();
+  const { analyzeClip } = useReport();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [file, setFile] = useState<SelectedFile | null>(null);
+  const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
 
-  // MVP: no real upload. We validate the file, then move to the mock analysis.
   const handleFiles = (files: FileList | null) => {
     if (!files || files.length === 0) {
       setFile(null);
@@ -59,13 +58,32 @@ export default function Upload() {
       return;
     }
     setError(null);
-    setFile({ name: picked.name, size: picked.size });
+    setFile(picked);
   };
 
   const removeFile = () => {
     setFile(null);
     setError(null);
     if (inputRef.current) inputRef.current.value = "";
+  };
+
+  // Flag off: keep the mock flow (straight to processing). Flag on: really upload first.
+  const startAnalysis = async () => {
+    if (!file) return;
+    if (!USE_BACKEND_REPORTS) {
+      navigate("/processing");
+      return;
+    }
+    setUploading(true);
+    setProgress(0);
+    setError(null);
+    try {
+      await analyzeClip(file, setProgress);
+      navigate("/processing");
+    } catch {
+      setError("Upload failed. Check your connection and try again.");
+      setUploading(false);
+    }
   };
 
   return (
@@ -226,12 +244,29 @@ export default function Upload() {
 
             <Button
               className="h-16 w-full"
-              icon="psychology"
-              disabled={!file}
-              onClick={() => file && navigate("/processing")}
+              icon={uploading ? "cloud_upload" : "psychology"}
+              disabled={!file || uploading}
+              onClick={startAnalysis}
             >
-              Get My Chel Rating
+              {uploading ? `Uploading… ${progress}%` : "Get My Chel Rating"}
             </Button>
+
+            {uploading && (
+              <div
+                className="h-1.5 w-full overflow-hidden rounded-full bg-surface-variant"
+                role="progressbar"
+                aria-valuenow={progress}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label="Upload progress"
+              >
+                <div
+                  className="h-full rounded-full bg-primary-container transition-all duration-200"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            )}
+
             <p className="text-center font-label-sm text-label-sm text-on-surface-variant">
               {file
                 ? "Free · No sign-up · Your clip is analyzed, never shared."

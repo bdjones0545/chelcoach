@@ -1,12 +1,17 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { mockReport, type GameReport } from "../data/mockData";
-import { fetchBackendReport, USE_BACKEND_REPORTS } from "../lib/reportApi";
+import { analyzeUploadedClip, fetchBackendReport, USE_BACKEND_REPORTS } from "../lib/reportApi";
 
 interface ReportState {
   /** The analysis report the UI renders. Mock by default; backend when the flag is on. */
   report: GameReport;
   source: "mock" | "api";
+  /**
+   * Upload a real clip and load its report (backend flag on). No-op result when the flag
+   * is off — the caller keeps its existing (mock) flow.
+   */
+  analyzeClip: (file: File, onProgress?: (percent: number) => void) => Promise<void>;
 }
 
 const ReportContext = createContext<ReportState | undefined>(undefined);
@@ -28,12 +33,19 @@ export function ReportProvider({ children }: { children: ReactNode }) {
     return () => controller.abort();
   }, []);
 
+  const analyzeClip = useCallback(async (file: File, onProgress?: (percent: number) => void) => {
+    if (!USE_BACKEND_REPORTS) return;
+    const { report } = await analyzeUploadedClip(file, onProgress);
+    setApiReport(report);
+  }, []);
+
   const value = useMemo<ReportState>(
     () => ({
       report: apiReport ?? mockReport,
       source: apiReport ? "api" : "mock",
+      analyzeClip,
     }),
-    [apiReport],
+    [apiReport, analyzeClip],
   );
 
   return <ReportContext.Provider value={value}>{children}</ReportContext.Provider>;

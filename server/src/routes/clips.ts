@@ -1,49 +1,31 @@
 /**
  * Clip / analysis routes.
  *
- * Phase 1 (static loop): `commit` and the clip GETs are wired against an in-memory
- * store returning the deterministic sample report — this proves the contract-driven
- * loop with NO storage/ffmpeg/AI. `uploads/init` stays a placeholder until real
- * upload + signed URLs land.
+ *   POST /api/clips/:id/commit    finalize an uploaded clip (Phase 2: attaches the static report)
+ *   GET  /api/clips/:id           clip status + report once complete
+ *   GET  /api/clips/:id/analysis  the report alone, once complete
+ *
+ * Upload init + file bytes live in routes/uploads.ts. No ffmpeg/AI yet.
  */
 import { Router } from "express";
-import type { Response } from "express";
 import type { AnalysisResponse, ClipResponse, CommitResponse } from "../contract";
-import { uploadInitRequestSchema } from "../contract";
-import { commitClip, getClip } from "../store";
+import { ClipStoreError, commitClip, getClip } from "../store";
 
 export const clipsRouter = Router();
 
-function notImplemented(res: Response, endpoint: string, arrivesIn: string) {
-  res.status(501).json({
-    error: "not_implemented",
-    message: `${endpoint} is a placeholder. Arrives in ${arrivesIn}.`,
-  });
-}
-
-/** POST /api/uploads/init — validate + hand back a signed upload URL (later phase). */
-clipsRouter.post("/uploads/init", (req, res) => {
-  const parsed = uploadInitRequestSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({
-      error: "invalid_request",
-      message: "Body must be { filename, contentType, sizeBytes }.",
-    });
-    return;
-  }
-  // Real storage + signed URL + clip row creation: next phase.
-  notImplemented(res, "POST /api/uploads/init", "the real upload + storage phase");
-});
-
-/** POST /api/clips/:id/commit — simulate a completed clip/job in memory. */
+/** POST /api/clips/:id/commit — finalize the clip (or synthesize the demo clip). */
 clipsRouter.post("/clips/:id/commit", (req, res) => {
-  const clip = commitClip(req.params.id);
-  const body: CommitResponse = {
-    clipId: clip.id,
-    jobId: clip.jobId,
-    status: clip.status,
-  };
-  res.status(200).json(body);
+  try {
+    const clip = commitClip(req.params.id);
+    const body: CommitResponse = { clipId: clip.id, jobId: clip.jobId ?? "", status: clip.status };
+    res.status(200).json(body);
+  } catch (err) {
+    if (err instanceof ClipStoreError) {
+      res.status(err.httpStatus).json({ error: err.code, message: err.message });
+      return;
+    }
+    throw err;
+  }
 });
 
 /** GET /api/clips/:id — clip status plus the report once complete. */
@@ -56,7 +38,7 @@ clipsRouter.get("/clips/:id", (req, res) => {
   const body: ClipResponse = {
     clipId: clip.id,
     status: clip.status,
-    phaseProgress: clip.phaseProgress,
+    phaseProgress: clip.status === "complete" ? 100 : clip.status === "queued" ? 50 : 0,
     ...(clip.report ? { report: clip.report } : {}),
   };
   res.status(200).json(body);
