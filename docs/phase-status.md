@@ -58,3 +58,15 @@ The next (riskier) phase introduces external systems, gated behind this reposito
 - server `npm run smoke` (contract loop).
 
 No Postgres, object storage, ffmpeg, or AI keys are required.
+
+## Repo status
+
+- **GitHub repo created and pushed** — [`bdjones0545/chelcoach`](https://github.com/bdjones0545/chelcoach)
+  (private), `main` in sync with `origin/main`.
+- **CI passing** — the `CI` workflow runs on push/PR and is green.
+- **`main` branch protection currently unavailable** — GitHub requires **Pro** (or a public
+  repo) to enable branch protection / rulesets on a **private** repo for this account, so it
+  could not be applied. Treated as a later account/billing item, **not** a blocker.
+- **Manual rule for now:** all future feature work happens on **branches / pull requests** —
+  no direct commits to `main`. Revisit automated protection once the account is on Pro (or the
+  repo moves under a paid org).
