@@ -176,8 +176,12 @@ export interface UploadValidationError {
 export function validateUploadMetadata(input: UploadInitRequest): UploadValidationError | null {
   const name = input.filename.toLowerCase();
   const extOk = uploadRules.acceptExtensions.some((ext) => name.endsWith(ext));
+  // Require BOTH a whitelisted extension AND an accepted video MIME type (not ext-OR-mime).
+  // A generic "application/octet-stream" is rejected — the client infers the real video type
+  // from the extension before init. This guarantees any stored clip's contentType is always a
+  // whitelisted video type, so it is safe to persist and later serve.
   const mimeOk = (uploadRules.acceptMimeTypes as readonly string[]).includes(input.contentType);
-  if (!extOk && !mimeOk) {
+  if (!extOk || !mimeOk) {
     return { code: "unsupported_file", message: "Unsupported file type. Upload an MP4 or MOV clip." };
   }
   if (input.sizeBytes > uploadRules.maxBytes) {

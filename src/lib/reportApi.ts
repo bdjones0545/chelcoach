@@ -84,14 +84,27 @@ function putFileWithProgress(url: string, file: File, onProgress?: (percent: num
   });
 }
 
+/**
+ * Infer a video MIME type from the filename extension. Used only when the browser reports
+ * an empty `file.type`, so the server's strict extension-AND-MIME check still accepts a valid
+ * clip. Returns "" for anything unrecognized (the server then rejects it, as intended).
+ */
+function inferVideoMime(filename: string): string {
+  const name = filename.toLowerCase();
+  if (name.endsWith(".mp4")) return "video/mp4";
+  if (name.endsWith(".mov")) return "video/quicktime";
+  return "";
+}
+
 /** init → PUT bytes → commit. Returns the new clipId. */
 async function uploadClip(file: File, onProgress?: (percent: number) => void): Promise<string> {
+  const contentType = file.type || inferVideoMime(file.name);
   const initRes = await fetch(`${API_BASE_URL}/api/uploads/init`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       filename: file.name,
-      contentType: file.type || "application/octet-stream",
+      contentType,
       sizeBytes: file.size,
     }),
   });

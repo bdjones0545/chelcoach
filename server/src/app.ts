@@ -29,9 +29,11 @@ export function createApp() {
       res.status(413).json({ error: "oversized_file", message: "File exceeds the upload size limit." });
       return;
     }
-    const message = err instanceof Error ? err.message : "Unexpected error.";
-    console.error("[chelcoach-api] error:", message);
-    res.status(500).json({ error: "internal_error", message });
+    // Log full detail (incl. stack) server-side; return a generic message to the client
+    // so internal error text is never leaked.
+    const detail = err instanceof Error ? (err.stack ?? err.message) : String(err);
+    console.error("[chelcoach-api] error:", detail);
+    res.status(500).json({ error: "internal_error", message: "Something went wrong. Please try again." });
   });
 
   return app;

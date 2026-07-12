@@ -60,6 +60,45 @@ async function main() {
     assert.equal(((await big.json()) as { error: string }).error, "oversized_file", "error=oversized_file");
     pass("upload init rejects oversized file (413)");
 
+    // 2c. valid extension but dangerous/non-video MIME → 415 (would have passed under old OR-logic)
+    const htmlMime = await fetch(`${base}/api/uploads/init`, {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify({ filename: "evil.mp4", contentType: "text/html", sizeBytes: 1024 }),
+    });
+    assert.equal(htmlMime.status, 415, "valid ext + text/html MIME → 415");
+    assert.equal(((await htmlMime.json()) as { error: string }).error, "unsupported_file", "error=unsupported_file");
+    pass("upload init rejects dangerous MIME on a video extension (415)");
+
+    // 2d. bad extension but valid video MIME → 415 (would have passed under old OR-logic)
+    const badExt = await fetch(`${base}/api/uploads/init`, {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify({ filename: "evil.html", contentType: "video/mp4", sizeBytes: 1024 }),
+    });
+    assert.equal(badExt.status, 415, "bad ext + valid MIME → 415");
+    assert.equal(((await badExt.json()) as { error: string }).error, "unsupported_file", "error=unsupported_file");
+    pass("upload init rejects a non-video extension with a video MIME (415)");
+
+    // 2e. generic application/octet-stream is not accepted by the server → 415
+    const octet = await fetch(`${base}/api/uploads/init`, {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify({ filename: "clip.mp4", contentType: "application/octet-stream", sizeBytes: 1024 }),
+    });
+    assert.equal(octet.status, 415, "octet-stream → 415");
+    assert.equal(((await octet.json()) as { error: string }).error, "unsupported_file", "error=unsupported_file");
+    pass("upload init rejects application/octet-stream (415)");
+
+    // 2f. positive control: MOV + video/quicktime still accepted → 201
+    const mov = await fetch(`${base}/api/uploads/init`, {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify({ filename: "clip.mov", contentType: "video/quicktime", sizeBytes: 12 }),
+    });
+    assert.equal(mov.status, 201, "MOV + video/quicktime → 201");
+    pass("upload init accepts a valid MOV clip (201)");
+
     // 3. real upload loop: init → PUT bytes → commit → report
     const init = await fetch(`${base}/api/uploads/init`, {
       method: "POST",
