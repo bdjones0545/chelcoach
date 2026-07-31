@@ -1,16 +1,17 @@
 /**
- * In-memory clip store (Phase 2).
+ * In-memory clip store (Phase 2+).
  *
  * Tracks real uploaded clips through their lifecycle (uploading → queued → complete)
  * plus metadata + storage key. Still no database — swapped for the Postgres/Drizzle
  * store in a later phase. State resets on server restart.
  *
- * Phase 2 wires real upload + object storage; there is still no AI analysis, so
- * `commit` attaches the deterministic sample report (the existing static/mock report).
+ * Commit still attaches the deterministic sample report immediately (no ffmpeg/AI).
+ * `markFailed` makes the `failed` analysis-job status representable for the status
+ * endpoint and for a future worker — no queue is introduced here.
  */
 import { randomUUID } from "node:crypto";
 import { extname } from "node:path";
-import type { AnalysisReport, ClipStatus } from "./contract";
+import type { AnalysisReport, ClipStatus, ErrorCode } from "./contract";
 import { uploadRules } from "./contract";
 import { sampleReport } from "./data/sampleReport";
 
@@ -30,6 +31,8 @@ export interface ClipRecord {
   status: ClipStatus;
   jobId?: string;
   report?: AnalysisReport;
+  errorCode?: ErrorCode;
+  errorMessage?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -90,11 +93,11 @@ export function markUploaded(id: string, storedBytes: number): ClipRecord {
 }
 
 /**
- * Finalize a clip. Phase 2: no real analysis, so a committed clip gets the deterministic
- * sample report and becomes "complete".
+ * Finalize a clip. No real analysis yet, so a committed clip gets the deterministic
+ * sample report and becomes "complete" immediately (async worker comes later).
  *
  * Back-compat with the static loop: committing an id that was never init'd (e.g. the demo
- * clip) synthesizes a completed record so the frontend read-flag path keeps working.
+ * clip) synthesizes a completed record so the frontend demo path keeps working.
  */
 export function commitClip(id: string): ClipRecord {
   const existing = clips.get(id);
@@ -117,6 +120,9 @@ export function commitClip(id: string): ClipRecord {
   }
 
   if (existing.status === "complete") return existing;
+  if (existing.status === "failed") {
+    throw new ClipStoreError(409, "invalid_state", "Clip has already failed.");
+  }
   if (existing.status !== "queued") {
     throw new ClipStoreError(409, "no_file", "Clip has no uploaded file to commit yet.");
   }
@@ -124,6 +130,28 @@ export function commitClip(id: string): ClipRecord {
   existing.status = "complete";
   existing.report = sampleReport;
   existing.jobId = existing.jobId ?? randomUUID();
+  existing.errorCode = undefined;
+  existing.errorMessage = undefined;
   existing.updatedAt = now();
   return existing;
+}
+
+/**
+ * Mark a clip as failed with a safe, public error code/message.
+ * Used by tests today; reserved for a future analysis worker.
+ */
+export function markFailed(
+  id: string,
+  errorCode: ErrorCode = "analysis_failed",
+  errorMessage = "Analysis failed.",
+): ClipRecord {
+  const clip = clips.get(id);
+  if (!clip) throw new ClipStoreError(404, "not_found", "No such clip.");
+  clip.status = "failed";
+  clip.report = undefined;
+  clip.errorCode = errorCode;
+  clip.errorMessage = errorMessage;
+  clip.jobId = clip.jobId ?? randomUUID();
+  clip.updatedAt = now();
+  return clip;
 }

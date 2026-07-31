@@ -1,51 +1,64 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { mockReport, type GameReport } from "../data/mockData";
-import { analyzeUploadedClip, fetchBackendReport, USE_BACKEND_REPORTS } from "../lib/reportApi";
+import { uploadClip, USE_BACKEND_REPORTS } from "../lib/reportApi";
+
+/**
+ * Report source — intentional and never confused:
+ *   "demo" — local mockReport (flag off, or explicit demo actions)
+ *   "live" — report fetched from the backend after a completed job
+ */
+export type ReportSource = "demo" | "live";
 
 interface ReportState {
-  /** The analysis report the UI renders. Mock by default; backend when the flag is on. */
   report: GameReport;
-  source: "mock" | "api";
+  source: ReportSource;
+  /** True when the backend feature flag is on. */
+  backendEnabled: boolean;
   /**
-   * Upload a real clip and load its report (backend flag on). No-op result when the flag
-   * is off — the caller keeps its existing (mock) flow.
+   * Upload a real clip (flag on). Returns the new clipId.
+   * Does not poll or fetch the report — Processing owns that.
+   * No-op / throws when the flag is off.
    */
-  analyzeClip: (file: File, onProgress?: (percent: number) => void) => Promise<void>;
+  uploadForAnalysis: (file: File, onProgress?: (percent: number) => void) => Promise<string>;
+  /** Install a live backend report (only after status === completed). */
+  acceptLiveReport: (report: GameReport) => void;
+  /** Revert to the intentional demo report (e.g. start over). */
+  restoreDemoReport: () => void;
 }
 
 const ReportContext = createContext<ReportState | undefined>(undefined);
 
 export function ReportProvider({ children }: { children: ReactNode }) {
-  const [apiReport, setApiReport] = useState<GameReport | null>(null);
+  const [liveReport, setLiveReport] = useState<GameReport | null>(null);
 
-  useEffect(() => {
-    if (!USE_BACKEND_REPORTS) return;
-    const controller = new AbortController();
-    fetchBackendReport(controller.signal)
-      .then(setApiReport)
-      .catch((err) => {
-        // Graceful degradation: keep the (identical-content) mock report on any failure.
-        if (!controller.signal.aborted) {
-          console.warn("[ChelCoach] backend report unavailable, using mock:", err);
-        }
-      });
-    return () => controller.abort();
+  const uploadForAnalysis = useCallback(async (file: File, onProgress?: (percent: number) => void) => {
+    if (!USE_BACKEND_REPORTS) {
+      throw new Error("Backend reports are disabled.");
+    }
+    return uploadClip(file, onProgress);
   }, []);
 
-  const analyzeClip = useCallback(async (file: File, onProgress?: (percent: number) => void) => {
-    if (!USE_BACKEND_REPORTS) return;
-    const { report } = await analyzeUploadedClip(file, onProgress);
-    setApiReport(report);
+  const acceptLiveReport = useCallback((report: GameReport) => {
+    setLiveReport(report);
+  }, []);
+
+  const restoreDemoReport = useCallback(() => {
+    setLiveReport(null);
   }, []);
 
   const value = useMemo<ReportState>(
     () => ({
-      report: apiReport ?? mockReport,
-      source: apiReport ? "api" : "mock",
-      analyzeClip,
+      // Live report only when explicitly accepted after a completed job.
+      // Otherwise the intentional demo/mock report — never a silent stand-in for failure.
+      report: liveReport ?? mockReport,
+      source: liveReport ? "live" : "demo",
+      backendEnabled: USE_BACKEND_REPORTS,
+      uploadForAnalysis,
+      acceptLiveReport,
+      restoreDemoReport,
     }),
-    [apiReport, analyzeClip],
+    [liveReport, uploadForAnalysis, acceptLiveReport, restoreDemoReport],
   );
 
   return <ReportContext.Provider value={value}>{children}</ReportContext.Provider>;

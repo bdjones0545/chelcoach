@@ -36,6 +36,9 @@ jobs:
       - name: Build frontend
         run: npm run build
 
+      - name: Test frontend
+        run: npm test
+
       # Backend: install + type-check + contract smoke test (in-memory, no DB).
       - name: Install server
         working-directory: server

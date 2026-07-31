@@ -5,6 +5,7 @@ import GlassPanel from "../components/GlassPanel";
 import Icon from "../components/Icon";
 import Logo from "../components/Logo";
 import { useAnalysis } from "../state/AnalysisContext";
+import { useReport } from "../state/ReportContext";
 
 const steps = [
   { icon: "cloud_upload", title: "Upload a clip", detail: "Drop in one MP4 or MOV of your NHL game." },
@@ -15,10 +16,13 @@ const steps = [
 
 export default function Landing() {
   const navigate = useNavigate();
-  const { markAnalyzed } = useAnalysis();
+  const { markAnalyzed, setActiveClipId } = useAnalysis();
+  const { restoreDemoReport } = useReport();
 
-  // The demo report populates the whole flow (scorecard + film room) with sample data.
+  // Intentional demo — local mock report, no live clip id, never a silent backend fallback.
   const viewDemo = () => {
+    setActiveClipId(null);
+    restoreDemoReport();
     markAnalyzed();
     navigate("/scorecard");
   };

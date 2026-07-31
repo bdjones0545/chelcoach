@@ -1,36 +1,30 @@
 /**
- * Backend report read-path + upload (behind the VITE_USE_BACKEND_REPORTS flag).
+ * Backend report / status / upload clients (behind VITE_USE_BACKEND_REPORTS).
  *
- * Phase 2 adds real upload: init → PUT bytes (with progress) → commit → poll → report.
- * There is still no AI: the backend returns the deterministic sample report. When the flag
- * is off, none of this runs and the app uses local mock data unchanged.
+ * Live upload path: init → PUT bytes → commit → (Processing polls status) →
+ * fetch report once on completed. Demo / flag-off paths never pretend to be live.
  *
- * Types are imported TYPE-ONLY from the shared contract, so `zod` never enters the bundle.
+ * Types from the shared contract are imported TYPE-ONLY so Zod stays out of the
+ * client bundle; status payloads are structurally validated in analysisJobStatus.ts.
  */
-import type { AnalysisReport } from "../../shared/analysisContract";
+import type { AnalysisJobStatus, AnalysisReport } from "../../shared/analysisContract";
 import {
   defaultVideoPoster,
   momentThumbnailByType,
   type CoachingMoment,
   type GameReport,
 } from "../data/mockData";
+import { parseAnalysisJobStatus } from "./analysisJobStatus";
 
 export const USE_BACKEND_REPORTS = import.meta.env.VITE_USE_BACKEND_REPORTS === "true";
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "http://localhost:3001";
 
-/** Deterministic demo clip id used when no real upload has happened (flag on). */
-const DEMO_CLIP_ID = "static-demo-clip";
-
-interface ClipResponse {
-  clipId: string;
-  status: string;
-  phaseProgress: number;
-  report?: AnalysisReport;
-}
+/** Deterministic demo clip id used by intentional demo flows (not silent fallback). */
+export const DEMO_CLIP_ID = "static-demo-clip";
 
 /** Fill local SVG fallbacks for imagery the API omits, producing the frontend shape. */
-function normalize(api: AnalysisReport): GameReport {
+export function normalizeReport(api: AnalysisReport): GameReport {
   const coachingMoments: CoachingMoment[] = api.coachingMoments.map((m) => ({
     ...m,
     thumbnail: m.thumbnail ?? momentThumbnailByType[m.type],
@@ -42,30 +36,65 @@ function normalize(api: AnalysisReport): GameReport {
   return { scorecard: api.scorecard, coachingMoments, filmRoom };
 }
 
-async function fetchClip(clipId: string): Promise<ClipResponse> {
-  const res = await fetch(`${API_BASE_URL}/api/clips/${clipId}`);
-  if (!res.ok) throw new Error(`clip fetch failed: ${res.status}`);
-  return (await res.json()) as ClipResponse;
-}
+export class ReportApiError extends Error {
+  kind: "network" | "http" | "not_ready" | "invalid";
+  status: number | undefined;
 
-/** Poll a clip until its report is ready, then normalize it. */
-async function pollClipReport(clipId: string, signal?: AbortSignal): Promise<GameReport> {
-  const maxAttempts = 10;
-  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    if (signal?.aborted) throw new Error("aborted");
-    const clip = await fetchClip(clipId);
-    if (clip.status === "complete" && clip.report) return normalize(clip.report);
-    if (clip.status === "failed") throw new Error("analysis failed");
-    await new Promise((resolve) => setTimeout(resolve, 250));
+  constructor(message: string, kind: "network" | "http" | "not_ready" | "invalid", status?: number) {
+    super(message);
+    this.name = "ReportApiError";
+    this.kind = kind;
+    this.status = status;
   }
-  throw new Error("analysis timed out");
 }
 
-/** Commit the fixed demo clip (no upload) and return its normalized report. */
-export async function fetchBackendReport(signal?: AbortSignal): Promise<GameReport> {
-  const res = await fetch(`${API_BASE_URL}/api/clips/${DEMO_CLIP_ID}/commit`, { method: "POST" });
-  if (!res.ok) throw new Error(`commit failed: ${res.status}`);
-  return pollClipReport(DEMO_CLIP_ID, signal);
+/** GET /api/clips/:id/status — validated against the shared status shape. */
+export async function fetchAnalysisJobStatus(
+  clipId: string,
+  signal?: AbortSignal,
+): Promise<AnalysisJobStatus> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}/api/clips/${clipId}/status`, { signal });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") throw err;
+    throw new ReportApiError("Status request failed.", "network");
+  }
+  if (res.status === 404) throw new ReportApiError("Clip not found.", "http", 404);
+  if (!res.ok) throw new ReportApiError(`Status fetch failed: ${res.status}`, "http", res.status);
+
+  let body: unknown;
+  try {
+    body = await res.json();
+  } catch {
+    throw new ReportApiError("Status response was not JSON.", "invalid", res.status);
+  }
+  return parseAnalysisJobStatus(body);
+}
+
+/** GET /api/clips/:id/analysis — report once the job is completed. */
+export async function fetchClipReport(clipId: string, signal?: AbortSignal): Promise<GameReport> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}/api/clips/${clipId}/analysis`, { signal });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") throw err;
+    throw new ReportApiError("Report request failed.", "network");
+  }
+  if (res.status === 409) throw new ReportApiError("Report not ready.", "not_ready", 409);
+  if (!res.ok) throw new ReportApiError(`Report fetch failed: ${res.status}`, "http", res.status);
+
+  let body: unknown;
+  try {
+    body = await res.json();
+  } catch {
+    throw new ReportApiError("Report response was not JSON.", "invalid", res.status);
+  }
+  const report = (body as { report?: AnalysisReport }).report;
+  if (!report || typeof report !== "object") {
+    throw new ReportApiError("Report payload missing.", "invalid", res.status);
+  }
+  return normalizeReport(report);
 }
 
 /** PUT the file bytes to the server with upload-progress callbacks (XHR for progress events). */
@@ -84,8 +113,11 @@ function putFileWithProgress(url: string, file: File, onProgress?: (percent: num
   });
 }
 
-/** init → PUT bytes → commit. Returns the new clipId. */
-async function uploadClip(file: File, onProgress?: (percent: number) => void): Promise<string> {
+/**
+ * init → PUT bytes → commit. Returns the new clipId.
+ * Does NOT poll status or fetch the report — Processing owns that lifecycle.
+ */
+export async function uploadClip(file: File, onProgress?: (percent: number) => void): Promise<string> {
   const initRes = await fetch(`${API_BASE_URL}/api/uploads/init`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -103,14 +135,4 @@ async function uploadClip(file: File, onProgress?: (percent: number) => void): P
   const commitRes = await fetch(`${API_BASE_URL}/api/clips/${clipId}/commit`, { method: "POST" });
   if (!commitRes.ok) throw new Error(`commit failed: ${commitRes.status}`);
   return clipId;
-}
-
-/** Upload a real clip and resolve its normalized report. */
-export async function analyzeUploadedClip(
-  file: File,
-  onProgress?: (percent: number) => void,
-): Promise<{ clipId: string; report: GameReport }> {
-  const clipId = await uploadClip(file, onProgress);
-  const report = await pollClipReport(clipId);
-  return { clipId, report };
 }

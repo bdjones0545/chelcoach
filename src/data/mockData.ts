@@ -343,7 +343,13 @@ export interface StatePanelCopy {
 }
 
 export const stateCopy: Record<
-  "processingFailed" | "filmRoomEmpty" | "dataUnavailable" | "appCrash",
+  | "processingFailed"
+  | "processingTimeout"
+  | "processingUnreachable"
+  | "processingInvalid"
+  | "filmRoomEmpty"
+  | "dataUnavailable"
+  | "appCrash",
   StatePanelCopy
 > = {
   processingFailed: {
@@ -351,9 +357,36 @@ export const stateCopy: Record<
     tone: "error",
     title: "Analysis interrupted",
     message:
-      "The AI review stopped before it finished. Your clip is safe — restart the analysis and we'll rebuild your full report.",
-    primaryLabel: "Try Again",
+      "The review stopped before it finished. Your clip is still on file — check status again, or go back to upload and start a new analysis.",
+    primaryLabel: "Check Status Again",
     secondaryLabel: "Back to Upload",
+  },
+  processingTimeout: {
+    icon: "hourglass_disabled",
+    tone: "error",
+    title: "This is taking too long",
+    message:
+      "We didn't get a finished report in time. Your clip may still be processing — check status again, or return to upload.",
+    primaryLabel: "Check Status Again",
+    secondaryLabel: "Back to Upload",
+  },
+  processingUnreachable: {
+    icon: "cloud_off",
+    tone: "error",
+    title: "Can't reach the analysis service",
+    message:
+      "ChelCoach couldn't reach the server for a status update. Check your connection, then try checking status again.",
+    primaryLabel: "Check Status Again",
+    secondaryLabel: "Back to Upload",
+  },
+  processingInvalid: {
+    icon: "error",
+    tone: "error",
+    title: "We got an unexpected response",
+    message:
+      "The analysis service returned something we couldn't use. This isn't your demo report — head back to upload and try again.",
+    primaryLabel: "Back to Upload",
+    secondaryLabel: "Start Over",
   },
   filmRoomEmpty: {
     icon: "movie_filter",
