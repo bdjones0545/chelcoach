@@ -22,5 +22,6 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src", "shared/scotty/**/*.ts"],
+  "exclude": ["shared/**/*.test.ts", "shared/scotty/fixtures.ts"]
 }

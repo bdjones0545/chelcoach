@@ -3,12 +3,13 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "ChelCoach backend API (Phase 0 foundation — no upload/ffmpeg/AI wired yet).",
+  "description": "ChelCoach backend API (Scotty contract + retention foundation).",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
+    "test": "tsx --test src/retention/*.test.ts",
     "smoke": "tsx src/smoke.ts",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push"

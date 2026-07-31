@@ -29,6 +29,10 @@ jobs:
         working-directory: shared
         run: npm ci
 
+      - name: Test shared Scotty contracts
+        working-directory: shared
+        run: npm test
+
       # Frontend: install + type-check + production build.
       - name: Install frontend
         run: npm ci
@@ -36,7 +40,7 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-      # Backend: install + type-check + contract smoke test (in-memory, no DB).
+      # Backend: install + type-check + retention tests + smoke (in-memory, no DB).
       - name: Install server
         working-directory: server
         run: npm ci
@@ -44,6 +48,10 @@ jobs:
       - name: Typecheck server
         working-directory: server
         run: npm run typecheck
+
+      - name: Test server retention foundation
+        working-directory: server
+        run: npm test
 
       - name: Smoke test server
         working-directory: server

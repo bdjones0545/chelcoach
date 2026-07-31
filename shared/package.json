@@ -3,8 +3,22 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Shared ChelCoach Analysis Contract (Zod schemas + inferred types).",
+  "description": "Shared ChelCoach / Scotty contracts (Zod schemas + inferred types).",
+  "exports": {
+    ".": "./analysisContract.ts",
+    "./analysisContract": "./analysisContract.ts",
+    "./scotty": "./scotty/index.ts"
+  },
+  "scripts": {
+    "test": "tsx --test scotty/*.test.ts"
+  },
   "dependencies": {
     "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.6"
+  },
+  "engines": {
+    "node": ">=22 <23"
   }
 }

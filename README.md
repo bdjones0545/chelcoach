@@ -204,7 +204,7 @@ chelcoach/
 │  └─ drizzle.config.ts
 │
 ├─ public/                     Static assets (favicon.svg, icons.svg)
-├─ docs/                       backend-plan.md, backend-setup-replit.md, phase-status.md
+├─ docs/                       backend-plan.md, scotty-contracts.md, phase-status.md, …
 ├─ .github/workflows/ci.yml    CI: frontend build + server typecheck + smoke
 ├─ replit.nix                  Nix environment (Node 22)
 ├─ tailwind.config.js          "Pro Ice Analytics" design tokens

@@ -59,10 +59,18 @@ sample report):
 - **Smoke test** extended to 9 checks: validation (415/413), full init → PUT → commit → report
   loop on the memory backend, and demo back-compat.
 
-## ⏭️ Next — Phase 3: ffmpeg frame extraction
+## ✅ Scotty Step 1 — Shared contracts + upload retention (complete)
 
-- Sample frames from the stored clip (capped fps/count), generate a poster + thumbnails.
-- **Still deferred:** AI analysis (Phase 4), Postgres persistence, auth & payments (later).
+- Versioned Scotty Zod contracts in [`shared/scotty/`](../shared/scotty/) (`SCOTTY_CONTRACT_VERSION = 1.0.0`).
+- Upload / lease / retention schemas for up to **30-minute** gameplay videos.
+- Cleanup-service foundation with processing-lease awareness (fake storage in CI).
+- Drizzle tables prepared for `media_uploads`, leases, Scotty jobs/reports — **no raw video in Postgres**.
+- Docs: [scotty-contracts.md](scotty-contracts.md).
+
+## ⏭️ Next — Phase 3 / Scotty Step 2
+
+- FFmpeg frame extraction (if not already landed) and Scotty transport / simulator wiring.
+- **Still deferred:** Cloudflare tunnel, live Scotty VM, paid vision, full confirmation UX, auth & payments.
 
 ## What CI guarantees today
 
