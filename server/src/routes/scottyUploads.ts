@@ -10,6 +10,7 @@
 import { Router } from "express";
 import { requireOwnerAuth, type AuthedRequest } from "../auth/session";
 import { getMaxUploadBytes } from "../retention/policy";
+import { limits } from "../security/rateLimit";
 import {
   cancelUpload,
   completeUpload,
@@ -36,7 +37,7 @@ function sendError(res: import("express").Response, err: unknown): void {
   res.status(500).json({ error: "ANALYSIS_FAILED", message: "Unexpected error." });
 }
 
-scottyUploadsRouter.post("/uploads", requireOwnerAuth, async (req, res) => {
+scottyUploadsRouter.post("/uploads", requireOwnerAuth, limits.uploadCreate, async (req, res) => {
   try {
     const { ownerId } = req as AuthedRequest;
     const body = await createUploadSession(ownerId, req.body);
@@ -55,7 +56,11 @@ function uploadIdParam(req: import("express").Request): string {
   return Array.isArray(raw) ? String(raw[0]) : String(raw);
 }
 
-scottyUploadsRouter.put("/uploads/:uploadId/content", requireOwnerAuth, async (req, res) => {
+scottyUploadsRouter.put(
+  "/uploads/:uploadId/content",
+  requireOwnerAuth,
+  limits.uploadStream,
+  async (req, res) => {
   const { ownerId } = req as AuthedRequest;
   const uploadId = uploadIdParam(req);
   try {
@@ -77,7 +82,8 @@ scottyUploadsRouter.put("/uploads/:uploadId/content", requireOwnerAuth, async (r
   } catch (err) {
     sendError(res, err);
   }
-});
+},
+);
 
 scottyUploadsRouter.post("/uploads/:uploadId/complete", requireOwnerAuth, async (req, res) => {
   try {

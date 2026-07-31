@@ -226,7 +226,8 @@ export const processingLeases = pgTable("processing_leases", {
   uploadId: uuid("upload_id")
     .notNull()
     .references(() => mediaUploads.id, { onDelete: "cascade" }),
-  analysisJobId: uuid("analysis_job_id").notNull(),
+  /** Application or synthetic processing reference — not necessarily a job UUID. */
+  analysisJobId: text("analysis_job_id").notNull(),
   status: leaseStatusDbEnum("status").notNull().default("active"),
   acquiredAt: timestamp("acquired_at", { withTimezone: true }).notNull(),
   heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }).notNull(),

@@ -5,6 +5,11 @@
 import { Router } from "express";
 import { z } from "zod";
 import { requireOwnerAuth, type AuthedRequest } from "../auth/session";
+import { getChelCoachConfig } from "../config/chelcoachConfig";
+import {
+  assertAnalysisSubmissionReady,
+  computeReadiness,
+} from "../config/readiness";
 import {
   AnalysisSubmissionError,
   submitAnalysis,
@@ -21,6 +26,8 @@ import { getAnalysisJobRepository } from "../provider/jobs/jobRepository";
 import { getAnalysisReconciliationService } from "../provider/jobs/reconciliationService";
 import { evaluateProviderStatusUpdate } from "../provider/jobs/sequence";
 import { scottyCallbackEventSchema } from "../scottyContract";
+import { limits } from "../security/rateLimit";
+import { requireInternalSecret } from "../security/secrets";
 
 export const analysisRouter = Router();
 
@@ -52,19 +59,39 @@ function sendError(res: import("express").Response, err: unknown): void {
   res.status(500).json({ error: "ANALYSIS_FAILED", message: "Unexpected error." });
 }
 
-analysisRouter.post("/uploads/:uploadId/analysis", requireOwnerAuth, async (req, res) => {
-  try {
-    const { ownerId } = req as AuthedRequest;
-    const result = await submitAnalysis({
-      ownerId,
-      uploadId: uploadIdParam(req),
-      body: req.body,
-    });
-    res.status(202).json(result);
-  } catch (err) {
-    sendError(res, err);
-  }
-});
+analysisRouter.post(
+  "/uploads/:uploadId/analysis",
+  requireOwnerAuth,
+  limits.analysisSubmit,
+  async (req, res) => {
+    try {
+      assertAnalysisSubmissionReady();
+      const { ownerId } = req as AuthedRequest;
+      // Never trust client-supplied owner IDs.
+      const body = { ...(req.body as Record<string, unknown>) };
+      delete body.ownerId;
+      delete body.userId;
+      const result = await submitAnalysis({
+        ownerId,
+        uploadId: uploadIdParam(req),
+        body,
+      });
+      res.status(202).json(result);
+    } catch (err) {
+      if ((err as { code?: string }).code === "ANALYSIS_NOT_READY") {
+        const readiness = computeReadiness();
+        res.status(503).json({
+          error: "ANALYSIS_NOT_READY",
+          message: "Analysis submission is not available.",
+          retryable: false,
+          reasons: readiness.reasons.slice(0, 8),
+        });
+        return;
+      }
+      sendError(res, err);
+    }
+  },
+);
 
 /**
  * Admin-ish provider health — authenticated, no secrets/URLs.
@@ -93,6 +120,7 @@ analysisRouter.get("/analysis/provider-health", requireOwnerAuth, async (_req, r
 analysisRouter.get(
   "/analysis/:applicationRequestId",
   requireOwnerAuth,
+  limits.statusRead,
   async (req, res) => {
     try {
       const { ownerId } = req as AuthedRequest;
@@ -112,6 +140,7 @@ analysisRouter.get(
 analysisRouter.get(
   "/analysis/:applicationRequestId/report",
   requireOwnerAuth,
+  limits.reportRead,
   async (req, res) => {
     try {
       const { ownerId } = req as AuthedRequest;
@@ -147,6 +176,7 @@ const remoteConfirmBodySchema = z.object({
 analysisRouter.post(
   "/analysis/:applicationRequestId/player-confirmation",
   requireOwnerAuth,
+  limits.confirmation,
   async (req, res) => {
     try {
       const { ownerId } = req as AuthedRequest;
@@ -177,6 +207,7 @@ const cancelBodySchema = z.object({
 analysisRouter.post(
   "/analysis/:applicationRequestId/cancel",
   requireOwnerAuth,
+  limits.cancellation,
   async (req, res) => {
     try {
       const { ownerId } = req as AuthedRequest;
@@ -200,9 +231,11 @@ analysisRouter.post(
  * Suggested production cadence: once per minute.
  * Do not create one timer per job.
  */
-analysisRouter.post("/internal/analysis/reconcile", async (req, res) => {
-  const expected = process.env.CHELCOACH_RECONCILE_SECRET?.trim();
-  if (!expected || req.header("x-chelcoach-reconcile-secret") !== expected) {
+analysisRouter.post("/internal/analysis/reconcile", limits.internal, async (req, res) => {
+  const config = getChelCoachConfig();
+  const expected = config.secrets.reconcileSecret;
+  const provided = req.header("x-chelcoach-reconcile-secret");
+  if (!requireInternalSecret(provided, expected)) {
     res.status(404).json({ error: "not_found", message: "No such endpoint." });
     return;
   }
@@ -210,21 +243,36 @@ analysisRouter.post("/internal/analysis/reconcile", async (req, res) => {
   const result = await getAnalysisReconciliationService().runBatch({
     limit: Number.isFinite(limitRaw) ? limitRaw : 25,
   });
-  res.json(result);
+  res.json({
+    examined: result.examined,
+    advanced: result.advanced,
+    degraded: result.degraded,
+    unchanged: result.unchanged,
+    failed: result.failed,
+  });
 });
 
 /**
  * Callback skeleton — feature-flagged OFF.
  * Dedupes event IDs when enabled; does not activate full callback processing yet.
+ * Body size is capped by the global JSON limit (256kb).
  */
-analysisRouter.post("/internal/scotty/callbacks", async (req, res) => {
-  if (process.env.CHELCOACH_SCOTTY_CALLBACKS_ENABLED !== "1") {
+analysisRouter.post("/internal/scotty/callbacks", limits.internal, async (req, res) => {
+  const config = getChelCoachConfig();
+  if (!config.transport.callbacksEnabled) {
+    res.status(404).json({ error: "not_found", message: "No such endpoint." });
+    return;
+  }
+  if (!config.transport.callbackSigningConfigured) {
     res.status(404).json({ error: "not_found", message: "No such endpoint." });
     return;
   }
   const sig = req.header("x-scotty-signature");
-  if (!sig) {
-    res.status(401).json({ error: "UNAUTHORIZED", message: "Missing signature." });
+  const callbackSecret = config.secrets.callbackSecret;
+  // Skeleton: require signature header presence + constant-time compare against callback secret
+  // when a simple shared-secret mode is used. Full HMAC activation remains Step 11+.
+  if (!sig || !requireInternalSecret(sig, callbackSecret)) {
+    res.status(401).json({ error: "UNAUTHORIZED", message: "Missing or invalid signature." });
     return;
   }
   const parsed = scottyCallbackEventSchema.safeParse(req.body);

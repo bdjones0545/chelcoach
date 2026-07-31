@@ -60,7 +60,11 @@ export interface PublicPlayerIdentification {
 
 async function authHeaders(): Promise<HeadersInit> {
   const token = await ensureOwnerSession();
-  return { authorization: `Bearer ${token}`, "content-type": "application/json" };
+  return {
+    authorization: `Bearer ${token}`,
+    "content-type": "application/json",
+    "X-ChelCoach-Requested-With": "chelcoach",
+  };
 }
 
 export async function startPlayerIdentification(

@@ -1,8 +1,9 @@
 /**
- * Deterministic E2E hooks — enabled only when CHELCOACH_E2E_MODE=1.
- * Never enable in production.
+ * Deterministic E2E hooks — enabled only when CHELCOACH_E2E_MODE=1
+ * and NODE_ENV is not production. Startup must fail if enabled in production.
  */
 import { Router } from "express";
+import { timingSafeEqual } from "node:crypto";
 import { revokeSession, seedSessionForTests } from "../auth/session";
 import {
   deleteIdentificationForUpload,
@@ -21,8 +22,30 @@ import { getUploadRepository } from "../uploads/repository";
 
 let durationOverrideSec: number | null = null;
 
+/** Throws if E2E mode is requested in production — call at boot. */
+export function assertE2eNotEnabledInProduction(
+  env: NodeJS.ProcessEnv = process.env,
+): void {
+  if (env.CHELCOACH_E2E_MODE === "1" && env.NODE_ENV === "production") {
+    throw new Error(
+      "[chelcoach-e2e] CHELCOACH_E2E_MODE cannot be enabled when NODE_ENV=production.",
+    );
+  }
+}
+
 export function isE2eMode(): boolean {
-  return process.env.CHELCOACH_E2E_MODE === "1" && process.env.NODE_ENV !== "production";
+  if (process.env.NODE_ENV === "production") return false;
+  return process.env.CHELCOACH_E2E_MODE === "1";
+}
+
+function safeSecretEqual(provided: string, expected: string): boolean {
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) {
+    timingSafeEqual(a, a);
+    return false;
+  }
+  return timingSafeEqual(a, b);
 }
 
 export function getE2eDurationOverride(): number | null {
@@ -41,7 +64,8 @@ function requireE2eSecret(req: { header(name: string): string | undefined }, res
     return false;
   }
   const secret = process.env.CHELCOACH_E2E_SECRET?.trim();
-  if (!secret || req.header("x-chelcoach-e2e-secret") !== secret) {
+  const provided = req.header("x-chelcoach-e2e-secret") ?? "";
+  if (!secret || !safeSecretEqual(provided, secret)) {
     res.status(404).json({ error: "not_found" });
     return false;
   }
@@ -93,6 +117,9 @@ export function installE2eMediaInspector(): void {
  * Protected E2E control routes — only mounted when CHELCOACH_E2E_MODE=1.
  */
 export function createE2eRouter(): Router {
+  if (!isE2eMode()) {
+    throw new Error("[chelcoach-e2e] createE2eRouter called outside E2E mode");
+  }
   const router = Router();
 
   router.post("/internal/e2e/duration-override", (req, res) => {
@@ -170,6 +197,7 @@ export function createE2eRouter(): Router {
       token,
       ownerId,
       createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     });
     res.json({ ok: true });
   });
@@ -231,33 +259,53 @@ export function createE2eRouter(): Router {
   });
 
   /**
-   * Simulate retention cleanup for E2E: delete source objects and mark upload deleted.
-   * Full Drizzle RetentionRepository wiring remains deferred; this proves the product
-   * invariant that persisted reports survive source-media deletion.
+   * Run retention cleanup for E2E (uses durable retention repo when Postgres is wired).
+   * Prefer targeting a single upload via early-deletion + cleanup batch.
    */
   router.post("/internal/e2e/cleanup", async (req, res) => {
     if (!requireE2eSecret(req, res)) return;
     const uploadId = String((req.body as { uploadId?: string })?.uploadId ?? "").trim();
     const repo = getUploadRepository();
+    const { getRetentionRepository } = await import("../retention/repository");
+    const { createMediaRetentionService } = await import("../retention/cleanup");
+    const { getStorage } = await import("../storage");
     const { getMediaObjectStorage } = await import("../mediaStorage");
-    const past = new Date(Date.now() - 60_000).toISOString();
-    let deleted = 0;
+
     if (uploadId) {
       const rec = await repo.get(uploadId);
       if (rec && rec.uploadStatus !== "deleted") {
-        if (rec.storageObjectKey) {
-          await getMediaObjectStorage().deleteObject(rec.storageObjectKey).catch(() => undefined);
-        }
+        const past = new Date(Date.now() - 60_000).toISOString();
         await repo.update(uploadId, {
-          uploadStatus: "deleted",
-          deletedAt: past,
-          storageObjectKey: "",
           expiresAt: past,
+          absoluteDeleteAt: past,
+          earlyDeletionRequestedAt: past,
         });
-        deleted = 1;
+        // Also ensure object deletion path works when retention repo is memory-backed.
+        const retention = getRetentionRepository();
+        const svc = createMediaRetentionService({ repo: retention, storage: getStorage() });
+        const batch = await svc.runCleanupBatch({ limit: 20 });
+        if (batch.deleted === 0 && rec.storageObjectKey) {
+          await getMediaObjectStorage().deleteObject(rec.storageObjectKey).catch(() => undefined);
+          await repo.update(uploadId, {
+            uploadStatus: "deleted",
+            deletedAt: past,
+            storageObjectKey: "",
+            expiresAt: past,
+          });
+          res.json({ ok: true, examined: 1, deleted: 1, deferred: 0, failed: 0 });
+          return;
+        }
+        res.json({
+          ok: true,
+          examined: batch.examined,
+          deleted: batch.deleted,
+          deferred: batch.deferred,
+          failed: batch.failed,
+        });
+        return;
       }
     }
-    res.json({ ok: true, examined: uploadId ? 1 : 0, deleted, deferred: 0, failed: 0 });
+    res.json({ ok: true, examined: 0, deleted: 0, deferred: 0, failed: 0 });
   });
 
   router.post("/internal/e2e/reset-identification", async (req, res) => {

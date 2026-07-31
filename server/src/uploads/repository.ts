@@ -35,6 +35,7 @@ export interface MediaUploadRecord {
   deletedAt?: string;
   deletionAttemptCount: number;
   lastDeletionErrorCode?: string;
+  earlyDeletionRequestedAt?: string;
   errorCode?: ScottyErrorCode;
   errorMessage?: string;
 }

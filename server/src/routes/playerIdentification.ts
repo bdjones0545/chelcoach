@@ -12,6 +12,7 @@ import {
   startOrGetIdentification,
   submitConfirmation,
 } from "../identification/service";
+import { limits } from "../security/rateLimit";
 
 export const playerIdentificationRouter = Router();
 
@@ -42,6 +43,7 @@ function sendError(res: import("express").Response, err: unknown): void {
 playerIdentificationRouter.post(
   "/uploads/:uploadId/player-identification",
   requireOwnerAuth,
+  limits.identification,
   async (req, res) => {
     try {
       const { ownerId } = req as AuthedRequest;
@@ -70,6 +72,7 @@ playerIdentificationRouter.get(
 playerIdentificationRouter.post(
   "/uploads/:uploadId/player-confirmation",
   requireOwnerAuth,
+  limits.confirmation,
   async (req, res) => {
     try {
       const { ownerId } = req as AuthedRequest;
@@ -125,7 +128,7 @@ playerIdentificationRouter.get(
       );
       res.setHeader("Content-Type", mimeType);
       res.setHeader("Content-Length", String(byteSize));
-      res.setHeader("Cache-Control", "private, max-age=60");
+      res.setHeader("Cache-Control", "private, no-store");
       res.setHeader("X-Content-Type-Options", "nosniff");
       stream.pipe(res);
     } catch (err) {

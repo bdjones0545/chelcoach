@@ -136,3 +136,17 @@ export class InMemoryRetentionRepository implements RetentionRepository {
     if (existing?.owner === owner) this.locks.delete(uploadId);
   }
 }
+
+let retentionRepo: RetentionRepository = new InMemoryRetentionRepository();
+
+export function getRetentionRepository(): RetentionRepository {
+  return retentionRepo;
+}
+
+export function setRetentionRepositoryForTests(next: RetentionRepository): void {
+  retentionRepo = next;
+}
+
+export function resetRetentionRepositoryForTests(): void {
+  retentionRepo = new InMemoryRetentionRepository();
+}

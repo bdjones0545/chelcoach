@@ -30,6 +30,7 @@ async function authHeaders(): Promise<HeadersInit> {
     authorization: `Bearer ${token}`,
     "content-type": "application/json",
     accept: "application/json",
+    "X-ChelCoach-Requested-With": "chelcoach",
   };
 }
 

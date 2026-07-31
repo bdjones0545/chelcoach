@@ -54,6 +54,7 @@ function rowToRecord(row: typeof mediaUploads.$inferSelect): MediaUploadRecord {
     deletedAt: row.deletedAt?.toISOString(),
     deletionAttemptCount: row.deletionAttemptCount,
     lastDeletionErrorCode: row.lastDeletionErrorCode ?? undefined,
+    earlyDeletionRequestedAt: row.earlyDeletionRequestedAt?.toISOString(),
     errorCode: (row.errorCode as ScottyErrorCode | null) ?? undefined,
     errorMessage: row.errorMessage ?? undefined,
   };
@@ -122,6 +123,11 @@ export class DrizzleUploadRepository implements UploadRepository {
     if (patch.deletedAt !== undefined) values.deletedAt = new Date(patch.deletedAt);
     if (patch.deletionAttemptCount !== undefined) values.deletionAttemptCount = patch.deletionAttemptCount;
     if (patch.lastDeletionErrorCode !== undefined) values.lastDeletionErrorCode = patch.lastDeletionErrorCode;
+    if (patch.earlyDeletionRequestedAt !== undefined) {
+      values.earlyDeletionRequestedAt = patch.earlyDeletionRequestedAt
+        ? new Date(patch.earlyDeletionRequestedAt)
+        : null;
+    }
     if (patch.errorCode !== undefined) values.errorCode = patch.errorCode;
     if (patch.errorMessage !== undefined) values.errorMessage = patch.errorMessage;
 

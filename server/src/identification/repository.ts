@@ -228,10 +228,14 @@ export function resetIdentificationRepositoryForTests(): void {
   repo = new InMemoryIdentificationRepository();
 }
 
-/** E2E helper — drop identification state for one upload (in-memory repo). */
+/** E2E helper — drop identification state for one upload. */
 export async function deleteIdentificationForUpload(uploadId: string): Promise<boolean> {
   if (repo instanceof InMemoryIdentificationRepository) {
     return repo.deleteByUploadId(uploadId);
+  }
+  const maybe = repo as unknown as { deleteByUploadId?: (id: string) => Promise<boolean> };
+  if (typeof maybe.deleteByUploadId === "function") {
+    return maybe.deleteByUploadId(uploadId);
   }
   return false;
 }

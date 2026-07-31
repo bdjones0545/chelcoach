@@ -33,6 +33,7 @@ export async function submitGameplayAnalysis(
     headers: {
       authorization: `Bearer ${token}`,
       "content-type": "application/json",
+      "X-ChelCoach-Requested-With": "chelcoach",
     },
     // No provider-specific parameters — server controls capabilities.
     body: JSON.stringify({}),

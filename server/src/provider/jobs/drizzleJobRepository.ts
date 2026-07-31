@@ -1,7 +1,7 @@
 /**
  * Postgres-backed analysis job repository (Step 6).
  */
-import { and, asc, eq, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
 import { createHash, randomUUID } from "node:crypto";
 import { getDb } from "../../db/client";
 import {
@@ -658,6 +658,17 @@ export class DrizzleAnalysisJobRepository implements AnalysisJobRepository {
       )
       .orderBy(asc(scottyAnalysisJobs.updatedAt))
       .limit(input.limit);
+    return rows.map(rowToJob);
+  }
+
+  async listByOwner(ownerId: string, limit = 100): Promise<AnalysisJob[]> {
+    const db = getDb();
+    const rows = await db
+      .select()
+      .from(scottyAnalysisJobs)
+      .where(eq(scottyAnalysisJobs.ownerId, ownerId))
+      .orderBy(desc(scottyAnalysisJobs.createdAt))
+      .limit(limit);
     return rows.map(rowToJob);
   }
 

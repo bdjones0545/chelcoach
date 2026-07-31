@@ -14,6 +14,7 @@ import {
   type RequestedCapabilities,
   type ScottyErrorCode,
 } from "../scottyContract";
+import { getChelCoachConfig } from "../config/chelcoachConfig";
 import { getIdentificationRepository, newId } from "../identification/repository";
 import { getUploadRepository } from "../uploads/repository";
 import {
@@ -30,6 +31,18 @@ import {
 import { getAnalysisJobRepository } from "./jobs/jobRepository";
 import { getDefaultProviderMode } from "./jobs/syncService";
 import { newApplicationRequestId } from "./submissionRepository";
+
+const ACTIVE_JOB_STATUSES = new Set([
+  "queued",
+  "inspecting_input",
+  "extracting_frames",
+  "identifying_controlled_player",
+  "awaiting_player_confirmation",
+  "validating_player_identity",
+  "analyzing_gameplay",
+  "validating_report",
+  "finalizing",
+]);
 
 export class AnalysisSubmissionError extends Error {
   constructor(
@@ -94,9 +107,9 @@ export async function submitAnalysis(input: {
   void parsed.data.capabilities;
 
   const upload = await getUploadRepository().get(input.uploadId);
-  if (!upload) throw new AnalysisSubmissionError(404, "UPLOAD_NOT_FOUND", "Upload not found.");
-  if (upload.ownerId !== input.ownerId) {
-    throw new AnalysisSubmissionError(403, "FORBIDDEN", "You don't have access to this upload.");
+  // Generic not-found for missing or cross-user — do not leak ownership.
+  if (!upload || upload.ownerId !== input.ownerId) {
+    throw new AnalysisSubmissionError(404, "UPLOAD_NOT_FOUND", "Upload not found.");
   }
   if (upload.uploadStatus === "deleted") {
     throw new AnalysisSubmissionError(410, "MEDIA_ALREADY_DELETED", "Source media has been deleted.");
@@ -164,6 +177,26 @@ export async function submitAnalysis(input: {
   });
 
   const jobs = getAnalysisJobRepository();
+  const quotas = getChelCoachConfig().quotas;
+  const ownerJobs = await jobs.listByOwner(input.ownerId, 200);
+  const active = ownerJobs.filter((j) => ACTIVE_JOB_STATUSES.has(j.canonicalStatus));
+  if (active.length >= quotas.maxActiveJobsPerUser) {
+    throw new AnalysisSubmissionError(
+      429,
+      "RATE_LIMITED",
+      "Too many active analysis jobs. Wait for one to finish.",
+    );
+  }
+  const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
+  const daily = ownerJobs.filter((j) => new Date(j.createdAt).getTime() >= dayAgo);
+  if (daily.length >= quotas.maxDailySubmissionsPerUser) {
+    throw new AnalysisSubmissionError(
+      429,
+      "RATE_LIMITED",
+      "Daily analysis submission limit reached.",
+    );
+  }
+
   const existing = await jobs.getByIdempotencyKey(idempotencyKey);
   if (existing) {
     if (existing.requestFingerprint !== fingerprint) {

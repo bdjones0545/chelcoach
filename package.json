@@ -19,6 +19,10 @@
     "test:e2e:browsers": "playwright test --project=chromium --project=firefox-smoke --project=webkit-smoke",
     "test:all": "npm run test:shared && npm run test:frontend && npm run test:server && npm run test:pg && npm run build && npm run lint && npm run test:e2e",
     "verify:product": "bash scripts/verify-product.sh",
+    "audit:deps": "npm audit --omit=dev; npm --prefix server audit --omit=dev; true",
+    "audit:bundle": "node scripts/scan-bundle-secrets.mjs",
+    "audit:security-scan": "node scripts/scan-server-security.mjs",
+    "cleanup:media": "node scripts/cleanup-media.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

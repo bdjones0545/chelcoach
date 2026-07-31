@@ -98,6 +98,7 @@ export async function createUploadSession(
     method: "POST",
     headers: {
       authorization: `Bearer ${token}`,
+      "X-ChelCoach-Requested-With": "chelcoach",
       "content-type": "application/json",
     },
     body: JSON.stringify(input),
@@ -133,6 +134,7 @@ export function putUploadContent(
     xhr.open("PUT", `${API_BASE_URL}${uploadUrl}`);
     xhr.setRequestHeader("authorization", `Bearer ${token}`);
     xhr.setRequestHeader("content-type", file.type || "video/mp4");
+    xhr.setRequestHeader("X-ChelCoach-Requested-With", "chelcoach");
 
     xhr.upload.onprogress = (ev) => {
       if (ev.lengthComputable && ev.total > 0) {
@@ -161,6 +163,9 @@ export function putUploadContent(
 export async function cancelUpload(token: string, uploadId: string): Promise<void> {
   await fetch(`${API_BASE_URL}/api/uploads/${uploadId}`, {
     method: "DELETE",
-    headers: { authorization: `Bearer ${token}` },
+    headers: {
+      authorization: `Bearer ${token}`,
+      "X-ChelCoach-Requested-With": "chelcoach",
+    },
   });
 }

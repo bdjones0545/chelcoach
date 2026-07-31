@@ -48,6 +48,8 @@ export interface AnalysisJobRepository {
     confirmedAt: string,
   ): Promise<AnalysisJob>;
   listReconciliationCandidates(input: ReconciliationQuery): Promise<AnalysisJob[]>;
+  /** Owner-scoped listing for abuse quotas (bounded). */
+  listByOwner(ownerId: string, limit?: number): Promise<AnalysisJob[]>;
   getReportByApplicationRequestId(
     applicationRequestId: string,
   ): Promise<PersistedAnalysisReport | null>;
@@ -487,6 +489,14 @@ export class InMemoryAnalysisJobRepository implements AnalysisJobRepository {
       })
       .sort((a, b) => a.updatedAt.localeCompare(b.updatedAt))
       .slice(0, input.limit)
+      .map((j) => structuredClone(j));
+  }
+
+  async listByOwner(ownerId: string, limit = 100): Promise<AnalysisJob[]> {
+    return [...this.jobs.values()]
+      .filter((j) => j.ownerId === ownerId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, limit)
       .map((j) => structuredClone(j));
   }
 

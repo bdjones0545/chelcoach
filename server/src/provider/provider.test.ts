@@ -500,7 +500,7 @@ describe("analysis submission API", () => {
         headers: { authorization: `Bearer ${other.token}`, "content-type": "application/json" },
         body: JSON.stringify({}),
       });
-      assert.equal(cross.status, 403);
+      assert.equal(cross.status, 404);
 
       const uploadId3 = await readyUpload(base, token);
       await identify(base, token, uploadId3, "high_confidence_center");

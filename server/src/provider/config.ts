@@ -113,6 +113,12 @@ export function loadScottyProviderConfig(
       "CHELCOACH_ANALYSIS_PROVIDER=scotty requires SCOTTY_SIGNING_SECRET.",
     );
   }
+  if (provider === "fake" && nodeEnv === "production") {
+    throw new ProviderConfigError(
+      "PROVIDER_MISCONFIGURED",
+      "fake provider is blocked when NODE_ENV=production.",
+    );
+  }
   if (provider === "direct_anthropic" && nodeEnv === "production") {
     throw new ProviderConfigError(
       "PROVIDER_MISCONFIGURED",

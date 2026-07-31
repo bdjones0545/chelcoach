@@ -48,11 +48,28 @@ if a route that needs the DB is called (none do yet).
 
 | Var | When needed | Notes |
 |---|---|---|
-| `DATABASE_URL` | Phase 1+ | Replit PostgreSQL / Neon connection string. |
+| `DATABASE_URL` | Phase 1+ / Step 10+ | Required for durable identification, retention, jobs. |
 | `PORT` | optional | Defaults to `3001`. |
-| `CORS_ORIGIN` | optional | Comma-separated allowed origins; empty = allow all (dev). |
-| `ANTHROPIC_API_KEY` | Phase 4 | Do not set yet. |
-| `OBJECT_STORAGE_BUCKET` | Phase 1 | Do not set yet. |
+| `CORS_ORIGIN` | **required in production** | Comma-separated allowed origins. Empty only allowed in development. |
+| `CHELCOACH_AUTH_MODE` | Step 10+ | `development_session` \| `existing_auth` \| `disabled`. |
+| `CHELCOACH_PRODUCTION_AUTH_READY` | Step 10+ | Must be `true` only with real production auth (`existing_auth`). |
+| `CHELCOACH_ANALYSIS_SUBMISSION_ENABLED` | production | Explicit `1` required before production analysis submissions. |
+| `CHELCOACH_ANALYSIS_PROVIDER` | Step 4+ | `fake` \| `simulator` \| `direct_anthropic` \| `scotty`. Fail-closed in production. |
+| `CHELCOACH_SCOTTIE_ENABLED` | Step 11 | Keep `false` until remote transport is ready. |
+| `CHELCOACH_SCOTTY_SIMULATOR_ENABLED` | local/E2E | Default true in development; blocked in production without override. |
+| `CHELCOACH_SCOTTY_SIMULATOR_ALLOW_IN_PRODUCTION` | staging only | Explicit override; never enable for public production. |
+| `CHELCOACH_SCOTTY_CALLBACKS_ENABLED` | keep `0` | Callbacks remain disabled until signing is complete. |
+| `CHELCOACH_CALLBACK_SECRET` | future | Distinct from reconcile/cleanup/signing secrets. |
+| `CHELCOACH_RECONCILE_SECRET` | Step 6+ | Internal reconcile route only. |
+| `CHELCOACH_CLEANUP_SECRET` | Step 10+ | Internal media cleanup; must differ from reconcile secret. |
+| `CHELCOACH_E2E_MODE` / `CHELCOACH_E2E_SECRET` | test only | Startup fails if enabled in production. |
+| `CHELCOACH_LEGACY_UPLOAD_ENABLED` | Step 10+ | Must be `false` in production. |
+| `CHELCOACH_MEDIA_STORAGE_MODE` | Step 10+ | `local_disk` \| `memory` \| `object_storage`. |
+| `CHELCOACH_PRODUCTION_MEDIA_STORAGE_READY` | production | Do not claim durable media on ephemeral disk without review. |
+| `SCOTTY_BASE_URL` / `SCOTTY_SIGNING_SECRET` | Step 11 | Server-only; never expose to Vite. |
+| `ANTHROPIC_API_KEY` | dev adapter only | Blocked in production provider mode. |
+
+See `docs/scotty-step10-security-audit.md` for the full feature-flag matrix and readiness gate.
 
 ## Database (when Phase 1 begins)
 
