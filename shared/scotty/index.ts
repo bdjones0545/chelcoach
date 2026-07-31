@@ -26,6 +26,9 @@ export * from "./profile";
 export * from "./media-classification";
 export * from "./games";
 export * from "./upload-context";
+export * from "./media-transfer";
+export * from "./effective-player";
+export * from "./provider-contracts";
 export {
   FIXED_NOW,
   xboxPlayerContext,

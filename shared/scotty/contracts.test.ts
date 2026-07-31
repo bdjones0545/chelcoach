@@ -37,6 +37,10 @@ import {
   boundingBoxSchema,
   publicPlayerIdentificationSchema,
   MAX_PLAYER_CANDIDATES,
+  mediaTransferDescriptorSchema,
+  scottyCallbackEventSchema,
+  scottyAnalysisSubmissionSchema,
+  applicationAnalysisSubmissionResultSchema,
 } from "./index";
 import {
   FIXED_NOW,
@@ -377,6 +381,71 @@ describe("Scotty contracts — retention calculations", () => {
     assert.equal(decision.maximumRetentionReached, true);
     assert.equal(decision.eligible, true);
     assert.equal(decision.reason, "force_expire_stuck_job");
+  });
+});
+
+describe("Scotty contracts — Step 4 provider boundary", () => {
+  it("validates media transfer, submission, callback, and safe result schemas", () => {
+    assert.ok(
+      mediaTransferDescriptorSchema.safeParse({
+        type: "gateway_pull",
+        uploadReference: "up-1",
+      }).success,
+    );
+    assert.ok(
+      mediaTransferDescriptorSchema.safeParse({
+        type: "short_lived_url",
+        urlReference: "https://example.invalid/tmp",
+        expiresAt: FIXED_NOW.toISOString(),
+      }).success,
+    );
+    const sub = scottyAnalysisSubmissionSchema.parse({
+      requestId: "req-1",
+      idempotencyKey: "idem-1",
+      uploadId: "up-1",
+      ownerReference: "own-1",
+      gameContext: sampleGameContext(),
+      playerContext: xboxPlayerContext(),
+      effectivePlayer: {
+        position: "C",
+        jerseyNumber: 19,
+        indicatorColor: "blue",
+        teamSide: "home",
+        confidence: 0.93,
+        confidenceLabel: "very_high",
+        source: "high_confidence_identification",
+        identificationId: "id-1",
+        userConfirmed: false,
+      },
+      mediaMetadata: trustedMedia(60),
+      mediaClassification: "short_clip",
+      mediaTransfer: { type: "multipart", mediaReference: "ref-1" },
+      retentionExpiresAt: FIXED_NOW.toISOString(),
+      createdAt: FIXED_NOW.toISOString(),
+    });
+    assert.equal(sub.capabilities.analyzeGameplay, true);
+    assert.ok(
+      scottyCallbackEventSchema.safeParse({
+        eventId: "e1",
+        eventType: "completed",
+        externalJobId: "j1",
+        applicationRequestId: "r1",
+        status: "completed",
+        occurredAt: FIXED_NOW.toISOString(),
+        sequenceNumber: 1,
+      }).success,
+    );
+    assert.ok(
+      applicationAnalysisSubmissionResultSchema.safeParse({
+        applicationRequestId: "r1",
+        uploadId: "up-1",
+        provider: "fake",
+        status: "queued",
+        acceptedAt: FIXED_NOW.toISOString(),
+        reused: false,
+        nextAction: "poll_later",
+      }).success,
+    );
   });
 });
 

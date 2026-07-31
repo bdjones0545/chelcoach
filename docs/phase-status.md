@@ -83,9 +83,16 @@ sample report):
 - Legacy buffered upload capped (demo-only); production Upload UI uses streamed sessions.
 - Docs: [scotty-player-confirmation-step3.md](scotty-player-confirmation-step3.md).
 
-## ⏭️ Next — Scotty Step 4
+## ✅ Scotty Step 4 — Provider interface & transport boundary (complete)
 
-- Scotty transport / simulator wiring replacing the fixture identifier.
+- `ScottyProvider` factory (`fake` / `direct_anthropic` / `scotty` skeleton).
+- Analysis submission service with effective player context, idempotency, fingerprinting.
+- Fake provider + HTTP Scotty skeleton + signing boundary (no live network).
+- Docs: [scotty-provider-step4.md](scotty-provider-step4.md).
+
+## ⏭️ Next — Scotty Step 5
+
+- Local Scotty lifecycle simulator behind the same provider interface.
 - **Still deferred:** Cloudflare tunnel, live Scotty VM, paid vision, auth & payments.
 
 ## What CI guarantees today

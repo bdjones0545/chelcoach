@@ -33,6 +33,8 @@ export const scottyErrorCodeSchema = z.enum([
   "FORBIDDEN",
   "RETENTION_LIMIT_REACHED",
   "MEDIA_DELETION_FAILED",
+  "IDEMPOTENCY_CONFLICT",
+  "PROVIDER_MISCONFIGURED",
 ]);
 export type ScottyErrorCode = z.infer<typeof scottyErrorCodeSchema>;
 
@@ -90,6 +92,8 @@ export function scottyErrorMessage(code: ScottyErrorCode): string {
     FORBIDDEN: "You don't have access to this resource.",
     RETENTION_LIMIT_REACHED: "Processing exceeded the maximum media retention window.",
     MEDIA_DELETION_FAILED: "Source media could not be deleted safely. We will retry.",
+    IDEMPOTENCY_CONFLICT: "This analysis request conflicts with a previous submission.",
+    PROVIDER_MISCONFIGURED: "The analysis provider is not configured correctly.",
   };
   return map[code];
 }

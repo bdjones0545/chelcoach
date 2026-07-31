@@ -5,6 +5,10 @@ import Button from "../components/Button";
 import GlassPanel from "../components/GlassPanel";
 import Icon from "../components/Icon";
 import TopAppBar from "../components/TopAppBar";
+import {
+  submitGameplayAnalysis,
+  type AnalysisSubmitUiState,
+} from "../lib/analysisApi";
 import { USE_BACKEND_REPORTS } from "../lib/reportApi";
 import {
   confirmPlayer,
@@ -44,6 +48,9 @@ export default function PlayerConfirmation() {
   const [showHints, setShowHints] = useState(false);
   const [hintJersey, setHintJersey] = useState("");
   const [hintColor, setHintColor] = useState("");
+  const [submitState, setSubmitState] = useState<AnalysisSubmitUiState>("ready_to_submit");
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [acceptedRequestId, setAcceptedRequestId] = useState<string | null>(null);
 
   const fixture =
     import.meta.env.DEV || import.meta.env.VITE_ALLOW_IDENTITY_FIXTURES === "true"
@@ -76,7 +83,9 @@ export default function PlayerConfirmation() {
           return;
         }
         if (result.status === "confirmed") {
-          navigate("/processing");
+          setData(result);
+          setState("ready");
+          setSubmitState("ready_to_submit");
           return;
         }
 
@@ -121,16 +130,35 @@ export default function PlayerConfirmation() {
     setBusy(true);
     setError(null);
     try {
-      await confirmPlayer(uploadId, {
+      const confirmed = await confirmPlayer(uploadId, {
         selectedCandidateId: selected.candidateId,
         frameId: selected.representativeFrameId,
         confirmedPosition: selected.position,
         confirmedJerseyNumber: selected.jerseyNumber ?? undefined,
         confirmedIndicatorColor: selected.indicatorColor ?? undefined,
       });
-      navigate("/processing");
+      setData(confirmed);
+      setSubmitState("ready_to_submit");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Confirmation failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onAnalyze = async () => {
+    if (!uploadId) return;
+    if (data?.status !== "identified" && data?.status !== "confirmed") return;
+    setSubmitState("submitting");
+    setSubmitError(null);
+    setBusy(true);
+    try {
+      const result = await submitGameplayAnalysis(uploadId);
+      setAcceptedRequestId(result.applicationRequestId);
+      setSubmitState("accepted");
+    } catch (err) {
+      setSubmitState("submission_failed");
+      setSubmitError(err instanceof Error ? err.message : "Analysis submission failed");
     } finally {
       setBusy(false);
     }
@@ -226,22 +254,55 @@ export default function PlayerConfirmation() {
           </div>
         )}
 
-        {data?.status === "identified" && (
+        {(data?.status === "identified" || data?.status === "confirmed") && (
           <GlassPanel className="mb-6 space-y-4 p-6">
             <p className="font-body-md text-on-surface" role="status">
-              Player identified with {(data.confidence * 100).toFixed(0)}% confidence
+              {data.status === "confirmed"
+                ? "Controlled player confirmed."
+                : `Player identified with ${(data.confidence * 100).toFixed(0)}% confidence`}
               {data.player
                 ? ` — ${fieldOrNotVisible(data.player.position)}, jersey ${fieldOrNotVisible(data.player.jerseyNumber)}`
                 : ""}
               .
             </p>
             <p className="font-label-sm text-label-sm text-on-surface-variant">{data.retentionNotice}</p>
-            <div className="flex flex-wrap gap-3">
-              <Button onClick={() => navigate("/processing")}>Continue</Button>
-              <Button variant="ghost" disabled={busy} onClick={onCorrect}>
-                That is not my player
-              </Button>
-            </div>
+
+            {submitState === "accepted" ? (
+              <div role="status" aria-live="polite" className="space-y-3">
+                <p className="font-body-md text-tertiary">
+                  Analysis accepted{acceptedRequestId ? ` (${acceptedRequestId.slice(0, 8)}…)` : ""}.
+                  Full progress tracking arrives in a later step.
+                </p>
+                <Button variant="ghost" onClick={() => navigate("/processing")}>
+                  Continue to demo scorecard
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  disabled={busy || submitState === "submitting"}
+                  onClick={onAnalyze}
+                  icon={submitState === "submitting" ? "cloud_upload" : "psychology"}
+                >
+                  {submitState === "submitting" ? "Submitting…" : "Analyze my gameplay"}
+                </Button>
+                {data.status === "identified" && (
+                  <Button variant="ghost" disabled={busy} onClick={onCorrect}>
+                    That is not my player
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {submitState === "submission_failed" && submitError && (
+              <div className="rounded-lg border border-error/30 bg-error/10 p-3" role="alert">
+                <p className="font-body-md text-error">{submitError}</p>
+                <Button className="mt-3" variant="ghost" disabled={busy} onClick={onAnalyze}>
+                  Try again
+                </Button>
+              </div>
+            )}
+            {/* No fake percentage — submission is accept/fail only in Step 4. */}
           </GlassPanel>
         )}
 
