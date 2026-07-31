@@ -7,6 +7,12 @@ import {
 } from "./chelcoachConfig";
 import { computeReadiness } from "./readiness";
 
+const SUPABASE_TEST = {
+  SUPABASE_URL: "https://example.supabase.co",
+  SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-anon-key",
+  CHELCOACH_EXISTING_AUTH_PROVIDER: "supabase",
+} as const;
+
 describe("chelcoach central config (Step 10)", () => {
   it("blocks development auth claimed ready in production", () => {
     resetChelCoachConfigCacheForTests();
@@ -30,6 +36,7 @@ describe("chelcoach central config (Step 10)", () => {
       NODE_ENV: "production",
       CHELCOACH_AUTH_MODE: "existing_auth",
       CHELCOACH_PRODUCTION_AUTH_READY: "true",
+      ...SUPABASE_TEST,
       CORS_ORIGIN: "https://app.example.com",
       CHELCOACH_LEGACY_UPLOAD_ENABLED: "false",
       CHELCOACH_ANALYSIS_PROVIDER: "simulator",
@@ -47,6 +54,7 @@ describe("chelcoach central config (Step 10)", () => {
         NODE_ENV: "production",
         CHELCOACH_AUTH_MODE: "existing_auth",
         CHELCOACH_PRODUCTION_AUTH_READY: "true",
+        ...SUPABASE_TEST,
         CORS_ORIGIN: "https://app.example.com",
         CHELCOACH_LEGACY_UPLOAD_ENABLED: "false",
         CHELCOACH_ANALYSIS_PROVIDER: provider,
@@ -54,6 +62,37 @@ describe("chelcoach central config (Step 10)", () => {
       const result = validateChelCoachConfig(config);
       assert.equal(result.ok, false);
     }
+  });
+
+  it("maps existing_auth + supabase provider to supabase_auth", () => {
+    const config = loadChelCoachConfig({
+      NODE_ENV: "development",
+      CHELCOACH_AUTH_MODE: "existing_auth",
+      ...SUPABASE_TEST,
+    });
+    assert.equal(config.auth.mode, "supabase_auth");
+    assert.equal(config.auth.configuredMode, "existing_auth");
+    assert.equal(config.auth.allowSessionMint, false);
+  });
+
+  it("accepts CHELCOACH_AUTH_MODE=supabase_auth", () => {
+    const config = loadChelCoachConfig({
+      NODE_ENV: "development",
+      CHELCOACH_AUTH_MODE: "supabase_auth",
+      ...SUPABASE_TEST,
+    });
+    assert.equal(config.auth.mode, "supabase_auth");
+    assert.equal(config.auth.supabaseUrlConfigured, true);
+  });
+
+  it("rejects supabase_auth without URL/anon key", () => {
+    const config = loadChelCoachConfig({
+      NODE_ENV: "development",
+      CHELCOACH_AUTH_MODE: "supabase_auth",
+    });
+    const result = validateChelCoachConfig(config);
+    assert.ok(result.issues.some((i) => i.code === "SUPABASE_URL_MISSING"));
+    assert.ok(result.issues.some((i) => i.code === "SUPABASE_ANON_KEY_MISSING"));
   });
 
   it("rejects scotty disabled / missing signing", () => {
@@ -81,6 +120,7 @@ describe("chelcoach central config (Step 10)", () => {
       CHELCOACH_E2E_MODE: "1",
       CHELCOACH_AUTH_MODE: "existing_auth",
       CHELCOACH_PRODUCTION_AUTH_READY: "true",
+      ...SUPABASE_TEST,
       CORS_ORIGIN: "https://app.example.com",
       CHELCOACH_LEGACY_UPLOAD_ENABLED: "false",
       CHELCOACH_ANALYSIS_PROVIDER: "scotty",
@@ -107,6 +147,7 @@ describe("chelcoach central config (Step 10)", () => {
       NODE_ENV: "production",
       CHELCOACH_AUTH_MODE: "existing_auth",
       CHELCOACH_PRODUCTION_AUTH_READY: "true",
+      ...SUPABASE_TEST,
       CORS_ORIGIN: "https://app.example.com",
       CHELCOACH_LEGACY_UPLOAD_ENABLED: "false",
       CHELCOACH_ANALYSIS_PROVIDER: "scotty",

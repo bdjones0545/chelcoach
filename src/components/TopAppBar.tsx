@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Logo from "./Logo";
 import AVATAR from "../assets/avatar-coach.svg";
+import { AuthActions } from "./AuthActions";
 
 interface TopAppBarProps {
   /** Optional right-side content (e.g. sign in, close button, avatar). */
@@ -14,9 +15,12 @@ export default function TopAppBar({ actions }: TopAppBarProps) {
       <Logo />
       <div className="flex items-center gap-4">
         {actions ?? (
-          <div className="h-8 w-8 overflow-hidden rounded-full border border-primary/20 bg-surface-variant">
-            <img src={AVATAR} alt="Your coach profile" className="h-full w-full object-cover" />
-          </div>
+          <>
+            <AuthActions />
+            <div className="h-8 w-8 overflow-hidden rounded-full border border-primary/20 bg-surface-variant">
+              <img src={AVATAR} alt="Your coach profile" className="h-full w-full object-cover" />
+            </div>
+          </>
         )}
       </div>
     </header>

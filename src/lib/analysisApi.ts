@@ -3,7 +3,7 @@
  * Never selects provider URL, signing mode, model, or API keys.
  */
 import { API_BASE_URL } from "./apiBase";
-import { ensureOwnerSession } from "./scottyUploadApi";
+import { authenticatedFetch } from "./authenticatedFetch";
 
 export type AnalysisSubmitUiState =
   | "ready_to_submit"
@@ -27,14 +27,9 @@ export interface AnalysisSubmissionResult {
 export async function submitGameplayAnalysis(
   uploadId: string,
 ): Promise<AnalysisSubmissionResult> {
-  const token = await ensureOwnerSession();
-  const res = await fetch(`${API_BASE_URL}/api/uploads/${uploadId}/analysis`, {
+  const res = await authenticatedFetch(`${API_BASE_URL}/api/uploads/${uploadId}/analysis`, {
     method: "POST",
-    headers: {
-      authorization: `Bearer ${token}`,
-      "content-type": "application/json",
-      "X-ChelCoach-Requested-With": "chelcoach",
-    },
+    headers: { "content-type": "application/json" },
     // No provider-specific parameters — server controls capabilities.
     body: JSON.stringify({}),
   });

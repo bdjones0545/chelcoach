@@ -6,7 +6,16 @@
 import { analysisProviderSchema, type AnalysisProvider } from "../scottyContract";
 import { isSimulatorScenario, type SimulatorScenario } from "../provider/simulator/scenarios";
 
-export type AuthMode = "development_session" | "existing_auth" | "disabled";
+/**
+ * Auth modes (Step 10.1B):
+ * - development_session — opaque local/E2E sessions
+ * - supabase_auth — production Supabase Auth (Bearer access token)
+ * - existing_auth — accepted as an alias for supabase_auth when
+ *   CHELCOACH_EXISTING_AUTH_PROVIDER=supabase
+ * - disabled — all authenticated routes unavailable
+ */
+export type AuthMode = "development_session" | "supabase_auth" | "existing_auth" | "disabled";
+export type ExistingAuthProvider = "supabase" | "none";
 export type MediaStorageMode = "local_disk" | "memory" | "object_storage";
 
 export interface ChelCoachConfig {
@@ -15,10 +24,18 @@ export interface ChelCoachConfig {
   isTest: boolean;
 
   auth: {
-    mode: AuthMode;
+    /** Normalized mode: existing_auth+supabase → supabase_auth. */
+    mode: "development_session" | "supabase_auth" | "disabled";
+    /** Raw configured mode before alias normalization (for diagnostics). */
+    configuredMode: AuthMode;
+    existingAuthProvider: ExistingAuthProvider;
     productionAuthReady: boolean;
     sessionTtlMs: number;
     allowSessionMint: boolean;
+    supabaseUrlConfigured: boolean;
+    supabaseAnonConfigured: boolean;
+    /** Service role present (server-only; never required for normal JWT verify). */
+    supabaseServiceRoleConfigured: boolean;
   };
 
   provider: {
@@ -136,11 +153,46 @@ function intEnv(
 
 function parseAuthMode(raw: string | undefined): AuthMode {
   const v = (raw ?? "development_session").trim();
-  if (v === "development_session" || v === "existing_auth" || v === "disabled") return v;
+  if (
+    v === "development_session" ||
+    v === "supabase_auth" ||
+    v === "existing_auth" ||
+    v === "disabled"
+  ) {
+    return v;
+  }
   throw new ChelCoachConfigError(
     "INVALID_AUTH_MODE",
-    `Unsupported CHELCOACH_AUTH_MODE="${raw}". Use development_session | existing_auth | disabled.`,
+    `Unsupported CHELCOACH_AUTH_MODE="${raw}". Use development_session | supabase_auth | existing_auth | disabled.`,
   );
+}
+
+function parseExistingAuthProvider(raw: string | undefined): ExistingAuthProvider {
+  const v = (raw ?? "supabase").trim().toLowerCase();
+  if (v === "supabase" || v === "none") return v;
+  throw new ChelCoachConfigError(
+    "INVALID_EXISTING_AUTH_PROVIDER",
+    `Unsupported CHELCOACH_EXISTING_AUTH_PROVIDER="${raw}". Use supabase | none.`,
+  );
+}
+
+/** Normalize configured mode to the runtime auth mode. */
+export function normalizeAuthMode(
+  configured: AuthMode,
+  existingAuthProvider: ExistingAuthProvider,
+): "development_session" | "supabase_auth" | "disabled" {
+  if (configured === "supabase_auth") return "supabase_auth";
+  if (configured === "existing_auth") {
+    if (existingAuthProvider !== "supabase") {
+      throw new ChelCoachConfigError(
+        "EXISTING_AUTH_PROVIDER_REQUIRED",
+        'CHELCOACH_AUTH_MODE=existing_auth requires CHELCOACH_EXISTING_AUTH_PROVIDER=supabase.',
+      );
+    }
+    return "supabase_auth";
+  }
+  if (configured === "disabled") return "disabled";
+  return "development_session";
 }
 
 function parseStorageMode(raw: string | undefined, env: NodeJS.ProcessEnv): MediaStorageMode {
@@ -183,9 +235,14 @@ export function loadChelCoachConfig(env: NodeJS.ProcessEnv = process.env): ChelC
     );
   }
 
-  const authMode = parseAuthMode(env.CHELCOACH_AUTH_MODE);
+  const configuredAuthMode = parseAuthMode(env.CHELCOACH_AUTH_MODE);
+  const existingAuthProvider = parseExistingAuthProvider(env.CHELCOACH_EXISTING_AUTH_PROVIDER);
+  const authMode = normalizeAuthMode(configuredAuthMode, existingAuthProvider);
   const productionAuthReady = boolEnv(env, "CHELCOACH_PRODUCTION_AUTH_READY", false);
   const sessionTtlMs = intEnv(env, "CHELCOACH_SESSION_TTL_MS", 24 * 60 * 60 * 1000, 60_000, 30 * 24 * 60 * 60 * 1000);
+  const supabaseUrl = (env.SUPABASE_URL ?? "").trim();
+  const supabaseAnon = (env.SUPABASE_ANON_KEY ?? "").trim();
+  const supabaseServiceRole = (env.SUPABASE_SERVICE_ROLE_KEY ?? "").trim();
 
   const scottyEnabled = boolEnv(env, "CHELCOACH_SCOTTIE_ENABLED", false);
   const scottyBaseUrl = (env.SCOTTY_BASE_URL ?? "").trim();
@@ -241,7 +298,8 @@ export function loadChelCoachConfig(env: NodeJS.ProcessEnv = process.env): ChelC
 
   const allowSessionMint =
     authMode === "development_session" &&
-    (!isProduction || (productionAuthReady && boolEnv(env, "CHELCOACH_ALLOW_DEV_SESSIONS_IN_PRODUCTION", false)));
+    (!isProduction ||
+      (productionAuthReady && boolEnv(env, "CHELCOACH_ALLOW_DEV_SESSIONS_IN_PRODUCTION", false)));
 
   const config: ChelCoachConfig = {
     nodeEnv,
@@ -249,9 +307,15 @@ export function loadChelCoachConfig(env: NodeJS.ProcessEnv = process.env): ChelC
     isTest,
     auth: {
       mode: authMode,
+      configuredMode: configuredAuthMode,
+      existingAuthProvider,
       productionAuthReady,
       sessionTtlMs,
       allowSessionMint,
+      supabaseUrlConfigured: Boolean(supabaseUrl) && !isPlaceholderSecret(supabaseUrl),
+      supabaseAnonConfigured: Boolean(supabaseAnon) && !isPlaceholderSecret(supabaseAnon),
+      supabaseServiceRoleConfigured:
+        Boolean(supabaseServiceRole) && !isPlaceholderSecret(supabaseServiceRole),
     },
     provider: {
       provider: parsedProvider.data,
@@ -337,6 +401,36 @@ export function validateChelCoachConfig(config: ChelCoachConfig): ConfigValidati
     issues.push({
       code: "AUTH_DISABLED_IN_PRODUCTION",
       message: "CHELCOACH_AUTH_MODE=disabled is not allowed in production.",
+      severity: "critical",
+    });
+  }
+
+  if (config.auth.mode === "supabase_auth") {
+    if (!config.auth.supabaseUrlConfigured) {
+      issues.push({
+        code: "SUPABASE_URL_MISSING",
+        message: "CHELCOACH_AUTH_MODE=supabase_auth requires SUPABASE_URL.",
+        severity: "critical",
+      });
+    }
+    if (!config.auth.supabaseAnonConfigured) {
+      issues.push({
+        code: "SUPABASE_ANON_KEY_MISSING",
+        message: "CHELCOACH_AUTH_MODE=supabase_auth requires SUPABASE_ANON_KEY.",
+        severity: "critical",
+      });
+    }
+  }
+
+  if (
+    config.isProduction &&
+    config.auth.productionAuthReady &&
+    config.auth.mode !== "supabase_auth"
+  ) {
+    issues.push({
+      code: "PRODUCTION_AUTH_READY_WITHOUT_SUPABASE",
+      message:
+        "CHELCOACH_PRODUCTION_AUTH_READY=true requires CHELCOACH_AUTH_MODE=supabase_auth (or existing_auth with provider=supabase).",
       severity: "critical",
     });
   }
@@ -527,8 +621,13 @@ export function configDiagnostics(config: ChelCoachConfig): Record<string, strin
   return {
     nodeEnv: config.nodeEnv,
     authMode: config.auth.mode,
+    configuredAuthMode: config.auth.configuredMode,
+    existingAuthProvider: config.auth.existingAuthProvider,
     productionAuthReady: config.auth.productionAuthReady,
     allowSessionMint: config.auth.allowSessionMint,
+    supabaseUrlConfigured: config.auth.supabaseUrlConfigured,
+    supabaseAnonConfigured: config.auth.supabaseAnonConfigured,
+    supabaseServiceRoleConfigured: config.auth.supabaseServiceRoleConfigured,
     provider: config.provider.provider,
     scottyEnabled: config.provider.scottyEnabled,
     simulatorEnabled: config.provider.simulatorEnabled,

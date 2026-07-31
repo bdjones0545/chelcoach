@@ -10,6 +10,8 @@ const patterns = [
   { name: "SCOTTY_SIGNING_SECRET", re: /SCOTTY_SIGNING_SECRET/ },
   { name: "SCOTTY_BASE_URL value", re: /SCOTTY_BASE_URL\s*[:=]/ },
   { name: "DATABASE_URL", re: /DATABASE_URL\s*[:=]/ },
+  { name: "SUPABASE_SERVICE_ROLE_KEY", re: /SUPABASE_SERVICE_ROLE_KEY/ },
+  { name: "service_role JWT role claim leakage", re: /"role":"service_role"/ },
   { name: "CHELCOACH_RECONCILE_SECRET", re: /CHELCOACH_RECONCILE_SECRET/ },
   { name: "CHELCOACH_CLEANUP_SECRET", re: /CHELCOACH_CLEANUP_SECRET/ },
   { name: "CHELCOACH_CALLBACK_SECRET", re: /CHELCOACH_CALLBACK_SECRET/ },

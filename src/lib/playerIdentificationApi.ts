@@ -2,7 +2,7 @@
  * Step 3 controlled-player identification / confirmation client.
  */
 import { API_BASE_URL } from "./reportApi";
-import { ensureOwnerSession } from "./scottyUploadApi";
+import { authenticatedFetch } from "./authenticatedFetch";
 
 export interface PublicConfirmationFrame {
   frameId: string;
@@ -58,35 +58,34 @@ export interface PublicPlayerIdentification {
   errorMessage?: string;
 }
 
-async function authHeaders(): Promise<HeadersInit> {
-  const token = await ensureOwnerSession();
-  return {
-    authorization: `Bearer ${token}`,
-    "content-type": "application/json",
-    "X-ChelCoach-Requested-With": "chelcoach",
-  };
-}
-
 export async function startPlayerIdentification(
   uploadId: string,
   fixtureScenario?: string,
 ): Promise<PublicPlayerIdentification> {
-  const res = await fetch(`${API_BASE_URL}/api/uploads/${uploadId}/player-identification`, {
-    method: "POST",
-    headers: await authHeaders(),
-    body: JSON.stringify(fixtureScenario ? { fixtureScenario } : {}),
-  });
-  const body = (await res.json()) as PublicPlayerIdentification & { message?: string; error?: string };
+  const res = await authenticatedFetch(
+    `${API_BASE_URL}/api/uploads/${uploadId}/player-identification`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(fixtureScenario ? { fixtureScenario } : {}),
+    },
+  );
+  const body = (await res.json()) as PublicPlayerIdentification & {
+    message?: string;
+    error?: string;
+  };
   if (!res.ok) throw new Error(body.message || body.error || "Identification failed");
   return body;
 }
 
 export async function getPlayerIdentification(uploadId: string): Promise<PublicPlayerIdentification> {
-  const token = await ensureOwnerSession();
-  const res = await fetch(`${API_BASE_URL}/api/uploads/${uploadId}/player-identification`, {
-    headers: { authorization: `Bearer ${token}` },
-  });
-  const body = (await res.json()) as PublicPlayerIdentification & { message?: string; error?: string };
+  const res = await authenticatedFetch(
+    `${API_BASE_URL}/api/uploads/${uploadId}/player-identification`,
+  );
+  const body = (await res.json()) as PublicPlayerIdentification & {
+    message?: string;
+    error?: string;
+  };
   if (!res.ok) throw new Error(body.message || body.error || "Failed to load identification");
   return body;
 }
@@ -101,31 +100,43 @@ export async function confirmPlayer(
     confirmedIndicatorColor?: string;
   },
 ): Promise<PublicPlayerIdentification> {
-  const res = await fetch(`${API_BASE_URL}/api/uploads/${uploadId}/player-confirmation`, {
-    method: "POST",
-    headers: await authHeaders(),
-    body: JSON.stringify({
-      uploadId,
-      selectedCandidateId: input.selectedCandidateId,
-      representativeFrame: { frameId: input.frameId, uploadId },
-      confirmedPosition: input.confirmedPosition,
-      confirmedJerseyNumber: input.confirmedJerseyNumber,
-      confirmedIndicatorColor: input.confirmedIndicatorColor,
-      confirmedAt: new Date().toISOString(),
-    }),
-  });
-  const body = (await res.json()) as PublicPlayerIdentification & { message?: string; error?: string };
+  const res = await authenticatedFetch(
+    `${API_BASE_URL}/api/uploads/${uploadId}/player-confirmation`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        uploadId,
+        selectedCandidateId: input.selectedCandidateId,
+        representativeFrame: { frameId: input.frameId, uploadId },
+        confirmedPosition: input.confirmedPosition,
+        confirmedJerseyNumber: input.confirmedJerseyNumber,
+        confirmedIndicatorColor: input.confirmedIndicatorColor,
+        confirmedAt: new Date().toISOString(),
+      }),
+    },
+  );
+  const body = (await res.json()) as PublicPlayerIdentification & {
+    message?: string;
+    error?: string;
+  };
   if (!res.ok) throw new Error(body.message || body.error || "Confirmation failed");
   return body;
 }
 
 export async function correctIdentification(uploadId: string): Promise<PublicPlayerIdentification> {
-  const res = await fetch(`${API_BASE_URL}/api/uploads/${uploadId}/player-confirmation/correct`, {
-    method: "POST",
-    headers: await authHeaders(),
-    body: JSON.stringify({ reason: "not_my_player" }),
-  });
-  const body = (await res.json()) as PublicPlayerIdentification & { message?: string; error?: string };
+  const res = await authenticatedFetch(
+    `${API_BASE_URL}/api/uploads/${uploadId}/player-confirmation/correct`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ reason: "not_my_player" }),
+    },
+  );
+  const body = (await res.json()) as PublicPlayerIdentification & {
+    message?: string;
+    error?: string;
+  };
   if (!res.ok) throw new Error(body.message || body.error || "Correction failed");
   return body;
 }
@@ -142,11 +153,11 @@ export async function noneOfTheAbove(
     };
   },
 ): Promise<PublicPlayerIdentification> {
-  const res = await fetch(
+  const res = await authenticatedFetch(
     `${API_BASE_URL}/api/uploads/${uploadId}/player-confirmation/none-of-the-above`,
     {
       method: "POST",
-      headers: await authHeaders(),
+      headers: { "content-type": "application/json" },
       body: JSON.stringify({
         uploadId,
         requestAdditionalExtraction: input.requestAdditionalExtraction ?? false,
@@ -154,17 +165,17 @@ export async function noneOfTheAbove(
       }),
     },
   );
-  const body = (await res.json()) as PublicPlayerIdentification & { message?: string; error?: string };
+  const body = (await res.json()) as PublicPlayerIdentification & {
+    message?: string;
+    error?: string;
+  };
   if (!res.ok) throw new Error(body.message || body.error || "Request failed");
   return body;
 }
 
 /** Authenticated blob URL for a confirmation frame (revoke when done). */
 export async function loadFrameObjectUrl(accessUrl: string): Promise<string> {
-  const token = await ensureOwnerSession();
-  const res = await fetch(`${API_BASE_URL}${accessUrl}`, {
-    headers: { authorization: `Bearer ${token}` },
-  });
+  const res = await authenticatedFetch(`${API_BASE_URL}${accessUrl}`);
   if (!res.ok) throw new Error("Failed to load frame");
   const blob = await res.blob();
   return URL.createObjectURL(blob);

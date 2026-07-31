@@ -26,9 +26,18 @@ export function computeReadiness(config: ChelCoachConfig = getChelCoachConfig())
     reasons.push(issue.code);
   }
 
+  const supabaseAuthConfigured =
+    config.auth.mode === "supabase_auth" &&
+    config.auth.supabaseUrlConfigured &&
+    config.auth.supabaseAnonConfigured;
+
   const authReady = config.isProduction
-    ? config.auth.mode === "existing_auth" && config.auth.productionAuthReady
-    : config.auth.mode !== "disabled" && config.auth.allowSessionMint;
+    ? supabaseAuthConfigured &&
+      config.auth.productionAuthReady &&
+      !config.auth.allowSessionMint
+    : config.auth.mode === "development_session"
+      ? config.auth.allowSessionMint
+      : supabaseAuthConfigured;
 
   if (!authReady) {
     reasons.push(

@@ -25,12 +25,14 @@
     "cleanup:media": "node scripts/cleanup-media.mjs",
     "db:migrate": "npm --prefix server run db:migrate",
     "verify:supabase-db": "npm --prefix server run verify:supabase-db",
+    "verify:supabase-auth": "npm --prefix server run verify:supabase-auth",
     "preview": "vite preview"
   },
   "dependencies": {
     "@fontsource/inter": "^5.2.8",
     "@fontsource/jetbrains-mono": "^5.2.8",
     "@fontsource/oswald": "^5.2.8",
+    "@supabase/supabase-js": "^2.111.0",
     "material-symbols": "^0.45.5",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",

@@ -8,7 +8,7 @@ import {
   type AnalysisReportResponse,
 } from "../../shared/scotty/report-envelope";
 import { API_BASE_URL } from "./apiBase";
-import { ensureOwnerSession } from "./scottyUploadApi";
+import { authenticatedFetch } from "./authenticatedFetch";
 import {
   AnalysisApiError,
   normalizeAnalysisHttpError,
@@ -23,16 +23,6 @@ export type AnalysisStatusApi = {
     signal?: AbortSignal,
   ) => Promise<AnalysisJobView>;
 };
-
-async function authHeaders(): Promise<HeadersInit> {
-  const token = await ensureOwnerSession();
-  return {
-    authorization: `Bearer ${token}`,
-    "content-type": "application/json",
-    accept: "application/json",
-    "X-ChelCoach-Requested-With": "chelcoach",
-  };
-}
 
 function assertRequestId(applicationRequestId: string): void {
   if (!isValidApplicationRequestId(applicationRequestId)) {
@@ -76,8 +66,8 @@ export async function getAnalysisStatus(
   assertRequestId(applicationRequestId);
   const online = typeof navigator === "undefined" ? true : navigator.onLine !== false;
   try {
-    const res = await fetch(`${API_BASE_URL}/api/analysis/${applicationRequestId}`, {
-      headers: await authHeaders(),
+    const res = await authenticatedFetch(`${API_BASE_URL}/api/analysis/${applicationRequestId}`, {
+      headers: { accept: "application/json" },
       signal,
       cache: "no-store",
     });
@@ -104,11 +94,14 @@ export async function getAnalysisReport(
   assertRequestId(applicationRequestId);
   const online = typeof navigator === "undefined" ? true : navigator.onLine !== false;
   try {
-    const res = await fetch(`${API_BASE_URL}/api/analysis/${applicationRequestId}/report`, {
-      headers: await authHeaders(),
-      signal,
-      cache: "no-store",
-    });
+    const res = await authenticatedFetch(
+      `${API_BASE_URL}/api/analysis/${applicationRequestId}/report`,
+      {
+        headers: { accept: "application/json" },
+        signal,
+        cache: "no-store",
+      },
+    );
     const body = await readJsonBody(res);
     if (!res.ok) {
       throw normalizeAnalysisHttpError(
@@ -141,13 +134,16 @@ export async function cancelAnalysis(
   assertRequestId(applicationRequestId);
   const online = typeof navigator === "undefined" ? true : navigator.onLine !== false;
   try {
-    const res = await fetch(`${API_BASE_URL}/api/analysis/${applicationRequestId}/cancel`, {
-      method: "POST",
-      headers: await authHeaders(),
-      body: JSON.stringify(reason ? { reason } : {}),
-      signal,
-      cache: "no-store",
-    });
+    const res = await authenticatedFetch(
+      `${API_BASE_URL}/api/analysis/${applicationRequestId}/cancel`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", accept: "application/json" },
+        body: JSON.stringify(reason ? { reason } : {}),
+        signal,
+        cache: "no-store",
+      },
+    );
     const body = await readJsonBody(res);
     if (!res.ok) {
       throw normalizeAnalysisHttpError(
@@ -172,11 +168,11 @@ export async function submitProviderPlayerConfirmation(
   assertRequestId(applicationRequestId);
   const online = typeof navigator === "undefined" ? true : navigator.onLine !== false;
   try {
-    const res = await fetch(
+    const res = await authenticatedFetch(
       `${API_BASE_URL}/api/analysis/${applicationRequestId}/player-confirmation`,
       {
         method: "POST",
-        headers: await authHeaders(),
+        headers: { "content-type": "application/json", accept: "application/json" },
         body: JSON.stringify({ selectedCandidateId: payload.selectedCandidateId }),
         signal,
         cache: "no-store",

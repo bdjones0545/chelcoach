@@ -17,6 +17,7 @@ import "material-symbols/outlined.css";
 
 import "./index.css";
 import App from "./App.tsx";
+import { AuthProvider } from "./state/AuthContext.tsx";
 import { PremiumProvider } from "./state/PremiumContext.tsx";
 import { AnalysisProvider } from "./state/AnalysisContext.tsx";
 import { ReportProvider } from "./state/ReportContext.tsx";
@@ -24,13 +25,15 @@ import { ReportProvider } from "./state/ReportContext.tsx";
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <PremiumProvider>
-        <AnalysisProvider>
-          <ReportProvider>
-            <App />
-          </ReportProvider>
-        </AnalysisProvider>
-      </PremiumProvider>
+      <AuthProvider>
+        <PremiumProvider>
+          <AnalysisProvider>
+            <ReportProvider>
+              <App />
+            </ReportProvider>
+          </AnalysisProvider>
+        </PremiumProvider>
+      </AuthProvider>
     </BrowserRouter>
   </StrictMode>,
 );

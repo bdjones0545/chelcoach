@@ -317,7 +317,8 @@ export default function AnalysisStatus() {
                   const returnTo = applicationRequestId
                     ? analysisStatusPath(applicationRequestId)
                     : "/upload";
-                  navigate(`/upload?returnTo=${encodeURIComponent(returnTo)}`);
+                  // Supabase Auth: recover via /login while preserving durable analysis route.
+                  navigate(`/login`, { state: { from: returnTo } });
                 }}
               >
                 Restore session

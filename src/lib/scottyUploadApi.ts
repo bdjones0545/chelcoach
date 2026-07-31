@@ -1,40 +1,15 @@
 /**
  * Scotty Step 2 upload + profile client (streamed PUT with progress).
+ * Auth via centralized token helper / authenticatedFetch (Step 10.1B).
  */
 import { API_BASE_URL } from "./apiBase";
+import { authenticatedFetch } from "./authenticatedFetch";
+import {
+  ensureOwnerSession,
+  getStoredDevOwnerToken as getStoredOwnerToken,
+} from "./authToken";
 
-const TOKEN_KEY = "chelcoach_owner_token";
-
-export function getStoredOwnerToken(): string | null {
-  try {
-    return localStorage.getItem(TOKEN_KEY);
-  } catch {
-    return null;
-  }
-}
-
-function storeOwnerToken(token: string): void {
-  try {
-    localStorage.setItem(TOKEN_KEY, token);
-  } catch {
-    /* ignore */
-  }
-}
-
-export async function ensureOwnerSession(): Promise<string> {
-  const existing = getStoredOwnerToken();
-  if (existing) {
-    const probe = await fetch(`${API_BASE_URL}/api/gameplay-profile`, {
-      headers: { authorization: `Bearer ${existing}` },
-    });
-    if (probe.ok) return existing;
-  }
-  const res = await fetch(`${API_BASE_URL}/api/session`, { method: "POST" });
-  if (!res.ok) throw new Error("Failed to create session");
-  const body = (await res.json()) as { token: string };
-  storeOwnerToken(body.token);
-  return body.token;
-}
+export { ensureOwnerSession, getStoredOwnerToken };
 
 export interface GameplayProfileDto {
   userId: string;
@@ -48,10 +23,8 @@ export interface GameplayProfileDto {
   lastSelectedGameId?: string | null;
 }
 
-export async function fetchGameplayProfile(token: string): Promise<GameplayProfileDto> {
-  const res = await fetch(`${API_BASE_URL}/api/gameplay-profile`, {
-    headers: { authorization: `Bearer ${token}` },
-  });
+export async function fetchGameplayProfile(_token?: string): Promise<GameplayProfileDto> {
+  const res = await authenticatedFetch(`${API_BASE_URL}/api/gameplay-profile`);
   if (!res.ok) throw new Error("Failed to load profile");
   return res.json() as Promise<GameplayProfileDto>;
 }
@@ -85,7 +58,7 @@ export interface UploadSessionResponse {
 }
 
 export async function createUploadSession(
-  token: string,
+  _token: string | undefined,
   input: {
     filename: string;
     contentType: string;
@@ -94,13 +67,9 @@ export async function createUploadSession(
     saveAsDefaults: boolean;
   },
 ): Promise<UploadSessionResponse> {
-  const res = await fetch(`${API_BASE_URL}/api/uploads`, {
+  const res = await authenticatedFetch(`${API_BASE_URL}/api/uploads`, {
     method: "POST",
-    headers: {
-      authorization: `Bearer ${token}`,
-      "X-ChelCoach-Requested-With": "chelcoach",
-      "content-type": "application/json",
-    },
+    headers: { "content-type": "application/json" },
     body: JSON.stringify(input),
   });
   if (!res.ok) {
@@ -129,9 +98,11 @@ export function putUploadContent(
   onProgress: (pct: number) => void,
   signal?: AbortSignal,
 ): Promise<PublicUploadDetail> {
+  // XHR cannot use authenticatedFetch; still only target ChelCoach API origin.
+  const target = `${API_BASE_URL}${uploadUrl}`;
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open("PUT", `${API_BASE_URL}${uploadUrl}`);
+    xhr.open("PUT", target);
     xhr.setRequestHeader("authorization", `Bearer ${token}`);
     xhr.setRequestHeader("content-type", file.type || "video/mp4");
     xhr.setRequestHeader("X-ChelCoach-Requested-With", "chelcoach");
@@ -160,12 +131,8 @@ export function putUploadContent(
   });
 }
 
-export async function cancelUpload(token: string, uploadId: string): Promise<void> {
-  await fetch(`${API_BASE_URL}/api/uploads/${uploadId}`, {
+export async function cancelUpload(_token: string | undefined, uploadId: string): Promise<void> {
+  await authenticatedFetch(`${API_BASE_URL}/api/uploads/${uploadId}`, {
     method: "DELETE",
-    headers: {
-      authorization: `Bearer ${token}`,
-      "X-ChelCoach-Requested-With": "chelcoach",
-    },
   });
 }

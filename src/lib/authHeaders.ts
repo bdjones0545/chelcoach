@@ -1,13 +1,16 @@
 /**
  * Shared browser → ChelCoach API headers.
- * Includes CSRF custom header required for state-changing requests.
+ * Prefer authenticatedFetch for new code — it attaches tokens safely.
  */
+import { getAccessTokenForApi } from "./authToken";
+
 export async function authHeaders(token?: string): Promise<Record<string, string>> {
   const headers: Record<string, string> = {
     "X-ChelCoach-Requested-With": "chelcoach",
   };
-  if (token) {
-    headers.authorization = `Bearer ${token}`;
+  const resolved = token ?? (await getAccessTokenForApi());
+  if (resolved) {
+    headers.authorization = `Bearer ${resolved}`;
   }
   return headers;
 }

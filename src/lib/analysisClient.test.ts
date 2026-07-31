@@ -8,7 +8,8 @@ import {
 import { AnalysisApiError } from "./analysisClientErrors";
 import { makeStatus } from "../test/analysisJobFixtures";
 
-vi.mock("./scottyUploadApi", () => ({
+vi.mock("./authToken", () => ({
+  getAccessTokenForApi: vi.fn(async () => "test-token"),
   ensureOwnerSession: vi.fn(async () => "test-token"),
 }));
 
