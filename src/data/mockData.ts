@@ -318,8 +318,9 @@ export const uploadRules = {
   acceptMimeTypes: ["video/mp4", "video/quicktime"],
   // value for the <input accept="…"> attribute
   accept: "video/mp4,video/quicktime,.mp4,.mov",
-  maxBytes: 2 * 1024 ** 3, // 2 GB
-  maxLabel: "2 GB",
+  // Keep in sync with shared/analysisContract.ts uploadRules (250 MB Phase-3 cap).
+  maxBytes: 250 * 1024 ** 2, // 250 MB
+  maxLabel: "250 MB",
 };
 
 // --- UX state copy (validation errors, empty & failure states) ---------------
@@ -342,15 +343,51 @@ export interface StatePanelCopy {
   secondaryLabel: string;
 }
 
-export const stateCopy: Record<"processingFailed" | "filmRoomEmpty" | "dataUnavailable", StatePanelCopy> = {
+export const stateCopy: Record<
+  | "processingFailed"
+  | "processingTimeout"
+  | "processingUnreachable"
+  | "processingInvalid"
+  | "filmRoomEmpty"
+  | "dataUnavailable"
+  | "appCrash",
+  StatePanelCopy
+> = {
   processingFailed: {
     icon: "sync_problem",
     tone: "error",
     title: "Analysis interrupted",
     message:
-      "The AI review stopped before it finished. Your clip is safe — restart the analysis and we'll rebuild your full report.",
-    primaryLabel: "Try Again",
+      "The review stopped before it finished — live analysis does not fall back to the demo report. Check status again, or go back to upload and start a new analysis.",
+    primaryLabel: "Check Status Again",
     secondaryLabel: "Back to Upload",
+  },
+  processingTimeout: {
+    icon: "hourglass_disabled",
+    tone: "error",
+    title: "This is taking too long",
+    message:
+      "We didn't get a finished report in time. Your clip may still be processing — check status again, or return to upload.",
+    primaryLabel: "Check Status Again",
+    secondaryLabel: "Back to Upload",
+  },
+  processingUnreachable: {
+    icon: "cloud_off",
+    tone: "error",
+    title: "Can't reach the analysis service",
+    message:
+      "ChelCoach couldn't reach the server for a status update. Check your connection, then try checking status again.",
+    primaryLabel: "Check Status Again",
+    secondaryLabel: "Back to Upload",
+  },
+  processingInvalid: {
+    icon: "error",
+    tone: "error",
+    title: "We got an unexpected response",
+    message:
+      "The analysis service returned something we couldn't use. This isn't your demo report — head back to upload and try again.",
+    primaryLabel: "Back to Upload",
+    secondaryLabel: "Start Over",
   },
   filmRoomEmpty: {
     icon: "movie_filter",
@@ -369,5 +406,14 @@ export const stateCopy: Record<"processingFailed" | "filmRoomEmpty" | "dataUnava
       "Your analysis data didn't come through this time. Re-run the analysis and ChelCoach will rebuild your breakdown.",
     primaryLabel: "Re-run Analysis",
     secondaryLabel: "Back to Scorecard",
+  },
+  appCrash: {
+    icon: "error",
+    tone: "error",
+    title: "Something went wrong",
+    message:
+      "ChelCoach hit an unexpected error on this screen. Your upload and session may still be recoverable — reload to continue, or return home and try again.",
+    primaryLabel: "Reload",
+    secondaryLabel: "Return Home",
   },
 };

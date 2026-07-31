@@ -1,24 +1,47 @@
 /**
  * Clip / analysis routes.
  *
- *   POST /api/clips/:id/commit    finalize an uploaded clip (Phase 2: attaches the static report)
+ *   POST /api/clips/:id/commit    finalize upload; enqueue extraction (or demo-complete)
+ *   GET  /api/clips/:id/status    public analysis-job status (Processing-screen contract)
  *   GET  /api/clips/:id           clip status + report once complete
  *   GET  /api/clips/:id/analysis  the report alone, once complete
- *
- * Upload init + file bytes live in routes/uploads.ts. No ffmpeg/AI yet.
  */
 import { Router } from "express";
+import { toAnalysisJobStatus } from "../analysisStatus";
 import type { AnalysisResponse, ClipResponse, CommitResponse } from "../contract";
+import { clipIdParamSchema } from "../contract";
+import { enqueueExtraction } from "../jobs/extractionQueue";
 import { ClipStoreError, commitClip, getClip } from "../store";
 
 export const clipsRouter = Router();
 
-/** POST /api/clips/:id/commit — finalize the clip (or synthesize the demo clip). */
+function parseClipId(raw: string | string[]): string | null {
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  const parsed = clipIdParamSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
+function rejectMalformedId(res: import("express").Response): void {
+  res.status(400).json({ error: "invalid_clip_id", message: "Malformed clip id." });
+}
+
+/** POST /api/clips/:id/commit — returns immediately; extraction continues async when needed. */
 clipsRouter.post("/clips/:id/commit", (req, res) => {
+  const id = parseClipId(req.params.id);
+  if (!id) {
+    rejectMalformedId(res);
+    return;
+  }
   try {
-    const clip = commitClip(req.params.id);
+    const { clip, shouldExtract } = commitClip(id);
+    // Snapshot status before enqueue — the in-process runner may advance the same
+    // ClipRecord to "extracting" synchronously before this handler returns.
     const body: CommitResponse = { clipId: clip.id, jobId: clip.jobId ?? "", status: clip.status };
     res.status(200).json(body);
+    if (shouldExtract) {
+      // Defer so the HTTP response flushes before extraction starts mutating status.
+      setImmediate(() => enqueueExtraction(clip.id));
+    }
   } catch (err) {
     if (err instanceof ClipStoreError) {
       res.status(err.httpStatus).json({ error: err.code, message: err.message });
@@ -28,9 +51,32 @@ clipsRouter.post("/clips/:id/commit", (req, res) => {
   }
 });
 
+/**
+ * GET /api/clips/:id/status — truthful analysis-job status for the Processing screen.
+ * Response is validated against the shared `analysisJobStatusSchema` before send.
+ */
+clipsRouter.get("/clips/:id/status", (req, res) => {
+  const id = parseClipId(req.params.id);
+  if (!id) {
+    rejectMalformedId(res);
+    return;
+  }
+  const clip = getClip(id);
+  if (!clip) {
+    res.status(404).json({ error: "not_found", message: "No such clip." });
+    return;
+  }
+  res.status(200).json(toAnalysisJobStatus(clip));
+});
+
 /** GET /api/clips/:id — clip status plus the report once complete. */
 clipsRouter.get("/clips/:id", (req, res) => {
-  const clip = getClip(req.params.id);
+  const id = parseClipId(req.params.id);
+  if (!id) {
+    rejectMalformedId(res);
+    return;
+  }
+  const clip = getClip(id);
   if (!clip) {
     res.status(404).json({ error: "not_found", message: "No such clip." });
     return;
@@ -38,15 +84,22 @@ clipsRouter.get("/clips/:id", (req, res) => {
   const body: ClipResponse = {
     clipId: clip.id,
     status: clip.status,
-    phaseProgress: clip.status === "complete" ? 100 : clip.status === "queued" ? 50 : 0,
+    phaseProgress: clip.phaseProgress ?? (clip.status === "complete" ? 100 : clip.status === "queued" ? 15 : 0),
     ...(clip.report ? { report: clip.report } : {}),
+    ...(clip.errorCode ? { errorCode: clip.errorCode } : {}),
+    ...(clip.errorMessage ? { errorMessage: clip.errorMessage } : {}),
   };
   res.status(200).json(body);
 });
 
 /** GET /api/clips/:id/analysis — the report alone, once complete. */
 clipsRouter.get("/clips/:id/analysis", (req, res) => {
-  const clip = getClip(req.params.id);
+  const id = parseClipId(req.params.id);
+  if (!id) {
+    rejectMalformedId(res);
+    return;
+  }
+  const clip = getClip(id);
   if (!clip) {
     res.status(404).json({ error: "not_found", message: "No such clip." });
     return;

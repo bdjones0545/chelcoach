@@ -138,7 +138,10 @@ export const clipStatusSchema = z.enum([
 ]);
 export type ClipStatus = z.infer<typeof clipStatusSchema>;
 
-/** Machine-readable failure reasons, mapped to existing UI state panels. */
+/**
+ * Machine-readable failure reasons returned to the client.
+ * Internal FFmpeg/process codes map into this set before leaving the server.
+ */
 export const errorCodeSchema = z.enum([
   "unsupported_file",
   "oversized_file",
@@ -147,6 +150,23 @@ export const errorCodeSchema = z.enum([
   "analysis_failed",
   "invalid_report",
   "rate_limited",
+  "ffmpeg_unavailable",
+  "invalid_video",
+  "video_too_long",
+  "video_too_large",
+  "processing_busy",
+  "process_timeout",
+  // AI analysis (Phase 4) — snake_case to match existing public codes
+  "ai_not_configured",
+  "ai_authentication_failed",
+  "ai_request_timeout",
+  "ai_rate_limited",
+  "ai_provider_unavailable",
+  "ai_response_invalid",
+  "ai_response_refused",
+  "ai_content_unsupported",
+  "ai_request_too_large",
+  "analysis_internal_error",
 ]);
 export type ErrorCode = z.infer<typeof errorCodeSchema>;
 
@@ -159,12 +179,19 @@ export const uploadInitRequestSchema = z.object({
 });
 export type UploadInitRequest = z.infer<typeof uploadInitRequestSchema>;
 
-/** Accepted upload constraints — server-authoritative, shared source of truth. */
+/**
+ * Accepted upload constraints — server-authoritative, shared source of truth.
+ *
+ * Cap lowered from 2 GB → 250 MB for Phase 3: the upload path still buffers the
+ * whole body in Node RAM, and FFmpeg extraction runs in-process. 250 MB keeps
+ * gameplay clips workable while bounding memory risk. Revisit when streaming
+ * uploads / out-of-process workers land.
+ */
 export const uploadRules = {
   acceptExtensions: [".mp4", ".mov"],
   acceptMimeTypes: ["video/mp4", "video/quicktime"],
-  maxBytes: 2 * 1024 ** 3, // 2 GB
-  maxLabel: "2 GB",
+  maxBytes: 250 * 1024 ** 2, // 250 MB
+  maxLabel: "250 MB",
 } as const;
 
 export interface UploadValidationError {
@@ -225,3 +252,66 @@ export interface ApiError {
   error: string;
   message: string;
 }
+
+// --- Analysis-job status (Processing-screen / polling contract) ---------------
+//
+// Public lifecycle for a committed clip's analysis. Distinct from `clipStatus`
+// (upload plumbing: uploading → queued → extracting → analyzing → complete).
+// This projection is what the Processing screen polls. Compatible with a future
+// async worker: today commit completes immediately → `completed`; later commit
+// can leave the job `queued` / `processing` without changing this envelope.
+
+/** Public analysis-job statuses consumed by the Processing screen. */
+export const analysisJobStatusValueSchema = z.enum([
+  "queued",
+  "processing",
+  "completed",
+  "failed",
+]);
+export type AnalysisJobStatusValue = z.infer<typeof analysisJobStatusValueSchema>;
+
+/**
+ * Coarse stage labels the server may report. Only claim work the backend
+ * actually performs (Phase 4: inspect → extract → AI analyze → validate).
+ */
+export const analysisJobStageSchema = z.enum([
+  "queued",
+  "inspecting_video",
+  "extracting_frames",
+  "analyzing_gameplay",
+  "validating_report",
+  "finalizing",
+  "ready",
+  "failed",
+]);
+export type AnalysisJobStage = z.infer<typeof analysisJobStageSchema>;
+
+/**
+ * Clip / job identifiers accepted by status routes.
+ * Allows UUIDs and the deterministic demo id (`static-demo-clip`); rejects
+ * empty strings and characters that don't belong in an id.
+ */
+export const clipIdParamSchema = z
+  .string()
+  .min(1)
+  .max(128)
+  .regex(/^[A-Za-z0-9_-]+$/, "Malformed clip id.");
+export type ClipIdParam = z.infer<typeof clipIdParamSchema>;
+
+export const analysisJobStatusSchema = z.object({
+  clipId: z.string().min(1),
+  jobId: z.string().min(1).optional(),
+  status: analysisJobStatusValueSchema,
+  /** Safe, user-facing status line (never internal/stack/provider details). */
+  message: z.string().optional(),
+  stage: analysisJobStageSchema.optional(),
+  /** Phase-based progress 0–100 for the Processing screen. */
+  phaseProgress: z.number().min(0).max(100).optional(),
+  /** True when GET /api/clips/:id/analysis (or the clip envelope) can return the report. */
+  reportReady: z.boolean(),
+  errorCode: errorCodeSchema.optional(),
+  /** Safe failure explanation for the UI. */
+  errorMessage: z.string().optional(),
+  updatedAt: z.string().optional(),
+});
+export type AnalysisJobStatus = z.infer<typeof analysisJobStatusSchema>;

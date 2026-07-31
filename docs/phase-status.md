@@ -59,10 +59,25 @@ sample report):
 - **Smoke test** extended to 9 checks: validation (415/413), full init → PUT → commit → report
   loop on the memory backend, and demo back-compat.
 
-## ⏭️ Next — Phase 3: ffmpeg frame extraction
+## ✅ Phase 3 — Bounded FFmpeg frame extraction (complete)
 
-- Sample frames from the stored clip (capped fps/count), generate a poster + thumbnails.
-- **Still deferred:** AI analysis (Phase 4), Postgres persistence, auth & payments (later).
+- Commit leaves real clips `queued` and enqueues in-process extraction (HTTP returns immediately).
+- `ffprobe` inspects metadata; bounded JPEG frame sampling runs via system `ffmpeg`/`ffprobe`.
+- Temporary frames are retained until analysis finishes, then cleaned up.
+- Upload cap lowered to **250 MB** (shared `uploadRules`) to bound in-process RAM risk.
+- Docs: [ffmpeg-extraction.md](ffmpeg-extraction.md).
+
+## ✅ Phase 4 — Structured AI gameplay analysis (complete)
+
+- After extraction, frames + metadata go to a vision provider (Anthropic `claude-sonnet-5` by default).
+- Structured output + local Zod validation against the shared `AnalysisReport` contract.
+- Stages: `inspecting_video` → `extracting_frames` → `analyzing_gameplay` → `validating_report` → `finalizing`.
+- Live failures never fall back to the demo/sample report; demo mode remains intentional.
+- Docs: [ai-gameplay-analysis.md](ai-gameplay-analysis.md).
+
+## ⏭️ Next
+
+- **Still deferred:** Postgres persistence, auth, payments, distributed workers.
 
 ## What CI guarantees today
 

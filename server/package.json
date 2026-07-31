@@ -3,17 +3,20 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "ChelCoach backend API (Phase 0 foundation — no upload/ffmpeg/AI wired yet).",
+  "description": "ChelCoach backend API (Phase 4 — FFmpeg extraction + structured AI gameplay analysis).",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "smoke": "tsx src/smoke.ts",
+    "test": "tsx --test src/media/*.test.ts src/media/*.integration.test.ts src/jobs/*.test.ts src/ai/*.test.ts",
+    "smoke": "AI_PROVIDER=fake tsx src/smoke.ts",
+    "verify:live-ai": "tsx scripts/live-ai-verify.ts",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.115.0",
     "@replit/object-storage": "^1.0.0",
     "cors": "^2.8.5",
     "drizzle-orm": "^0.44.6",
@@ -28,6 +31,9 @@
     "@types/pg": "^8.15.6",
     "drizzle-kit": "^0.31.6",
     "tsx": "^4.20.6",
-    "typescript": "^5.9.3"
+    "typescript": "~6.0.2"
+  },
+  "engines": {
+    "node": ">=22 <23"
   }
 }

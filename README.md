@@ -8,11 +8,10 @@ unlocks the full AI breakdown. It is built as a conversion-first product MVP for
 NHL ("Chel") players who want to understand *why* they win and lose — in plain hockey
 language — and turn that into a plan for their next game.
 
-> **MVP status.** This is a product-experience MVP. There is **no real AI, no video
-> processing, no payments, and no auth** yet. Analysis is polished mock data
-> ([`src/data/mockData.ts`](src/data/mockData.ts)); the backend serves a deterministic,
-> contract-validated static report matching that data. The backend is being built out phase
-> by phase toward real uploads and analysis — see [docs/phase-status.md](docs/phase-status.md).
+> **MVP status.** Demo mode needs no ffmpeg/AI keys, payments, or auth. Live mode can
+> extract frames and run structured AI analysis when configured
+> ([`docs/ai-gameplay-analysis.md`](docs/ai-gameplay-analysis.md)). See
+> [docs/phase-status.md](docs/phase-status.md).
 
 ---
 
@@ -59,7 +58,8 @@ Every feature below is driven by real content and screens in the codebase (`src/
 - **Full Film Room** — interactive timeline with tone-coded markers, coach commentary,
   strengths vs. mistakes, highest-impact adjustment, next-game focus, a weekly skill-focus
   drill plan, a game-summary stat line, and impact meters.
-- **Upload validation** — accepts MP4 / MOV up to 2 GB, with player-friendly error copy for
+- **Upload validation** — accepts MP4 / MOV up to **250 MB** (Phase-3 in-process cap; see
+  [`docs/ffmpeg-extraction.md`](docs/ffmpeg-extraction.md)), with player-friendly error copy for
   unsupported and oversized files; the same rules are enforced server-side via a shared
   contract.
 - **Shared Analysis Contract** — Zod schemas + inferred types in
@@ -94,7 +94,7 @@ Every feature below is driven by real content and screens in the codebase (`src/
 
 **Shared** ([`shared/`](shared/)) — the Analysis Contract (Zod schemas + inferred types).
 
-**Tooling:** npm (package-lock.json), `replit.nix` (Nix env, Node 22), GitHub Actions CI.
+**Tooling:** npm (package-lock.json), `.nvmrc` + package `engines` (Node 22), GitHub Actions CI.
 
 > The frontend, backend, and shared contract are **three isolated npm projects**. The
 > frontend build never compiles `server/` or `shared/`, so it always stays green.
@@ -105,10 +105,11 @@ Every feature below is driven by real content and screens in the codebase (`src/
 
 ### Prerequisites
 
-- **Node.js 22** (matches `replit.nix`)
+- **Node.js 22** (see `.nvmrc` and package `engines`)
 - **npm** (repository uses `package-lock.json`)
-- No database, object storage, ffmpeg, or AI keys are required to run the app — it runs on
-  mock data out of the box.
+- No database, object storage, or AI keys are required for the demo/mock path.
+- **ffmpeg/ffprobe** are required for live frame extraction (`docs/ffmpeg-extraction.md`).
+- **`ANTHROPIC_API_KEY`** is required for live AI analysis (`docs/ai-gameplay-analysis.md`).
 
 ### Frontend (from repo root)
 
@@ -167,7 +168,7 @@ to override.
 | `STORAGE_BACKEND` | backend | auto | Object storage backend: `memory` \| `replit`. Auto = `replit` on Replit (`REPL_ID` present), else `memory`. Local dev + CI use `memory`. |
 | `DATABASE_URL` | backend | — | Postgres connection string. **Not required yet** — used from the database phase onward. |
 
-> `ANTHROPIC_API_KEY` and other keys are reserved for later phases — do not set them yet.
+> Live AI requires `ANTHROPIC_API_KEY` — see [`docs/ai-gameplay-analysis.md`](docs/ai-gameplay-analysis.md).
 
 ---
 
@@ -204,9 +205,8 @@ chelcoach/
 │  └─ drizzle.config.ts
 │
 ├─ public/                     Static assets (favicon.svg, icons.svg)
-├─ docs/                       backend-plan.md, backend-setup-replit.md, phase-status.md
+├─ docs/                       backend-plan.md, ffmpeg-extraction.md, ai-gameplay-analysis.md, …
 ├─ .github/workflows/ci.yml    CI: frontend build + server typecheck + smoke
-├─ replit.nix                  Nix environment (Node 22)
 ├─ tailwind.config.js          "Pro Ice Analytics" design tokens
 ├─ vite.config.ts
 └─ index.html
@@ -228,8 +228,8 @@ ffmpeg/AI yet):
 
 ## Deployment
 
-The project targets **[Replit](https://replit.com/)** (per `replit.nix` and
-[docs/backend-setup-replit.md](docs/backend-setup-replit.md)):
+The project remains deployable on **[Replit](https://replit.com/)** (see
+[docs/backend-setup-replit.md](docs/backend-setup-replit.md)); local/Cursor use Node 22 via `.nvmrc`:
 
 - The **Vite frontend** deploys as a static build and calls the API base URL.
 - The **API** targets a Replit **Reserved VM** (always-on, for the eventual background job
@@ -251,8 +251,9 @@ into a real one, phase by phase:
 - ✅ **Frontend read flag** — UI can consume the backend report with zero shape drift.
 - ✅ **Phase 2** — Real video upload + object storage (init → PUT bytes → commit); report is
   still the static sample.
-- ⏭️ **Phase 3 (next)** — ffmpeg frame extraction (posters + thumbnails).
-- ⏭️ **Later** — AI analysis, Postgres persistence, auth, and payments.
+- ✅ **Phase 3** — Bounded FFmpeg frame extraction (`docs/ffmpeg-extraction.md`).
+- ✅ **Phase 4** — Structured AI gameplay analysis (`docs/ai-gameplay-analysis.md`).
+- ⏭️ **Later** — Postgres persistence, auth, and payments.
 
 Full detail: [docs/phase-status.md](docs/phase-status.md) ·
 [docs/backend-plan.md](docs/backend-plan.md) ·
@@ -264,4 +265,4 @@ Full detail: [docs/phase-status.md](docs/phase-status.md) ·
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on push and pull request and
 checks: frontend `npm run build`, and server `typecheck` + `smoke`. It requires **no**
-Postgres, object storage, ffmpeg, or AI keys.
+Postgres or object storage. Demo mode needs no ffmpeg/AI keys; live mode does.

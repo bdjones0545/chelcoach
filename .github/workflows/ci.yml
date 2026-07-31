@@ -6,13 +6,17 @@ on:
   pull_request:
     branches: [main]
 
-# No Postgres, object storage, ffmpeg, or AI keys are required for CI.
+# No Postgres, object storage, or paid AI keys are required for CI.
+# FFmpeg is installed for extraction coverage; smoke uses AI_PROVIDER=fake.
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -36,7 +40,10 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-      # Backend: install + type-check + contract smoke test (in-memory, no DB).
+      - name: Test frontend
+        run: npm test
+
+      # Backend: install + type-check + unit/integration tests + smoke (in-memory storage).
       - name: Install server
         working-directory: server
         run: npm ci
@@ -44,6 +51,10 @@ jobs:
       - name: Typecheck server
         working-directory: server
         run: npm run typecheck
+
+      - name: Test server
+        working-directory: server
+        run: npm test
 
       - name: Smoke test server
         working-directory: server

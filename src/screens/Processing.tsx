@@ -1,80 +1,248 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import Button from "../components/Button";
 import GlassPanel from "../components/GlassPanel";
 import Icon from "../components/Icon";
 import StatePanel from "../components/StatePanel";
-import { processingMessages, stateCopy } from "../data/mockData";
+import { processingMessages, stateCopy, type StatePanelCopy } from "../data/mockData";
+import { USE_BACKEND_REPORTS, fetchAnalysisJobStatus, fetchClipReport } from "../lib/reportApi";
+import { pollAnalysisStatus, type PollOutcome } from "../lib/pollStatus";
 import { useAnalysis } from "../state/AnalysisContext";
+import { useReport } from "../state/ReportContext";
+import type { AnalysisJobStatus } from "../../shared/analysisContract";
+
+type LivePhase =
+  | "preparing"
+  | "queued"
+  | "processing"
+  | "completed"
+  | "failed"
+  | "timeout"
+  | "unreachable"
+  | "invalid";
+
+function phaseFromStatus(status: AnalysisJobStatus["status"]): Exclude<LivePhase, "preparing" | "timeout" | "unreachable" | "invalid" | "completed"> {
+  if (status === "failed") return "failed";
+  if (status === "queued") return "queued";
+  return "processing";
+}
+
+function statusLabel(phase: LivePhase, serverMessage?: string): string {
+  if (serverMessage) return serverMessage;
+  switch (phase) {
+    case "preparing":
+      return "Preparing your analysis…";
+    case "queued":
+      return "Queued for analysis…";
+    case "processing":
+      return "Analyzing your clip…";
+    case "completed":
+      return "Report ready.";
+    default:
+      return "Working…";
+  }
+}
+
+function stageLabel(phase: LivePhase, stage?: string): string {
+  if (stage === "ready") return "Ready";
+  if (stage === "queued") return "Queued";
+  if (stage === "inspecting_video") return "Inspecting";
+  if (stage === "extracting_frames") return "Extracting";
+  if (stage === "analyzing_gameplay") return "Analyzing";
+  if (stage === "validating_report") return "Validating";
+  if (stage === "finalizing") return "Finalizing";
+  if (phase === "preparing") return "Preparing";
+  if (phase === "completed") return "Complete";
+  return "In progress";
+}
 
 export default function Processing() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { markAnalyzed } = useAnalysis();
+  const { markAnalyzed, activeClipId, clearActiveClip, reset: resetAnalysis } = useAnalysis();
+  const { acceptLiveReport, restoreDemoReport, backendEnabled } = useReport();
 
-  const [progress, setProgress] = useState(0);
+  // Intentional demo: flag off, or no active live clip id.
+  const isDemoMode = !backendEnabled || !USE_BACKEND_REPORTS || !activeClipId;
+
+  // --- Demo (cosmetic) state -------------------------------------------------
+  const [demoProgress, setDemoProgress] = useState(0);
   const [messageIndex, setMessageIndex] = useState(0);
-  const [frames, setFrames] = useState(0);
-  const [failed, setFailed] = useState(false);
-  const done = progress >= 100;
+  const demoTimer = useRef<number>(0);
+  const demoDone = demoProgress >= 100;
 
-  // Mock failure: reachable via /processing?state=fail (e.g. from a real upload error).
-  const failArmed = useRef(new URLSearchParams(location.search).get("state") === "fail");
-  const raf = useRef<number>(0);
+  // --- Live (server-driven) state --------------------------------------------
+  const [livePhase, setLivePhase] = useState<LivePhase>("preparing");
+  const [liveStatus, setLiveStatus] = useState<AnalysisJobStatus | null>(null);
+  const [liveProgress, setLiveProgress] = useState(0);
+  const pollAbort = useRef<AbortController | null>(null);
+  const reportFetched = useRef(false);
+  const navigated = useRef(false);
+  const pollGeneration = useRef(0);
 
-  const startRun = useCallback(() => {
-    window.clearTimeout(raf.current);
+  const goToScorecardOnce = useCallback(() => {
+    if (navigated.current) return;
+    navigated.current = true;
+    markAnalyzed();
+    navigate("/scorecard");
+  }, [markAnalyzed, navigate]);
+
+  // Demo path: animation may drive completion (no server job exists).
+  const startDemoRun = useCallback(() => {
+    window.clearTimeout(demoTimer.current);
     let current = 0;
-    setFailed(false);
-    setProgress(0);
-    setFrames(0);
+    setDemoProgress(0);
     setMessageIndex(0);
-
     const tick = () => {
-      // Simulated mid-review failure.
-      if (failArmed.current && current >= 42) {
-        setFailed(true);
-        return;
-      }
       current = Math.min(100, current + (current > 90 ? 0.4 : Math.random() * 2.2));
-      setProgress(current);
-      setFrames((f) => f + Math.floor(Math.random() * 48) + 12);
-      setMessageIndex(Math.min(processingMessages.length - 1, Math.floor(current / (100 / processingMessages.length))));
-      if (current < 100) {
-        // Plain timer (not requestAnimationFrame) so progress keeps advancing even if
-        // the tab is backgrounded during the analysis.
-        raf.current = window.setTimeout(tick, 110);
-      }
+      setDemoProgress(current);
+      setMessageIndex(
+        Math.min(processingMessages.length - 1, Math.floor(current / (100 / processingMessages.length))),
+      );
+      if (current < 100) demoTimer.current = window.setTimeout(tick, 110);
     };
-    raf.current = window.setTimeout(tick, 600);
+    demoTimer.current = window.setTimeout(tick, 600);
   }, []);
 
   useEffect(() => {
-    startRun();
-    return () => window.clearTimeout(raf.current);
-  }, [startRun]);
+    if (!isDemoMode) return;
+    startDemoRun();
+    return () => window.clearTimeout(demoTimer.current);
+  }, [isDemoMode, startDemoRun]);
 
-  // On success, record the analysis and advance to the scorecard.
   useEffect(() => {
-    if (!done) return;
-    markAnalyzed();
-    const t = setTimeout(() => navigate("/scorecard"), 1100);
-    return () => clearTimeout(t);
-  }, [done, markAnalyzed, navigate]);
+    if (!isDemoMode || !demoDone) return;
+    const t = window.setTimeout(() => goToScorecardOnce(), 1100);
+    return () => window.clearTimeout(t);
+  }, [isDemoMode, demoDone, goToScorecardOnce]);
 
-  const goToScorecard = () => {
-    markAnalyzed();
-    navigate("/scorecard");
+  // Live path: server status determines completion — never the animation timer.
+  const runLivePoll = useCallback(async () => {
+    if (!activeClipId) return;
+    const generation = ++pollGeneration.current;
+    pollAbort.current?.abort();
+    const controller = new AbortController();
+    pollAbort.current = controller;
+    reportFetched.current = false;
+    navigated.current = false;
+    setLivePhase("preparing");
+    setLiveStatus(null);
+    setLiveProgress(0);
+
+    const outcome: PollOutcome = await pollAnalysisStatus({
+      signal: controller.signal,
+      fetchStatus: async () => {
+        const status = await fetchAnalysisJobStatus(activeClipId, controller.signal);
+        if (generation !== pollGeneration.current) return status;
+        setLiveStatus(status);
+        setLiveProgress(status.phaseProgress ?? (status.status === "queued" ? 25 : 60));
+        if (status.status !== "completed" && status.status !== "failed") {
+          setLivePhase(phaseFromStatus(status.status));
+        }
+        return status;
+      },
+    });
+
+    if (generation !== pollGeneration.current || controller.signal.aborted) return;
+
+    if (outcome.outcome === "aborted") return;
+
+    if (outcome.outcome === "completed") {
+      setLivePhase("completed");
+      setLiveProgress(100);
+      setLiveStatus(outcome.status);
+      if (reportFetched.current) return;
+      reportFetched.current = true;
+      try {
+        const report = await fetchClipReport(activeClipId, controller.signal);
+        if (generation !== pollGeneration.current || controller.signal.aborted) return;
+        acceptLiveReport(report);
+        window.setTimeout(() => goToScorecardOnce(), 800);
+      } catch {
+        reportFetched.current = false;
+        setLivePhase("unreachable");
+      }
+      return;
+    }
+
+    if (outcome.outcome === "failed") {
+      setLivePhase("failed");
+      setLiveStatus(outcome.status);
+      return;
+    }
+    if (outcome.outcome === "timeout") {
+      setLivePhase("timeout");
+      return;
+    }
+    if (outcome.outcome === "unreachable") {
+      setLivePhase("unreachable");
+      return;
+    }
+    if (outcome.outcome === "invalid") {
+      setLivePhase("invalid");
+    }
+  }, [activeClipId, acceptLiveReport, goToScorecardOnce]);
+
+  useEffect(() => {
+    if (isDemoMode) return;
+    void runLivePoll();
+    return () => {
+      pollGeneration.current += 1;
+      pollAbort.current?.abort();
+    };
+  }, [isDemoMode, runLivePoll]);
+
+  const retryLive = () => {
+    void runLivePoll();
   };
 
-  const retry = () => {
-    failArmed.current = false; // second attempt succeeds
-    startRun();
+  const backToUpload = () => {
+    pollAbort.current?.abort();
+    clearActiveClip();
+    navigate("/upload");
   };
+
+  const startOver = () => {
+    pollAbort.current?.abort();
+    resetAnalysis();
+    restoreDemoReport();
+    navigate("/");
+  };
+
+  const failureCopy = (): StatePanelCopy | null => {
+    if (isDemoMode) return null;
+    switch (livePhase) {
+      case "failed":
+        return {
+          ...stateCopy.processingFailed,
+          message: liveStatus?.errorMessage ?? stateCopy.processingFailed.message,
+        };
+      case "timeout":
+        return stateCopy.processingTimeout;
+      case "unreachable":
+        return stateCopy.processingUnreachable;
+      case "invalid":
+        return stateCopy.processingInvalid;
+      default:
+        return null;
+    }
+  };
+
+  const failure = failureCopy();
+  const progress = isDemoMode ? demoProgress : liveProgress;
+  const done = isDemoMode ? demoDone : livePhase === "completed";
+  const headlineMessage = isDemoMode
+    ? done
+      ? "Report ready."
+      : processingMessages[messageIndex]
+    : statusLabel(livePhase, liveStatus?.message);
+  const phaseTitle = isDemoMode
+    ? done
+      ? "Complete"
+      : "Reviewing"
+    : stageLabel(livePhase, liveStatus?.stage);
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-surface-container-lowest">
-      {/* Digital scan-field backdrop */}
       <div className="pointer-events-none absolute inset-0 opacity-60">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,163,255,0.18),transparent_55%)]" />
         <div className="absolute inset-0 hex-bg" />
@@ -86,14 +254,20 @@ export default function Processing() {
       </div>
 
       <main className="relative z-10 flex min-h-screen flex-col items-center justify-center gap-12 px-gutter">
-        {failed ? (
+        {failure ? (
           <StatePanel
-            icon={stateCopy.processingFailed.icon}
-            tone={stateCopy.processingFailed.tone}
-            title={stateCopy.processingFailed.title}
-            message={stateCopy.processingFailed.message}
-            primary={{ label: stateCopy.processingFailed.primaryLabel, onClick: retry }}
-            secondary={{ label: stateCopy.processingFailed.secondaryLabel, onClick: () => navigate("/upload") }}
+            icon={failure.icon}
+            tone={failure.tone}
+            title={failure.title}
+            message={failure.message}
+            primary={{
+              label: failure.primaryLabel,
+              onClick: livePhase === "invalid" ? backToUpload : retryLive,
+            }}
+            secondary={{
+              label: failure.secondaryLabel,
+              onClick: livePhase === "invalid" ? startOver : backToUpload,
+            }}
           />
         ) : (
           <>
@@ -106,7 +280,7 @@ export default function Processing() {
                   {Math.floor(progress)}%
                 </span>
                 <span className="font-label-sm text-label-sm uppercase tracking-widest text-primary/80">
-                  {done ? "Complete" : "Optimizing"}
+                  {done ? "Complete" : phaseTitle}
                 </span>
               </div>
             </div>
@@ -116,8 +290,8 @@ export default function Processing() {
                 Your AI Coaching Staff Is Reviewing Your Game
               </h1>
               <div className="flex h-8 items-center justify-center">
-                <p key={messageIndex} className="status-fade-in font-label-md text-label-md text-tertiary">
-                  {done ? "Report ready." : processingMessages[messageIndex]}
+                <p key={headlineMessage} className="status-fade-in font-label-md text-label-md text-tertiary">
+                  {headlineMessage}
                 </p>
               </div>
             </div>
@@ -126,7 +300,7 @@ export default function Processing() {
               <div className="space-y-2">
                 <div className="flex items-end justify-between">
                   <span className="font-label-sm text-label-sm uppercase text-on-surface-variant">Current Phase</span>
-                  <span className="font-label-sm text-label-sm text-primary">Tactical Extraction</span>
+                  <span className="font-label-sm text-label-sm text-primary">{phaseTitle}</span>
                 </div>
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-container">
                   <div
@@ -138,18 +312,28 @@ export default function Processing() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1">
                   <span className="font-label-sm text-label-sm text-on-surface-variant">Estimated completion</span>
-                  <span className="font-body-md text-body-md font-bold text-primary">Under a minute</span>
+                  <span className="font-body-md text-body-md font-bold text-primary">
+                    {isDemoMode ? "Under a minute" : "Usually a few minutes"}
+                  </span>
                 </div>
                 <div className="flex flex-col gap-1 text-right">
-                  <span className="font-label-sm text-label-sm text-on-surface-variant">Analyzed Frames</span>
-                  <span className="font-body-md text-body-md font-bold text-on-surface">{frames.toLocaleString()}</span>
+                  <span className="font-label-sm text-label-sm text-on-surface-variant">Mode</span>
+                  <span className="font-body-md text-body-md font-bold text-on-surface">
+                    {isDemoMode ? "Demo" : "Live"}
+                  </span>
                 </div>
               </div>
             </GlassPanel>
 
-            <Button size="md" trailingIcon="arrow_forward" className="group" onClick={goToScorecard}>
-              {done ? "View My Scorecard" : "Skip to Scorecard"}
-            </Button>
+            {isDemoMode ? (
+              <Button size="md" trailingIcon="arrow_forward" className="group" onClick={goToScorecardOnce}>
+                {done ? "View My Scorecard" : "Skip to Scorecard"}
+              </Button>
+            ) : done ? (
+              <Button size="md" trailingIcon="arrow_forward" className="group" onClick={goToScorecardOnce}>
+                View My Scorecard
+              </Button>
+            ) : null}
           </>
         )}
       </main>
