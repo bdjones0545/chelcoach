@@ -112,7 +112,7 @@ export default function Upload() {
             <div
               role="button"
               tabIndex={0}
-              aria-label="Upload a game clip. Accepts MP4 or MOV files up to 2 gigabytes."
+              aria-label={`Upload a game clip. Accepts MP4 or MOV files up to ${uploadRules.maxLabel}.`}
               onClick={() => inputRef.current?.click()}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {

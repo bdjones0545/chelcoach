@@ -1,27 +1,27 @@
 /**
  * Maps an internal ClipRecord → public AnalysisJobStatus (shared contract).
- * Keep this as the single projection so a future async worker only has to
- * advance ClipRecord.status; the envelope shape stays stable.
  */
-import type { AnalysisJobStatus, ClipStatus, ErrorCode } from "./contract";
+import type { AnalysisJobStatus, AnalysisJobStage, ErrorCode } from "./contract";
 import { analysisJobStatusSchema } from "./contract";
 import type { ClipRecord } from "./store";
 
 interface JobProjection {
   status: AnalysisJobStatus["status"];
-  stage: AnalysisJobStatus["stage"];
+  stage: AnalysisJobStage;
   phaseProgress: number;
   reportReady: boolean;
   message: string;
 }
 
-function projectClipStatus(status: ClipStatus, hasReport: boolean): JobProjection {
+function projectClip(clip: ClipRecord): JobProjection {
+  const status = clip.status;
+
   switch (status) {
     case "uploading":
       return {
         status: "queued",
         stage: "queued",
-        phaseProgress: 0,
+        phaseProgress: clip.phaseProgress ?? 0,
         reportReady: false,
         message: "Upload in progress.",
       };
@@ -29,27 +29,41 @@ function projectClipStatus(status: ClipStatus, hasReport: boolean): JobProjectio
       return {
         status: "queued",
         stage: "queued",
-        phaseProgress: 25,
+        phaseProgress: clip.phaseProgress ?? 15,
         reportReady: false,
         message: "Queued for analysis.",
       };
-    case "extracting":
-    case "analyzing":
-      // Reserved for future ffmpeg / AI phases — mapped to public "processing".
+    case "extracting": {
+      const stage: AnalysisJobStage = clip.stage ?? "inspecting_video";
+      const messages: Partial<Record<AnalysisJobStage, string>> = {
+        inspecting_video: "Inspecting your video…",
+        extracting_frames: "Extracting frames…",
+        finalizing: "Finalizing…",
+      };
       return {
         status: "processing",
-        stage: "processing",
-        phaseProgress: status === "extracting" ? 50 : 75,
+        stage,
+        phaseProgress: clip.phaseProgress ?? 40,
         reportReady: false,
-        message: "Analyzing your clip.",
+        message: messages[stage] ?? "Processing your clip…",
+      };
+    }
+    case "analyzing":
+      // Reserved for Phase 4 AI — not produced yet.
+      return {
+        status: "processing",
+        stage: "finalizing",
+        phaseProgress: clip.phaseProgress ?? 80,
+        reportReady: false,
+        message: "Analyzing your clip…",
       };
     case "complete":
       return {
         status: "completed",
         stage: "ready",
         phaseProgress: 100,
-        reportReady: hasReport,
-        message: hasReport ? "Report ready." : "Analysis complete.",
+        reportReady: Boolean(clip.report),
+        message: clip.report ? "Report ready." : "Analysis complete.",
       };
     case "failed":
       return {
@@ -68,19 +82,19 @@ function projectClipStatus(status: ClipStatus, hasReport: boolean): JobProjectio
 
 /** Build a contract-valid status envelope from a clip record. Throws on drift. */
 export function toAnalysisJobStatus(clip: ClipRecord): AnalysisJobStatus {
-  const projected = projectClipStatus(clip.status, Boolean(clip.report));
+  const projected = projectClip(clip);
   const errorCode = clip.errorCode as ErrorCode | undefined;
 
   return analysisJobStatusSchema.parse({
     clipId: clip.id,
     ...(clip.jobId ? { jobId: clip.jobId } : {}),
     status: projected.status,
-    message: clip.errorMessage ?? projected.message,
+    message: clip.status === "failed" ? (clip.errorMessage ?? projected.message) : projected.message,
     stage: projected.stage,
     phaseProgress: projected.phaseProgress,
     reportReady: projected.reportReady,
     ...(errorCode ? { errorCode } : {}),
-    ...(clip.errorMessage ? { errorMessage: clip.errorMessage } : {}),
+    ...(clip.status === "failed" && clip.errorMessage ? { errorMessage: clip.errorMessage } : {}),
     updatedAt: clip.updatedAt,
   });
 }

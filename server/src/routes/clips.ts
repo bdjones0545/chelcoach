@@ -1,17 +1,16 @@
 /**
  * Clip / analysis routes.
  *
- *   POST /api/clips/:id/commit    finalize an uploaded clip (attaches the static report)
+ *   POST /api/clips/:id/commit    finalize upload; enqueue extraction (or demo-complete)
  *   GET  /api/clips/:id/status    public analysis-job status (Processing-screen contract)
  *   GET  /api/clips/:id           clip status + report once complete
  *   GET  /api/clips/:id/analysis  the report alone, once complete
- *
- * Upload init + file bytes live in routes/uploads.ts. No ffmpeg/AI yet.
  */
 import { Router } from "express";
 import { toAnalysisJobStatus } from "../analysisStatus";
 import type { AnalysisResponse, ClipResponse, CommitResponse } from "../contract";
 import { clipIdParamSchema } from "../contract";
+import { enqueueExtraction } from "../jobs/extractionQueue";
 import { ClipStoreError, commitClip, getClip } from "../store";
 
 export const clipsRouter = Router();
@@ -26,7 +25,7 @@ function rejectMalformedId(res: import("express").Response): void {
   res.status(400).json({ error: "invalid_clip_id", message: "Malformed clip id." });
 }
 
-/** POST /api/clips/:id/commit — finalize the clip (or synthesize the demo clip). */
+/** POST /api/clips/:id/commit — returns immediately; extraction continues async when needed. */
 clipsRouter.post("/clips/:id/commit", (req, res) => {
   const id = parseClipId(req.params.id);
   if (!id) {
@@ -34,9 +33,15 @@ clipsRouter.post("/clips/:id/commit", (req, res) => {
     return;
   }
   try {
-    const clip = commitClip(id);
+    const { clip, shouldExtract } = commitClip(id);
+    // Snapshot status before enqueue — the in-process runner may advance the same
+    // ClipRecord to "extracting" synchronously before this handler returns.
     const body: CommitResponse = { clipId: clip.id, jobId: clip.jobId ?? "", status: clip.status };
     res.status(200).json(body);
+    if (shouldExtract) {
+      // Defer so the HTTP response flushes before extraction starts mutating status.
+      setImmediate(() => enqueueExtraction(clip.id));
+    }
   } catch (err) {
     if (err instanceof ClipStoreError) {
       res.status(err.httpStatus).json({ error: err.code, message: err.message });
@@ -79,7 +84,7 @@ clipsRouter.get("/clips/:id", (req, res) => {
   const body: ClipResponse = {
     clipId: clip.id,
     status: clip.status,
-    phaseProgress: clip.status === "complete" ? 100 : clip.status === "queued" ? 50 : 0,
+    phaseProgress: clip.phaseProgress ?? (clip.status === "complete" ? 100 : clip.status === "queued" ? 15 : 0),
     ...(clip.report ? { report: clip.report } : {}),
     ...(clip.errorCode ? { errorCode: clip.errorCode } : {}),
     ...(clip.errorMessage ? { errorMessage: clip.errorMessage } : {}),

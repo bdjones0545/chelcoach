@@ -8,7 +8,14 @@
 import type { AnalysisJobStatus, AnalysisJobStatusValue } from "../../shared/analysisContract";
 
 const STATUS_VALUES = new Set<AnalysisJobStatusValue>(["queued", "processing", "completed", "failed"]);
-const STAGE_VALUES = new Set(["queued", "processing", "finalizing", "ready", "failed"]);
+const STAGE_VALUES = new Set([
+  "queued",
+  "inspecting_video",
+  "extracting_frames",
+  "finalizing",
+  "ready",
+  "failed",
+]);
 
 export class InvalidAnalysisJobStatusError extends Error {
   constructor(message = "Malformed analysis status response.") {

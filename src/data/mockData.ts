@@ -318,8 +318,9 @@ export const uploadRules = {
   acceptMimeTypes: ["video/mp4", "video/quicktime"],
   // value for the <input accept="…"> attribute
   accept: "video/mp4,video/quicktime,.mp4,.mov",
-  maxBytes: 2 * 1024 ** 3, // 2 GB
-  maxLabel: "2 GB",
+  // Keep in sync with shared/analysisContract.ts uploadRules (250 MB Phase-3 cap).
+  maxBytes: 250 * 1024 ** 2, // 250 MB
+  maxLabel: "250 MB",
 };
 
 // --- UX state copy (validation errors, empty & failure states) ---------------

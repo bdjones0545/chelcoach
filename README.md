@@ -59,7 +59,8 @@ Every feature below is driven by real content and screens in the codebase (`src/
 - **Full Film Room** — interactive timeline with tone-coded markers, coach commentary,
   strengths vs. mistakes, highest-impact adjustment, next-game focus, a weekly skill-focus
   drill plan, a game-summary stat line, and impact meters.
-- **Upload validation** — accepts MP4 / MOV up to 2 GB, with player-friendly error copy for
+- **Upload validation** — accepts MP4 / MOV up to **250 MB** (Phase-3 in-process cap; see
+  [`docs/ffmpeg-extraction.md`](docs/ffmpeg-extraction.md)), with player-friendly error copy for
   unsupported and oversized files; the same rules are enforced server-side via a shared
   contract.
 - **Shared Analysis Contract** — Zod schemas + inferred types in
@@ -251,8 +252,9 @@ into a real one, phase by phase:
 - ✅ **Frontend read flag** — UI can consume the backend report with zero shape drift.
 - ✅ **Phase 2** — Real video upload + object storage (init → PUT bytes → commit); report is
   still the static sample.
-- ⏭️ **Phase 3 (next)** — ffmpeg frame extraction (posters + thumbnails).
-- ⏭️ **Later** — AI analysis, Postgres persistence, auth, and payments.
+- ✅ **Phase 3** — Bounded FFmpeg frame extraction (inspect → sample frames → sample report).
+- ⏭️ **Later** — AI analysis, Postgres persistence, auth, and payments. See
+  [`docs/ffmpeg-extraction.md`](docs/ffmpeg-extraction.md).
 
 Full detail: [docs/phase-status.md](docs/phase-status.md) ·
 [docs/backend-plan.md](docs/backend-plan.md) ·
