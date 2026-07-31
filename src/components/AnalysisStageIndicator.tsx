@@ -18,7 +18,7 @@ export default function AnalysisStageIndicator({ stages }: { stages: AnalysisSta
         return (
           <li key={stage.id} className="flex items-center gap-2">
             {index > 0 && (
-              <span className="text-on-surface-variant/40" aria-hidden="true">
+              <span className="text-on-surface-variant" aria-hidden="true">
                 /
               </span>
             )}
@@ -30,7 +30,7 @@ export default function AnalysisStageIndicator({ stages }: { stages: AnalysisSta
                 isFailed ? "text-error" : "",
                 isCancelled ? "text-on-surface-variant" : "",
                 !isCurrent && !isComplete && !isFailed && !isCancelled
-                  ? "text-on-surface-variant/50"
+                  ? "text-on-surface-variant"
                   : "",
               ].join(" ")}
               aria-current={isCurrent ? "step" : undefined}

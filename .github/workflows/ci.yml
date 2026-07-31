@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 # Object storage, ffmpeg, and AI keys are not required for CI.
-# Postgres is used for Step 6 durable job repository integration tests.
+# Postgres is used for Step 6 durable job repository integration tests and Step 9 E2E.
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -27,6 +27,9 @@ jobs:
           --health-retries 10
     env:
       DATABASE_URL: postgresql://chelcoach:chelcoach@localhost:5432/chelcoach_test
+      CHELCOACH_RECONCILE_SECRET: e2e-reconcile-secret
+      CHELCOACH_E2E_SECRET: e2e-secret
+      CHELCOACH_E2E_MODE: "1"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -96,3 +99,25 @@ jobs:
           CHELCOACH_FORCE_MEMORY_REPOS: "1"
           DATABASE_URL: ""
         run: npm run smoke
+
+      - name: Install Playwright browsers (Chromium full + Firefox/WebKit smoke)
+        run: npx playwright install --with-deps chromium firefox webkit
+
+      - name: E2E browser verification (Chromium full + secondary smoke)
+        run: npx playwright test
+        env:
+          CI: "1"
+          DATABASE_URL: postgresql://chelcoach:chelcoach@localhost:5432/chelcoach_test
+          CHELCOACH_RECONCILE_SECRET: e2e-reconcile-secret
+          CHELCOACH_E2E_SECRET: e2e-secret
+
+      - name: Upload Playwright artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7

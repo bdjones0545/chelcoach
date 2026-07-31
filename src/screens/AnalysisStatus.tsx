@@ -156,13 +156,20 @@ export default function AnalysisStatus() {
       try {
         const id = await getPlayerIdentification(job.uploadId);
         if (cancelled) return;
-        setRemoteCandidates(
-          id.candidates.map((c) => ({
-            candidateId: c.candidateId,
-            displayLabel: c.displayLabel,
-          })),
-        );
-        setSelectedCandidateId(id.candidates[0]?.candidateId ?? null);
+        const mapped = id.candidates.map((c) => ({
+          candidateId: c.candidateId,
+          displayLabel: c.displayLabel,
+        }));
+        // High-confidence upload IDs may have zero candidates — still need a provider confirm control.
+        if (mapped.length === 0) {
+          setRemoteCandidates([
+            { candidateId: "sim_remote_default", displayLabel: "Confirmed skater" },
+          ]);
+          setSelectedCandidateId("sim_remote_default");
+        } else {
+          setRemoteCandidates(mapped);
+          setSelectedCandidateId(mapped[0]?.candidateId ?? null);
+        }
       } catch {
         setRemoteCandidates([{ candidateId: "sim_remote_default", displayLabel: "Confirmed skater" }]);
         setSelectedCandidateId("sim_remote_default");

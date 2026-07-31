@@ -46,8 +46,16 @@ export function resetRetentionPolicyCacheForTests(): void {
   cached = null;
 }
 
+/** E2E-only override — allows sub-1MB caps for streamed oversize rejection tests. */
+let e2eMaxUploadBytesOverride: number | null = null;
+
+export function setE2eMaxUploadBytesOverride(bytes: number | null): void {
+  e2eMaxUploadBytesOverride = bytes;
+}
+
 /** Configurable upload byte cap — defaults to shared SCOTTY_DEFAULT_MAX_UPLOAD_BYTES (2 GB). */
 export function getMaxUploadBytes(): number {
+  if (e2eMaxUploadBytesOverride != null) return e2eMaxUploadBytesOverride;
   return intEnv("CHELCOACH_MAX_UPLOAD_BYTES", SCOTTY_DEFAULT_MAX_UPLOAD_BYTES, 1_000_000, 10 * 1024 ** 3);
 }
 

@@ -33,12 +33,24 @@ export function isSimulatorScenario(value: string): value is SimulatorScenario {
   return (SIMULATOR_SCENARIOS as readonly string[]).includes(value);
 }
 
+/** Process-wide E2E override — never set outside CHELCOACH_E2E_MODE hooks. */
+let e2eScenarioOverride: SimulatorScenario | null = null;
+
+export function setE2eSimulatorScenarioOverride(scenario: SimulatorScenario | null): void {
+  e2eScenarioOverride = scenario;
+}
+
+export function getE2eSimulatorScenarioOverride(): SimulatorScenario | null {
+  return e2eScenarioOverride;
+}
+
 export function resolveSimulatorScenario(input: {
   injected?: SimulatorScenario;
   envDefault?: string;
   mediaClassification: MediaClassification;
 }): SimulatorScenario {
   if (input.injected) return input.injected;
+  if (e2eScenarioOverride) return e2eScenarioOverride;
   const env = (input.envDefault ?? process.env.SCOTTY_SIMULATOR_DEFAULT_SCENARIO ?? "auto").trim();
   if (env !== "auto" && isSimulatorScenario(env)) return env;
   if (input.mediaClassification === "full_game") return "successful_full_game";

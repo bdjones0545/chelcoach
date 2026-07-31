@@ -35,6 +35,11 @@ export function resetSessionsForTests(): void {
   sessions.clear();
 }
 
+/** Revoke a single opaque session token (E2E / tests). */
+export function revokeSession(token: string): boolean {
+  return sessions.delete(tokenKey(token));
+}
+
 /** Seed a known session for tests. */
 export function seedSessionForTests(session: OwnerSession): void {
   sessions.set(tokenKey(session.token), session);

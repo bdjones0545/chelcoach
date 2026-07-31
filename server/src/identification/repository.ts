@@ -192,6 +192,26 @@ export class InMemoryIdentificationRepository implements IdentificationRepositor
     this.confirmations.clear();
     this.leases.clear();
   }
+
+  deleteByUploadId(uploadId: string): boolean {
+    const identificationId = this.byUpload.get(uploadId);
+    if (!identificationId) return false;
+    this.byUpload.delete(uploadId);
+    this.ids.delete(identificationId);
+    for (const [id, frame] of this.frames) {
+      if (frame.identificationId === identificationId) this.frames.delete(id);
+    }
+    for (const [id, candidate] of this.candidates) {
+      if (candidate.identificationId === identificationId) this.candidates.delete(id);
+    }
+    for (const [id, confirmation] of this.confirmations) {
+      if (confirmation.identificationId === identificationId) this.confirmations.delete(id);
+    }
+    for (const [id, lease] of this.leases) {
+      if (lease.uploadId === uploadId) this.leases.delete(id);
+    }
+    return true;
+  }
 }
 
 let repo: IdentificationRepository = new InMemoryIdentificationRepository();
@@ -206,6 +226,14 @@ export function setIdentificationRepositoryForTests(next: IdentificationReposito
 
 export function resetIdentificationRepositoryForTests(): void {
   repo = new InMemoryIdentificationRepository();
+}
+
+/** E2E helper — drop identification state for one upload (in-memory repo). */
+export async function deleteIdentificationForUpload(uploadId: string): Promise<boolean> {
+  if (repo instanceof InMemoryIdentificationRepository) {
+    return repo.deleteByUploadId(uploadId);
+  }
+  return false;
 }
 
 export function newId(): string {

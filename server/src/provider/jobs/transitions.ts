@@ -56,11 +56,27 @@ const ALLOWED: ReadonlyMap<ScottyJobStatus, ReadonlySet<ScottyJobStatus>> = new 
   ],
   [
     "awaiting_player_confirmation",
-    new Set(["validating_player_identity", "analyzing_gameplay", "failed", "cancelled"]),
+    new Set([
+      "validating_player_identity",
+      "analyzing_gameplay",
+      "validating_report",
+      "finalizing",
+      // Fast local simulator may complete shortly after confirmation within one poll.
+      "completed",
+      "failed",
+      "cancelled",
+    ]),
   ],
   [
     "validating_player_identity",
-    new Set(["analyzing_gameplay", "validating_report", "failed", "cancelled"]),
+    new Set([
+      "analyzing_gameplay",
+      "validating_report",
+      "finalizing",
+      "completed",
+      "failed",
+      "cancelled",
+    ]),
   ],
   [
     "analyzing_gameplay",

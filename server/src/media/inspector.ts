@@ -143,11 +143,23 @@ export class FfprobeMediaInspector implements MediaInspector {
 
 export class FakeMediaInspector implements MediaInspector {
   constructor(
-    private result: MediaInspectionResult | (() => MediaInspectionResult | Promise<MediaInspectionResult>),
+    private result:
+      | MediaInspectionResult
+      | ((input: {
+          uploadId: string;
+          storageProvider: string;
+          objectKey: string;
+          declaredMimeType: string;
+        }) => MediaInspectionResult | Promise<MediaInspectionResult>),
   ) {}
 
-  async inspect(): Promise<MediaInspectionResult> {
-    return typeof this.result === "function" ? await this.result() : this.result;
+  async inspect(input: {
+    uploadId: string;
+    storageProvider: string;
+    objectKey: string;
+    declaredMimeType: string;
+  }): Promise<MediaInspectionResult> {
+    return typeof this.result === "function" ? await this.result(input) : this.result;
   }
 }
 

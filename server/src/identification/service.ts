@@ -305,6 +305,18 @@ export async function startOrGetIdentification(
   // Idempotent: return existing terminal / in-progress results.
   if (existing) {
     if (existing.status === "checking") {
+      // Concurrent start (e.g. React Strict Mode remount) — wait for the in-flight run
+      // instead of failing the second caller with a hard 409.
+      for (let i = 0; i < 60; i++) {
+        await new Promise((r) => setTimeout(r, 50));
+        const again = await repo.getByUploadId(uploadId);
+        if (!again) break;
+        if (again.status !== "checking") {
+          const frames = await repo.listFrames(again.identificationId);
+          const candidates = await repo.listCandidates(again.identificationId);
+          return toPublic(again, frames, candidates, upload);
+        }
+      }
       throw new IdentificationServiceError(
         409,
         "PLAYER_IDENTIFICATION_ALREADY_RUNNING",

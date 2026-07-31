@@ -65,28 +65,60 @@ function guidanceFor(platform: SupportedPlatform, scheme: string): ControlGuidan
   return xboxGuidance(scheme);
 }
 
+const OBSERVATION_SCRIPTS = [
+  {
+    category: "positioning" as const,
+    observedAction: "Arrived below the puck for a support option",
+    coachingInterpretation: "Stay underneath possession so the puck carrier has a safe outlet.",
+    recommendedMechanic: "puck_support",
+  },
+  {
+    category: "decision_making" as const,
+    observedAction: "Forced a rim when a middle outlet was available",
+    coachingInterpretation: "Scan middle support before defaulting to the wall under light pressure.",
+    recommendedMechanic: "gap_control",
+  },
+  {
+    category: "defense" as const,
+    observedAction: "Held a tight gap through the blue-line entry",
+    coachingInterpretation: "Match rush speed early and keep your stick in the passing lane.",
+    recommendedMechanic: "gap_control",
+  },
+  {
+    category: "offense" as const,
+    observedAction: "Drove the middle lane after a controlled entry",
+    coachingInterpretation: "Attack ice behind the defense once the puck crosses with possession.",
+    recommendedMechanic: "puck_support",
+  },
+  {
+    category: "transition" as const,
+    observedAction: "Exited the zone through the middle with speed",
+    coachingInterpretation: "Face up-ice immediately after the first touch to keep the breakout clean.",
+    recommendedMechanic: "transition",
+  },
+  {
+    category: "puck_management" as const,
+    observedAction: "Protected the puck along the wall before moving it",
+    coachingInterpretation: "Shield first, then move the puck when a teammate presents support.",
+    recommendedMechanic: "puck_support",
+  },
+] as const;
+
 function buildObservations(job: SimulatorJob): ScottyObservation[] {
   const n = observationCount(job);
   const duration = job.mediaDurationSec;
-  const categories = [
-    "positioning",
-    "decision_making",
-    "defense",
-    "offense",
-    "transition",
-    "puck_management",
-  ] as const;
   const out: ScottyObservation[] = [];
   for (let i = 0; i < n; i++) {
     const ts = clampTs(((i + 1) / (n + 1)) * duration, duration);
+    const script = OBSERVATION_SCRIPTS[i % OBSERVATION_SCRIPTS.length]!;
     out.push({
       timestampSec: ts,
-      category: categories[i % categories.length]!,
-      observedAction: `Simulated observation ${i + 1} at ${ts.toFixed(1)}s`,
+      category: script.category,
+      observedAction: script.observedAction,
       attributionExplanation: `Tracked controlled player (${job.effectivePlayer.position}) via ${job.effectivePlayer.source}`,
-      coachingInterpretation: "Maintain spacing and support angles through the next transition.",
+      coachingInterpretation: script.coachingInterpretation,
       confidence: "moderate",
-      recommendedMechanic: i % 2 === 0 ? "gap_control" : "puck_support",
+      recommendedMechanic: script.recommendedMechanic,
     });
   }
   // Validate all timestamps within duration.

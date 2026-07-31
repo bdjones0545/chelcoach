@@ -3,6 +3,7 @@ import express from "express";
 import type { NextFunction, Request, Response } from "express";
 import { wirePersistence } from "./persistence";
 import { configureDefaultFrameExtractor } from "./identification/extractor";
+import { createE2eRouter, installE2eMediaInspector, isE2eMode } from "./e2e/hooks";
 import { loadScottyProviderConfig, ProviderConfigError } from "./provider/config";
 import { createScottyProvider, setScottyProviderForTests } from "./provider/factory";
 import { analysisRouter } from "./routes/analysis";
@@ -18,6 +19,9 @@ export function createApp() {
   // Prefer Drizzle when DATABASE_URL is present; otherwise in-memory repos (CI/local).
   wirePersistence();
   configureDefaultFrameExtractor();
+  if (isE2eMode()) {
+    installE2eMediaInspector();
+  }
 
   // Validate provider configuration at boot — never silently fall back.
   // Tests inject providers via setScottyProviderForTests; skip forced init there.
@@ -53,6 +57,9 @@ export function createApp() {
   // Legacy Phase-2 clip upload path (buffered) — demo/legacy only; capped separately.
   app.use("/api", uploadsRouter);
   app.use("/api", clipsRouter);
+  if (isE2eMode()) {
+    app.use("/api", createE2eRouter());
+  }
 
   // 404
   app.use((_req, res) => {

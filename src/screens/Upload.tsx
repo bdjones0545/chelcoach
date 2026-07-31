@@ -114,9 +114,12 @@ function statusLabel(state: UploadUiState): string {
   }
 }
 
-function FieldLabel({ children }: { children: ReactNode }) {
+function FieldLabel({ htmlFor, children }: { htmlFor?: string; children: ReactNode }) {
   return (
-    <label className="mb-1.5 block font-label-sm text-label-sm uppercase tracking-widest text-on-surface-variant">
+    <label
+      htmlFor={htmlFor}
+      className="mb-1.5 block font-label-sm text-label-sm uppercase tracking-widest text-on-surface-variant"
+    >
       {children}
     </label>
   );
@@ -129,15 +132,18 @@ function SelectField(props: {
   options: readonly { value: string; label: string }[];
   required?: boolean;
 }) {
+  const selectId = `upload-field-${props.label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
   return (
     <div>
-      <FieldLabel>
+      <FieldLabel htmlFor={selectId}>
         {props.label}
         {props.required ? " *" : ""}
       </FieldLabel>
       <select
+        id={selectId}
         value={props.value}
         onChange={(e) => props.onChange(e.target.value)}
+        aria-label={props.label}
         className="w-full rounded-lg border border-white/10 bg-surface-container-highest px-3 py-2.5 font-body-md text-on-surface outline-none focus:border-primary"
       >
         {props.options.map((o) => (
