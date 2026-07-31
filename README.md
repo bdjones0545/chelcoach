@@ -75,6 +75,10 @@ All optional — the app runs on mock data with none set. Copy `.env.example` �
 
 ## Local development
 
+**Requires Node 22** (`.nvmrc` → `nvm use`; each `package.json` sets `engines: node >=22 <23`).
+Nothing else is required to run, build, or test — no Postgres, object storage, ffmpeg, or AI
+keys. See [`CURSOR_HANDOFF.md`](CURSOR_HANDOFF.md) for the full local-dev / handoff guide.
+
 Each project installs independently.
 
 ```bash
