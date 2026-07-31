@@ -26,8 +26,8 @@ function FilmRoomStateLayout({ children }: { children: ReactNode }) {
 
 export default function FilmRoom() {
   const { isPremium } = usePremium();
-  const { hasAnalysis, markAnalyzed } = useAnalysis();
-  const { report } = useReport();
+  const { hasAnalysis, markAnalyzed, setActiveClipId } = useAnalysis();
+  const { report, restoreDemoReport } = useReport();
   const filmRoom = report.filmRoom;
   const navigate = useNavigate();
 
@@ -45,6 +45,8 @@ export default function FilmRoom() {
           secondary={{
             label: copy.secondaryLabel,
             onClick: () => {
+              setActiveClipId(null);
+              restoreDemoReport();
               markAnalyzed();
               navigate("/scorecard");
             },

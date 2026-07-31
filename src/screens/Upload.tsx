@@ -6,8 +6,9 @@ import GlassPanel from "../components/GlassPanel";
 import Icon from "../components/Icon";
 import TopAppBar from "../components/TopAppBar";
 import { uploadErrors, uploadRules } from "../data/mockData";
-import { useReport } from "../state/ReportContext";
 import { USE_BACKEND_REPORTS } from "../lib/reportApi";
+import { useAnalysis } from "../state/AnalysisContext";
+import { useReport } from "../state/ReportContext";
 
 const checklist = [
   { title: "AI analyzes positioning", detail: "Real-time heatmaps & gap tracking." },
@@ -32,7 +33,8 @@ function isSupported(file: File): boolean {
 
 export default function Upload() {
   const navigate = useNavigate();
-  const { analyzeClip } = useReport();
+  const { uploadForAnalysis } = useReport();
+  const { setActiveClipId } = useAnalysis();
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -67,10 +69,12 @@ export default function Upload() {
     if (inputRef.current) inputRef.current.value = "";
   };
 
-  // Flag off: keep the mock flow (straight to processing). Flag on: really upload first.
+  // Flag off: intentional demo — no clip id, Processing runs the demo path.
+  // Flag on: upload + commit only; Processing polls server status for completion.
   const startAnalysis = async () => {
     if (!file) return;
     if (!USE_BACKEND_REPORTS) {
+      setActiveClipId(null);
       navigate("/processing");
       return;
     }
@@ -78,7 +82,8 @@ export default function Upload() {
     setProgress(0);
     setError(null);
     try {
-      await analyzeClip(file, setProgress);
+      const clipId = await uploadForAnalysis(file, setProgress);
+      setActiveClipId(clipId);
       navigate("/processing");
     } catch {
       setError("Upload failed. Check your connection and try again.");

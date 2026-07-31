@@ -225,3 +225,63 @@ export interface ApiError {
   error: string;
   message: string;
 }
+
+// --- Analysis-job status (Processing-screen / polling contract) ---------------
+//
+// Public lifecycle for a committed clip's analysis. Distinct from `clipStatus`
+// (upload plumbing: uploading → queued → extracting → analyzing → complete).
+// This projection is what the Processing screen polls. Compatible with a future
+// async worker: today commit completes immediately → `completed`; later commit
+// can leave the job `queued` / `processing` without changing this envelope.
+
+/** Public analysis-job statuses consumed by the Processing screen. */
+export const analysisJobStatusValueSchema = z.enum([
+  "queued",
+  "processing",
+  "completed",
+  "failed",
+]);
+export type AnalysisJobStatusValue = z.infer<typeof analysisJobStatusValueSchema>;
+
+/**
+ * Coarse stage labels the server may report. Only claim work the backend
+ * actually performs — no frame-extraction / AI labels until those phases land.
+ */
+export const analysisJobStageSchema = z.enum([
+  "queued",
+  "processing",
+  "finalizing",
+  "ready",
+  "failed",
+]);
+export type AnalysisJobStage = z.infer<typeof analysisJobStageSchema>;
+
+/**
+ * Clip / job identifiers accepted by status routes.
+ * Allows UUIDs and the deterministic demo id (`static-demo-clip`); rejects
+ * empty strings and characters that don't belong in an id.
+ */
+export const clipIdParamSchema = z
+  .string()
+  .min(1)
+  .max(128)
+  .regex(/^[A-Za-z0-9_-]+$/, "Malformed clip id.");
+export type ClipIdParam = z.infer<typeof clipIdParamSchema>;
+
+export const analysisJobStatusSchema = z.object({
+  clipId: z.string().min(1),
+  jobId: z.string().min(1).optional(),
+  status: analysisJobStatusValueSchema,
+  /** Safe, user-facing status line (never internal/stack/provider details). */
+  message: z.string().optional(),
+  stage: analysisJobStageSchema.optional(),
+  /** Phase-based progress 0–100 for the Processing screen. */
+  phaseProgress: z.number().min(0).max(100).optional(),
+  /** True when GET /api/clips/:id/analysis (or the clip envelope) can return the report. */
+  reportReady: z.boolean(),
+  errorCode: errorCodeSchema.optional(),
+  /** Safe failure explanation for the UI. */
+  errorMessage: z.string().optional(),
+  updatedAt: z.string().optional(),
+});
+export type AnalysisJobStatus = z.infer<typeof analysisJobStatusSchema>;
