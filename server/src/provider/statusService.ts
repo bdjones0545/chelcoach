@@ -3,7 +3,9 @@
  * Reads and writes durable application jobs; provider sync is centralized.
  */
 import {
+  analysisReportResponseSchema,
   scottyReportSchema,
+  type AnalysisReportResponse,
   type ApplicationAnalysisStatus,
   type ScottyErrorCode,
   type ScottyReport,
@@ -123,10 +125,43 @@ export async function getAnalysisStatus(input: {
   }
 }
 
+async function toReportEnvelope(
+  ownerId: string,
+  applicationRequestId: string,
+  report: ScottyReport,
+): Promise<AnalysisReportResponse> {
+  const job = await getAnalysisJobRepository().getOwnedJob(ownerId, applicationRequestId);
+  if (!job) {
+    throw new AnalysisStatusError(404, "UPLOAD_NOT_FOUND", "Analysis request not found.");
+  }
+  const upload = await getUploadRepository().get(job.uploadId);
+  const now = Date.now();
+  const expired =
+    !upload ||
+    upload.uploadStatus === "deleted" ||
+    upload.uploadStatus === "expired" ||
+    new Date(upload.expiresAt).getTime() <= now;
+  const sourceMediaAvailable = Boolean(upload && upload.uploadStatus === "ready" && !expired);
+  return analysisReportResponseSchema.parse({
+    applicationRequestId: job.applicationRequestId,
+    uploadId: job.uploadId,
+    report,
+    sourceMediaAvailable,
+    sourceMediaExpiresAt: upload?.expiresAt ?? null,
+    mediaClassification: job.mediaClassification,
+    mediaDurationSec: upload?.trustedMedia?.durationSec ?? null,
+    platform: job.uploadContext.playerContext.platform,
+    controlScheme: job.uploadContext.playerContext.controlScheme,
+    gameMode: job.uploadContext.playerContext.gameMode,
+    simulatorMode:
+      job.provider === "simulator" && process.env.NODE_ENV !== "production" ? true : undefined,
+  });
+}
+
 export async function getAnalysisReport(input: {
   ownerId: string;
   applicationRequestId: string;
-}): Promise<ScottyReport> {
+}): Promise<AnalysisReportResponse> {
   const job = await loadOwnedJob(input.ownerId, input.applicationRequestId);
   const repo = getAnalysisJobRepository();
   const stored = await repo.getReportByApplicationRequestId(job.applicationRequestId);
@@ -136,7 +171,8 @@ export async function getAnalysisReport(input: {
       uploadId: job.uploadId,
       source: "database",
     });
-    return scottyReportSchema.parse(stored.report);
+    const report = scottyReportSchema.parse(stored.report);
+    return toReportEnvelope(input.ownerId, input.applicationRequestId, report);
   }
 
   // Not persisted yet — try one sync (may fetch+persist). Do not call provider after persist.
@@ -148,7 +184,10 @@ export async function getAnalysisReport(input: {
       force: true,
     });
     const again = await repo.getReportByApplicationRequestId(sync.job.applicationRequestId);
-    if (again) return scottyReportSchema.parse(again.report);
+    if (again) {
+      const report = scottyReportSchema.parse(again.report);
+      return toReportEnvelope(input.ownerId, input.applicationRequestId, report);
+    }
   }
 
   if (job.canonicalStatus === "awaiting_player_confirmation" || job.confirmationRequired) {

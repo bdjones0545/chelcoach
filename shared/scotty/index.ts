@@ -22,6 +22,7 @@ export * from "./strategies";
 export * from "./faceoffs";
 export * from "./drills";
 export * from "./report";
+export * from "./report-envelope";
 export * from "./profile";
 export * from "./media-classification";
 export * from "./games";

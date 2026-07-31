@@ -258,8 +258,8 @@ describe("AnalysisStatus durable route", () => {
   });
 });
 
-describe("AnalysisReport route", () => {
-  it("loads persisted report and redirects incomplete jobs", async () => {
+describe("AnalysisReport route (smoke from status suite)", () => {
+  it("shows not-ready for incomplete jobs without fetching report", async () => {
     getAnalysisStatus.mockResolvedValue(
       makeJob({
         status: "analyzing_gameplay",
@@ -269,67 +269,9 @@ describe("AnalysisReport route", () => {
     );
     renderStatus("/analysis/req-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/report");
     await waitFor(() => {
-      expect(screen.getByTestId("analysis-status-label")).toBeInTheDocument();
+      expect(screen.getByTestId("report-not-ready")).toBeInTheDocument();
     });
     expect(getAnalysisReport).not.toHaveBeenCalled();
-  });
-
-  it("renders basic report shell when available", async () => {
-    getAnalysisStatus.mockResolvedValue(
-      makeJob({
-        status: "completed",
-        terminal: true,
-        reportAvailable: true,
-        reportReady: true,
-        pollAfterMs: null,
-      }),
-    );
-    getAnalysisReport.mockResolvedValue({
-      contractVersion: "1.0.0",
-      reportId: "rep-1",
-      jobId: "job-1",
-      uploadId: "upload-1",
-      generatedAt: "2026-07-31T12:00:00.000Z",
-      gameContext: {
-        titleId: "nhl26",
-        gameMode: "eashl",
-        teamSide: "home",
-      },
-      playerAttribution: {
-        position: "C",
-        jerseyNumber: 19,
-        indicatorColor: null,
-        confirmationState: "confirmed",
-      },
-      controlledPlayerConfidence: "high",
-      playerSpecificObservations: [],
-      strengths: ["Good puck protection"],
-      priorityImprovements: ["Tighten gap control"],
-      strategyAnalysis: {
-        overallApproach: "balanced",
-        notes: [],
-      },
-      controlGuidance: [],
-      practiceDrills: [],
-      uncertaintyDisclosures: [],
-      rubricVersion: "1",
-      strategyKnowledgeVersion: "1",
-      controlKnowledgeVersion: "1",
-      reportVersion: "1",
-      qualityValidation: {
-        passed: true,
-        issues: [],
-        validatedAt: "2026-07-31T12:00:00.000Z",
-      },
-    });
-    renderStatus("/analysis/req-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/report");
-    await waitFor(() => {
-      expect(screen.getByTestId("analysis-report-shell")).toBeInTheDocument();
-      expect(screen.getByTestId("analysis-report-headline")).toHaveTextContent(
-        "Gameplay coaching summary",
-      );
-    });
-    expect(getAnalysisReport).toHaveBeenCalled();
   });
 });
 

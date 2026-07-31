@@ -10,6 +10,7 @@ export type AnalysisClientError =
   | { type: "forbidden"; retryable: false; message: string }
   | { type: "not_found"; retryable: false; message: string }
   | { type: "invalid_response"; retryable: true; message: string }
+  | { type: "invalid_report_response"; retryable: false; message: string }
   | { type: "malformed_id"; retryable: false; message: string }
   | { type: "server"; retryable: boolean; code?: string; message: string };
 

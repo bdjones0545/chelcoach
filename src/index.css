@@ -230,3 +230,40 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* Step 8 coaching report — print-friendly core sections */
+@media print {
+  .analysis-report-page {
+    background: white !important;
+    color: black !important;
+    padding-bottom: 0 !important;
+  }
+  .analysis-report-page .hex-bg,
+  .analysis-report-page [class*="blur-"],
+  .analysis-report-page nav[aria-label="Report sections"],
+  .analysis-report-page .report-section-nav,
+  .analysis-report-page .report-interactive,
+  .analysis-report-page .report-summary-sidebar,
+  .analysis-report-page header.fixed,
+  .analysis-report-page [class*="BottomNav"],
+  .analysis-report-page footer,
+  .analysis-report-page nav.fixed {
+    display: none !important;
+  }
+  .analysis-report-page .glass-panel {
+    background: white !important;
+    border: 1px solid #ccc !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    break-inside: avoid;
+  }
+  .analysis-report-page h1,
+  .analysis-report-page h2,
+  .analysis-report-page h3,
+  .analysis-report-page p,
+  .analysis-report-page li,
+  .analysis-report-page dd,
+  .analysis-report-page dt {
+    color: black !important;
+  }
+}

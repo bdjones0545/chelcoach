@@ -3,7 +3,10 @@
  * Shared-schema validation, abort signals, normalized safe errors.
  * No provider configuration. No raw response leakage.
  */
-import { scottyReportSchema, type ScottyReport } from "../../shared/scotty/report";
+import {
+  analysisReportResponseSchema,
+  type AnalysisReportResponse,
+} from "../../shared/scotty/report-envelope";
 import { API_BASE_URL } from "./apiBase";
 import { ensureOwnerSession } from "./scottyUploadApi";
 import {
@@ -96,7 +99,7 @@ export async function getAnalysisStatus(
 export async function getAnalysisReport(
   applicationRequestId: string,
   signal?: AbortSignal,
-): Promise<ScottyReport> {
+): Promise<AnalysisReportResponse> {
   assertRequestId(applicationRequestId);
   const online = typeof navigator === "undefined" ? true : navigator.onLine !== false;
   try {
@@ -114,12 +117,12 @@ export async function getAnalysisReport(
       );
     }
     rejectUnsafeLeak(body);
-    const parsed = scottyReportSchema.safeParse(body);
+    const parsed = analysisReportResponseSchema.safeParse(body);
     if (!parsed.success) {
       throw new AnalysisApiError({
-        type: "invalid_response",
-        retryable: true,
-        message: "Received an invalid coaching report response.",
+        type: "invalid_report_response",
+        retryable: false,
+        message: "Your coaching report could not be displayed safely.",
       });
     }
     return parsed.data;

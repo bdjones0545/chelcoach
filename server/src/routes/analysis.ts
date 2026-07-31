@@ -115,13 +115,25 @@ analysisRouter.get(
   async (req, res) => {
     try {
       const { ownerId } = req as AuthedRequest;
-      const report = await getAnalysisReport({
+      const payload = await getAnalysisReport({
         ownerId,
         applicationRequestId: requestIdParam(req),
       });
-      // Ownership is rechecked on every request; private no-store keeps intermediaries honest.
+      // Ownership is rechecked on every request; private caching with revalidation is OK,
+      // but no-store remains the safe first implementation.
       res.setHeader("Cache-Control", "private, no-store");
-      res.json(report);
+      // Never leak storage keys / fingerprints in the envelope.
+      const json = JSON.stringify(payload);
+      if (
+        json.includes("storageObjectKey") ||
+        json.includes("idempotencyKey") ||
+        json.includes("requestFingerprint") ||
+        json.includes("SCOTTY_BASE_URL")
+      ) {
+        res.status(500).json({ error: "INVALID_REQUEST", message: "Unsafe fields leaked into report response." });
+        return;
+      }
+      res.json(payload);
     } catch (err) {
       sendError(res, err);
     }

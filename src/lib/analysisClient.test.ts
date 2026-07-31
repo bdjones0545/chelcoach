@@ -81,14 +81,14 @@ describe("analysisClient", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("validates report response", async () => {
+  it("validates report envelope response", async () => {
     globalThis.fetch = vi.fn(async () =>
       new Response(JSON.stringify({ not: "a report" }), { status: 200 }),
     ) as unknown as typeof fetch;
     await expect(
       getAnalysisReport("req-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"),
     ).rejects.toMatchObject({
-      clientError: { type: "invalid_response" },
+      clientError: { type: "invalid_report_response" },
     });
   });
 
