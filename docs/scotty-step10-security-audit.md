@@ -165,7 +165,21 @@ npm run audit:deps
 # → npm audit --omit=dev (root + server)
 ```
 
-Record findings from the run in CI/PR notes. Do not claim zero vulnerabilities without the audit output. Transitive issues in unused Replit storage paths may be accepted with rationale.
+**Result (2026-07-31 run on this branch):**
+
+| Scope | Findings |
+|---|---|
+| Root (`npm audit --omit=dev`) | clean / no production advisories reported in this environment’s root tree |
+| Server | **8** vulnerabilities (**6 moderate**, **2 high**) |
+
+Notable server findings:
+
+- **high** — `fast-xml-parser` (via transitive graph): DOCTYPE entity expansion advisory; fix available via `npm audit fix` (deferred pending compatibility check).
+- **high / moderate chain** — `@replit/object-storage` → `@google-cloud/storage` → `teeny-request` / `gaxios` → `uuid` buffer bounds issue; **no direct fix** without major upgrades. Reachability limited to optional Replit storage backend; not on the browser or default local disk ingress path.
+- Accepted residual risk for Step 10: Replit storage transitive chain deferred; revisit before enabling production object storage.
+
+Bundle scan: `npm run audit:bundle` — **OK** (no secrets in production frontend assets).
+Repository scan: `npm run audit:security-scan` — **OK** (7 remaining `process.env` reads in routes/services noted for gradual migration).
 
 ---
 
