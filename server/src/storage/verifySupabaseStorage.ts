@@ -156,6 +156,7 @@ async function runLiveIsolation(): Promise<void> {
   let userAId = "";
   let userBId = "";
   let objectPath = "";
+  let tusPath = "";
 
   try {
     const createdA = await admin.auth.admin.createUser({
@@ -185,7 +186,48 @@ async function runLiveIsolation(): Promise<void> {
       global: { headers: { Authorization: `Bearer ${tokenA}` } },
     });
 
-    // Authenticated upload to own path (standard API — proves RLS insert; TUS covered by unit/live app).
+    // Authenticated TUS resumable upload to own path (production protocol).
+    tusPath = `${objectPath}-tus`;
+    const { Upload } = await import("tus-js-client");
+    let progressSeen = false;
+    await new Promise<void>((resolve, reject) => {
+      const upload = new Upload(bytes, {
+        endpoint: `${url.replace(/\/$/, "")}/storage/v1/upload/resumable`,
+        retryDelays: [0, 1000, 3000],
+        chunkSize: 6 * 1024 * 1024,
+        uploadDataDuringCreation: true,
+        removeFingerprintOnSuccess: true,
+        headers: {
+          authorization: `Bearer ${tokenA}`,
+          apikey: anon,
+          "x-upsert": "false",
+        },
+        metadata: {
+          bucketName: gameplay,
+          objectName: tusPath,
+          contentType: "video/mp4",
+          cacheControl: "3600",
+          filename: "verify.bin",
+          filetype: "video/mp4",
+        },
+        onError: (err) => reject(err),
+        onProgress: (sent, total) => {
+          if (total > 0 && sent > 0) progressSeen = true;
+        },
+        onSuccess: () => resolve(),
+      });
+      upload.start();
+    });
+    ok(`user_a_tus_upload_own_prefix=true progress=${progressSeen}`);
+
+    const storageProbe = createSupabaseMediaObjectStorage();
+    const tusStat = await storageProbe.statObject(tusPath);
+    if (!tusStat.exists) fail("TUS uploaded object missing on service-role stat");
+    ok("tus_object_service_role_stat=true");
+    await storageProbe.deleteObject(tusPath);
+    ok("tus_object_cleanup=true");
+
+    // Also prove standard authenticated upload (RLS insert without TUS).
     const up = await userClient.storage.from(gameplay).upload(objectPath, bytes, {
       contentType: "video/mp4",
       upsert: false,
@@ -261,6 +303,7 @@ async function runLiveIsolation(): Promise<void> {
       if (userAId && objectPath) {
         const storage = createSupabaseMediaObjectStorage();
         await storage.deleteObject(objectPath).catch(() => undefined);
+        if (tusPath) await storage.deleteObject(tusPath).catch(() => undefined);
         await storage
           .deleteObject(`${userAId}/${uploadId}/confirmation/frame-test.jpg`)
           .catch(() => undefined);

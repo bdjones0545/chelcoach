@@ -32,22 +32,23 @@ export type SupabaseGameplayUploadHandle = {
   resume: () => void;
 };
 
+export type SupabaseGameplayUploadErrorCode =
+  | "STORAGE_NOT_CONFIGURED"
+  | "STORAGE_UPLOAD_FAILED"
+  | "STORAGE_UPLOAD_INTERRUPTED"
+  | "STORAGE_UPLOAD_EXPIRED"
+  | "STORAGE_ACCESS_DENIED"
+  | "STORAGE_RATE_LIMITED"
+  | "STORAGE_UNAVAILABLE"
+  | "UPLOAD_RESUME_FAILED"
+  | "UNAUTHORIZED";
+
 export class SupabaseGameplayUploadError extends Error {
-  constructor(
-    public code:
-      | "STORAGE_NOT_CONFIGURED"
-      | "STORAGE_UPLOAD_FAILED"
-      | "STORAGE_UPLOAD_INTERRUPTED"
-      | "STORAGE_UPLOAD_EXPIRED"
-      | "STORAGE_ACCESS_DENIED"
-      | "STORAGE_RATE_LIMITED"
-      | "STORAGE_UNAVAILABLE"
-      | "UPLOAD_RESUME_FAILED"
-      | "UNAUTHORIZED",
-    message: string,
-  ) {
+  code: SupabaseGameplayUploadErrorCode;
+  constructor(code: SupabaseGameplayUploadErrorCode, message: string) {
     super(message);
     this.name = "SupabaseGameplayUploadError";
+    this.code = code;
   }
 }
 

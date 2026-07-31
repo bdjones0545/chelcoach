@@ -17,13 +17,13 @@ function rootDir(): string {
   return process.env.CHELCOACH_MEDIA_DIR?.trim() || join(tmpdir(), "chelcoach-media");
 }
 
-function useSupabaseDerived(): boolean {
+function isSupabaseDerivedMode(): boolean {
   return getChelCoachConfig().storage.mode === "supabase_storage";
 }
 
 /** Server-generated frame object key (mode-aware). */
 export function frameObjectKey(ownerId: string, uploadId: string, frameId: string): string {
-  if (useSupabaseDerived()) {
+  if (isSupabaseDerivedMode()) {
     return derivedFrameObjectKey(ownerId, uploadId, frameId);
   }
   return `chelcoach/uploads/${ownerId}/${uploadId}/frames/${frameId}.jpg`;
@@ -45,7 +45,7 @@ export async function writeFrameBytes(
       message: "Frame exceeds maximum byte size.",
     });
   }
-  if (useSupabaseDerived()) {
+  if (isSupabaseDerivedMode()) {
     const storage = createSupabaseMediaObjectStorage();
     await storage.writeDerivedBytes(objectKey, bytes, "image/jpeg");
     return;
@@ -56,7 +56,7 @@ export async function writeFrameBytes(
 }
 
 export async function openFrameReadStream(objectKey: string): Promise<NodeJS.ReadableStream> {
-  if (useSupabaseDerived()) {
+  if (isSupabaseDerivedMode()) {
     const storage = createSupabaseMediaObjectStorage();
     return storage.openReadStream(objectKey);
   }
@@ -71,13 +71,13 @@ export async function createFrameSignedReadUrl(
   objectKey: string,
   expiresInSeconds = 120,
 ): Promise<string | null> {
-  if (!useSupabaseDerived()) return null;
+  if (!isSupabaseDerivedMode()) return null;
   const storage = createSupabaseMediaObjectStorage();
   return storage.createShortLivedReadUrl({ objectKey, expiresInSeconds });
 }
 
 export async function deleteFrameObject(objectKey: string): Promise<void> {
-  if (useSupabaseDerived()) {
+  if (isSupabaseDerivedMode()) {
     const storage = createSupabaseMediaObjectStorage();
     await storage.deleteObject(objectKey);
     return;
@@ -86,7 +86,7 @@ export async function deleteFrameObject(objectKey: string): Promise<void> {
 }
 
 export async function frameExists(objectKey: string): Promise<boolean> {
-  if (useSupabaseDerived()) {
+  if (isSupabaseDerivedMode()) {
     const storage = createSupabaseMediaObjectStorage();
     return storage.exists(objectKey);
   }
@@ -99,7 +99,7 @@ export async function frameExists(objectKey: string): Promise<boolean> {
 }
 
 export async function statFrame(objectKey: string): Promise<{ byteSize: number } | null> {
-  if (useSupabaseDerived()) {
+  if (isSupabaseDerivedMode()) {
     const storage = createSupabaseMediaObjectStorage();
     const meta = await storage.statObject(objectKey);
     return meta.exists ? { byteSize: meta.byteSize } : null;
