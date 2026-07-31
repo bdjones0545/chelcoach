@@ -109,6 +109,8 @@ Reload recovery via `?uploadId=` on `/upload`.
 
 Wrap Express via `api/index.ts` → `server/src/vercelApp.ts` (no `listen()` when `VERCEL` is set).
 
+Install/build: see `docs/vercel-deployment.md`. Vercel must install **root + `shared` + `server`** via `scripts/install-all.sh` (`vercel.json` `installCommand`). Root-only `npm ci` is insufficient.
+
 Safe on Vercel: auth, profiles, upload session/complete/status, analysis status/report, confirmation, readiness, internal cron kicks (metadata).
 
 Unsafe on Vercel: ffprobe, full download, local durable media, in-process worker inline mode.

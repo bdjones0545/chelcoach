@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "install:all": "bash scripts/install-all.sh",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
