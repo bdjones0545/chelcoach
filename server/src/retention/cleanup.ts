@@ -151,6 +151,17 @@ export function createMediaRetentionService(deps: {
     }
 
     try {
+      // Cancel active inspection jobs before deleting media (coordinate with worker).
+      try {
+        const { getInspectionJobRepository } = await import("../inspection/repository");
+        await getInspectionJobRepository().cancelActiveForUpload(
+          candidate.uploadId,
+          "Upload expired — inspection cancelled for cleanup.",
+        );
+      } catch {
+        /* inspection repo optional in older test wiring */
+      }
+
       const decision = await evaluateCandidate(candidate, now);
       if (decision.defer) {
         console.log(

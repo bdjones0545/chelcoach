@@ -93,6 +93,13 @@ export async function createUploadSession(
   return res.json() as Promise<UploadSessionResponse>;
 }
 
+export interface PublicInspectionSummary {
+  status: string;
+  message: string;
+  retryable: boolean;
+  pollAfterMs?: number;
+}
+
 export interface PublicUploadDetail {
   uploadId: string;
   uploadStatus: string;
@@ -102,6 +109,8 @@ export interface PublicUploadDetail {
   mediaClassification?: string;
   retentionNotice: string;
   errorMessage?: string;
+  inspection?: PublicInspectionSummary;
+  pollAfterMs?: number;
 }
 
 export async function markTransferActive(

@@ -104,6 +104,8 @@ export interface ChelCoachConfig {
     e2eSecret: string;
     callbackSecret: string;
     scottySigningSecret: string;
+    /** Distinct secret for media-inspection worker / internal batch kick. */
+    inspectionWorkerSecret: string;
   };
 }
 
@@ -287,6 +289,7 @@ export function loadChelCoachConfig(env: NodeJS.ProcessEnv = process.env): ChelC
 
   const reconcileSecret = (env.CHELCOACH_RECONCILE_SECRET ?? "").trim();
   const cleanupSecret = (env.CHELCOACH_CLEANUP_SECRET ?? "").trim();
+  const inspectionWorkerSecret = (env.CHELCOACH_INSPECTION_WORKER_SECRET ?? "").trim();
   const e2eSecret = (env.CHELCOACH_E2E_SECRET ?? "").trim();
   const e2eMode = env.CHELCOACH_E2E_MODE === "1";
   const sessionSecret = (env.CHELCOACH_SESSION_SECRET ?? "").trim();
@@ -397,6 +400,7 @@ export function loadChelCoachConfig(env: NodeJS.ProcessEnv = process.env): ChelC
       e2eSecret,
       callbackSecret,
       scottySigningSecret: signingSecret,
+      inspectionWorkerSecret,
     },
   };
 
@@ -604,6 +608,20 @@ export function validateChelCoachConfig(config: ChelCoachConfig): ConfigValidati
     issues.push({
       code: "SHARED_INTERNAL_SECRETS",
       message: "Reconcile and cleanup secrets must be distinct.",
+      severity: "high",
+    });
+  }
+
+  if (
+    config.secrets.inspectionWorkerSecret &&
+    (config.secrets.inspectionWorkerSecret === config.secrets.cleanupSecret ||
+      config.secrets.inspectionWorkerSecret === config.secrets.reconcileSecret ||
+      config.secrets.inspectionWorkerSecret === config.secrets.callbackSecret ||
+      config.secrets.inspectionWorkerSecret === config.secrets.scottySigningSecret)
+  ) {
+    issues.push({
+      code: "SHARED_INSPECTION_WORKER_SECRET",
+      message: "CHELCOACH_INSPECTION_WORKER_SECRET must be distinct from other internal secrets.",
       severity: "high",
     });
   }

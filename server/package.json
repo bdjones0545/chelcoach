@@ -9,7 +9,7 @@
     "start": "tsx src/index.ts",
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/retention/*.test.ts src/uploads/*.test.ts src/identification/*.test.ts src/provider/*.test.ts src/provider/jobs/*.test.ts src/config/*.test.ts src/security/*.test.ts src/auth/*.test.ts src/db/*.test.ts src/storage/*.test.ts",
+    "test": "tsx --test src/retention/*.test.ts src/uploads/*.test.ts src/identification/*.test.ts src/provider/*.test.ts src/provider/jobs/*.test.ts src/config/*.test.ts src/security/*.test.ts src/auth/*.test.ts src/db/*.test.ts src/storage/*.test.ts src/inspection/*.test.ts",
     "test:pg": "CHELCOACH_RUN_PG_TESTS=1 tsx --test --test-concurrency=1 src/provider/jobs/drizzleJobRepository.test.ts src/identification/drizzleRepository.test.ts src/retention/drizzleRepository.test.ts",
     "cleanup:media": "node ../scripts/cleanup-media.mjs",
     "smoke": "tsx src/smoke.ts",
@@ -20,7 +20,10 @@
     "verify:supabase-auth": "tsx src/auth/verifySupabaseAuth.ts",
     "verify:supabase-storage": "tsx src/storage/verifySupabaseStorage.ts",
     "apply:supabase-storage-rls": "tsx src/storage/applyStorageRls.ts",
-    "test:storage": "tsx --test src/storage/*.test.ts src/uploads/upload.test.ts"
+    "verify:media-worker": "tsx src/inspection/verifyMediaWorker.ts",
+    "worker:media-inspection": "tsx src/inspection/runWorker.ts",
+    "test:storage": "tsx --test src/storage/*.test.ts src/uploads/upload.test.ts",
+    "test:inspection": "tsx --test src/inspection/*.test.ts"
   },
   "dependencies": {
     "@replit/object-storage": "^1.0.0",

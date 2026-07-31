@@ -24,6 +24,10 @@ const e2eEnv = {
   CHELCOACH_PRODUCTION_AUTH_READY: "false",
   CHELCOACH_SCOTTY_CALLBACKS_ENABLED: "0",
   CHELCOACH_LEGACY_UPLOAD_ENABLED: "true",
+  // E2E uses local_disk + inline inspection (not supabase worker path).
+  CHELCOACH_MEDIA_STORAGE_MODE: "local_disk",
+  CHELCOACH_MEDIA_INSPECTION_MODE: "",
+  CHELCOACH_PRODUCTION_MEDIA_STORAGE_READY: "false",
   SCOTTY_SIMULATOR_DEFAULT_SCENARIO: "auto",
   SCOTTY_SIMULATOR_QUEUED_MS: "150",
   SCOTTY_SIMULATOR_INSPECTING_MS: "200",
@@ -35,11 +39,11 @@ const e2eEnv = {
   SCOTTY_SIMULATOR_POLL_MS: "200",
   PORT: String(API_PORT),
   CORS_ORIGIN: FRONTEND_URL,
-  // Durable Postgres when DATABASE_URL is provided; do not force memory.
-  CHELCOACH_FORCE_MEMORY_REPOS: process.env.CHELCOACH_FORCE_MEMORY_REPOS || "",
-  DATABASE_URL:
-    process.env.DATABASE_URL ||
-    "postgresql://chelcoach:chelcoach@127.0.0.1:5432/chelcoach_test",
+  // Prefer memory repos for deterministic E2E unless explicitly overridden.
+  // Agent/dev shells often have DATABASE_URL pointing at shared Supabase — that must
+  // not silently change the Chromium upload journey to a remote durable path.
+  CHELCOACH_FORCE_MEMORY_REPOS: process.env.CHELCOACH_FORCE_MEMORY_REPOS || "1",
+  DATABASE_URL: process.env.CHELCOACH_E2E_DATABASE_URL || "",
 };
 
 export default defineConfig({

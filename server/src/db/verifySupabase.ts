@@ -21,6 +21,7 @@ const EXPECTED_TABLES = [
   "analyses",
   "gameplay_profiles",
   "media_uploads",
+  "media_inspection_jobs",
   "processing_leases",
   "media_cleanup_locks",
   "player_identifications",

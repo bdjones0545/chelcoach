@@ -15,6 +15,13 @@
       "when": 1785547200000,
       "tag": "0001_supabase_alignment",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785620000000,
+      "tag": "0002_media_inspection_jobs",
+      "breakpoints": true
     }
   ]
 }

@@ -8,6 +8,7 @@
 import {
   bigint,
   boolean,
+  doublePrecision,
   integer,
   jsonb,
   pgEnum,
@@ -560,6 +561,78 @@ export const mediaCleanupLocks = pgTable("media_cleanup_locks", {
   active: boolean("active").notNull().default(true),
 });
 
+export const mediaInspectionStatusEnum = pgEnum("media_inspection_status", [
+  "queued",
+  "claimed",
+  "downloading",
+  "inspecting",
+  "validating",
+  "completed",
+  "failed",
+  "cancelled",
+  "expired",
+]);
+
+/**
+ * Durable media-inspection job — worker system of record (Step 10.1D).
+ * Never stores raw video, signed URLs, or credentials.
+ */
+export const mediaInspectionJobs = pgTable(
+  "media_inspection_jobs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    uploadId: uuid("upload_id")
+      .notNull()
+      .references(() => mediaUploads.id, { onDelete: "cascade" }),
+    ownerId: text("owner_id").notNull(),
+    storageProvider: text("storage_provider").notNull(),
+    bucketAlias: text("bucket_alias").notNull(),
+    objectKey: text("object_key").notNull(),
+    objectFingerprint: text("object_fingerprint").notNull(),
+    contractVersion: text("contract_version").notNull().default("1.0.0"),
+    status: mediaInspectionStatusEnum("status").notNull().default("queued"),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    maxAttempts: integer("max_attempts").notNull().default(3),
+    workerId: text("worker_id"),
+    claimedAt: timestamp("claimed_at", { withTimezone: true }),
+    claimExpiresAt: timestamp("claim_expires_at", { withTimezone: true }),
+    heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    failedAt: timestamp("failed_at", { withTimezone: true }),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }),
+    trustedByteSize: bigint("trusted_byte_size", { mode: "number" }),
+    trustedMimeType: text("trusted_mime_type"),
+    trustedDurationSec: doublePrecision("trusted_duration_sec"),
+    videoCodec: text("video_codec"),
+    audioCodec: text("audio_codec"),
+    width: integer("width"),
+    height: integer("height"),
+    frameRate: doublePrecision("frame_rate"),
+    rotation: integer("rotation"),
+    mediaClassification: text("media_classification"),
+    errorCode: text("error_code"),
+    errorMessage: text("error_message"),
+    retryable: boolean("retryable").notNull().default(true),
+    version: integer("version").notNull().default(1),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    uploadFingerprintUidx: uniqueIndex("media_inspection_jobs_upload_fingerprint_uidx").on(
+      t.uploadId,
+      t.objectFingerprint,
+    ),
+    claimIdx: index("media_inspection_jobs_claim_idx").on(
+      t.status,
+      t.nextAttemptAt,
+      t.claimExpiresAt,
+    ),
+    uploadIdx: index("media_inspection_jobs_upload_id_idx").on(t.uploadId),
+    ownerIdx: index("media_inspection_jobs_owner_id_idx").on(t.ownerId),
+  }),
+);
+
 export type ClipRow = typeof clips.$inferSelect;
 export type AnalysisJobRow = typeof analysisJobs.$inferSelect;
 export type AnalysisRow = typeof analyses.$inferSelect;
@@ -570,6 +643,7 @@ export type ScottyAnalysisReportRow = typeof scottyAnalysisReports.$inferSelect;
 export type ScottyAnalysisJobEventRow = typeof scottyAnalysisJobEvents.$inferSelect;
 export type ScottySimulatorJobRow = typeof scottySimulatorJobs.$inferSelect;
 export type ScottyCallbackEventRow = typeof scottyCallbackEvents.$inferSelect;
+export type MediaInspectionJobRow = typeof mediaInspectionJobs.$inferSelect;
 
 /** Compile-time guard: lease JSON shape stays aligned with the shared contract. */
 export type _LeaseShapeCheck = ProcessingLease;

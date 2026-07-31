@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import BottomNav from "../components/BottomNav";
 import Button from "../components/Button";
 import GlassPanel from "../components/GlassPanel";
@@ -19,8 +19,16 @@ import {
   createUploadSession,
   ensureOwnerSession,
   fetchGameplayProfile,
+  getUpload,
   uploadDirect,
+  type PublicUploadDetail,
 } from "../lib/scottyUploadApi";
+import {
+  createUploadInspectionPoller,
+  inspectionStageLabel,
+  type UploadInspectionPoller,
+} from "../lib/uploadInspectionPoller";
+
 type UploadUiState =
   | "idle"
   | "preparing"
@@ -93,18 +101,18 @@ function mimeForFile(file: File): "video/mp4" | "video/quicktime" {
   return "video/mp4";
 }
 
-function statusLabel(state: UploadUiState): string {
+function statusLabel(state: UploadUiState, inspectionLabel?: string | null): string {
   switch (state) {
     case "preparing":
       return "Preparing upload…";
     case "uploading":
       return "Uploading…";
     case "verifying":
-      return "Verifying upload…";
+      return "Upload complete";
     case "inspecting":
-      return "Inspecting video…";
+      return inspectionLabel || "Waiting for verification";
     case "ready":
-      return "Ready";
+      return "Ready for player identification";
     case "failed":
       return "Failed";
     case "cancelled":
@@ -158,14 +166,17 @@ function SelectField(props: {
 
 export default function Upload() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const inputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const pollerRef = useRef<UploadInspectionPoller | null>(null);
 
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [uiState, setUiState] = useState<UploadUiState>("idle");
   const [progress, setProgress] = useState(0);
+  const [inspectionLabel, setInspectionLabel] = useState<string | null>(null);
   const [retentionNotice, setRetentionNotice] = useState(
     `Uploaded gameplay video is automatically deleted after ${DEFAULT_RETENTION_HOURS} hours. Your completed coaching report can remain available.`,
   );
@@ -191,6 +202,53 @@ export default function Upload() {
   const selectedGame: GameCatalogEntry | undefined = GAME_CATALOG.find((g) => g.canonicalGameId === gameId);
   const gameOk = selectedGame ? isGameAcceptableForUpload(selectedGame.supportStatus) : false;
   const busy = uiState === "preparing" || uiState === "uploading" || uiState === "verifying" || uiState === "inspecting";
+
+  const finishReady = (detail: PublicUploadDetail, uploadId: string) => {
+    pollerRef.current?.dispose();
+    pollerRef.current = null;
+    setUiState("ready");
+    setInspectionLabel("Ready for player identification");
+    setTrustedDuration(detail.durationSec ?? null);
+    setMediaClass(detail.mediaClassification ?? null);
+    setRetentionNotice(detail.retentionNotice);
+    storeReadyUploadId(uploadId);
+    navigate(`/player-confirmation?uploadId=${encodeURIComponent(uploadId)}`);
+  };
+
+  const startInspectionPolling = (uploadId: string) => {
+    pollerRef.current?.dispose();
+    setActiveUploadId(uploadId);
+    setSearchParams({ uploadId }, { replace: true });
+    setUiState("inspecting");
+    setInspectionLabel("Waiting for verification");
+    // Transfer progress ends at 100% — inspection uses stage labels only.
+    setProgress(100);
+    const poller = createUploadInspectionPoller({
+      uploadId,
+      onUpdate: (detail) => {
+        setInspectionLabel(inspectionStageLabel(detail));
+        setRetentionNotice(detail.retentionNotice);
+        if (detail.uploadStatus === "ready") {
+          finishReady(detail, uploadId);
+          return;
+        }
+        if (
+          detail.uploadStatus === "expired" ||
+          detail.inspection?.status === "failed" ||
+          detail.inspection?.status === "expired" ||
+          detail.inspection?.status === "cancelled"
+        ) {
+          pollerRef.current?.dispose();
+          pollerRef.current = null;
+          setUiState("failed");
+          setError(detail.inspection?.message || detail.errorMessage || "Verification failed.");
+        }
+      },
+      onError: (message) => setError(message),
+    });
+    pollerRef.current = poller;
+    poller.start();
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -225,6 +283,42 @@ export default function Upload() {
     })();
     return () => {
       cancelled = true;
+    };
+  }, []);
+
+  // Reload recovery — resume inspection polling from ?uploadId=
+  useEffect(() => {
+    const resumeId = searchParams.get("uploadId");
+    if (!resumeId || !USE_BACKEND_REPORTS) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        await ensureOwnerSession();
+        if (cancelled) return;
+        const detail = await getUpload(undefined, resumeId);
+        if (cancelled) return;
+        if (detail.uploadStatus === "ready") {
+          finishReady(detail, resumeId);
+          return;
+        }
+        if (detail.uploadStatus === "processing" || detail.uploadStatus === "uploaded") {
+          startInspectionPolling(resumeId);
+          setInspectionLabel(inspectionStageLabel(detail));
+        }
+      } catch {
+        /* ignore — user can start a new upload */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- resume once from URL
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      pollerRef.current?.dispose();
+      pollerRef.current = null;
     };
   }, []);
 
@@ -263,12 +357,15 @@ export default function Upload() {
   const cancelActiveUpload = async () => {
     abortRef.current?.abort();
     abortRef.current = null;
+    pollerRef.current?.dispose();
+    pollerRef.current = null;
     if (ownerToken && activeUploadId) {
       await cancelUpload(ownerToken, activeUploadId).catch(() => undefined);
     }
     setActiveUploadId(null);
     setUiState("cancelled");
     setProgress(0);
+    setInspectionLabel(null);
   };
 
   const startUpload = async () => {
@@ -342,22 +439,19 @@ export default function Upload() {
       );
 
       if (detail.uploadStatus === "ready") {
-        setUiState("ready");
-        setTrustedDuration(detail.durationSec ?? null);
-        setMediaClass(detail.mediaClassification ?? null);
-        setRetentionNotice(detail.retentionNotice);
-        storeReadyUploadId(session.uploadId);
-        // Step 3: identify / confirm controlled player before demo processing loop.
-        navigate(`/player-confirmation?uploadId=${encodeURIComponent(session.uploadId)}`);
+        finishReady(detail, session.uploadId);
         return;
       }
 
       if (detail.uploadStatus === "processing" || detail.uploadStatus === "uploaded") {
-        setUiState("inspecting");
+        // Async inspection worker path — poll until ready (no fake %).
+        startInspectionPolling(session.uploadId);
+        setInspectionLabel(inspectionStageLabel(detail));
+        return;
       }
-      setUiState("ready");
-      storeReadyUploadId(session.uploadId);
-      navigate(`/player-confirmation?uploadId=${encodeURIComponent(session.uploadId)}`);
+
+      setUiState("failed");
+      setError(detail.errorMessage || "Upload did not complete verification.");
     } catch (err) {
       if (controller.signal.aborted || (err instanceof Error && err.message === "Upload cancelled")) {
         setUiState("cancelled");
@@ -637,7 +731,7 @@ export default function Upload() {
                 Upload status
               </h4>
               <p className="mb-2 font-body-md text-on-surface">
-                {uiState === "idle" ? "Waiting for your clip" : statusLabel(uiState)}
+                {uiState === "idle" ? "Waiting for your clip" : statusLabel(uiState, inspectionLabel)}
               </p>
               {(uiState === "uploading" || uiState === "verifying") && (
                 <div
@@ -671,7 +765,7 @@ export default function Upload() {
               onClick={startUpload}
             >
               {busy
-                ? `${statusLabel(uiState)}${uiState === "uploading" ? ` ${progress}%` : ""}`
+                ? `${statusLabel(uiState, inspectionLabel)}${uiState === "uploading" ? ` ${progress}%` : ""}`
                 : "Get My Chel Rating"}
             </Button>
 

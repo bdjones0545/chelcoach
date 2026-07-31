@@ -47,6 +47,10 @@ export const scottyErrorCodeSchema = z.enum([
   "STORAGE_RATE_LIMITED",
   "STORAGE_UNAVAILABLE",
   "UPLOAD_RESUME_FAILED",
+  "NO_VIDEO_STREAM",
+  "INSUFFICIENT_WORKER_DISK",
+  "WORKER_UNAVAILABLE",
+  "INSPECTION_TIMEOUT",
 ]);
 export type ScottyErrorCode = z.infer<typeof scottyErrorCodeSchema>;
 
@@ -118,6 +122,10 @@ export function scottyErrorMessage(code: ScottyErrorCode): string {
     STORAGE_RATE_LIMITED: "Storage is rate limited. Wait a moment and try again.",
     STORAGE_UNAVAILABLE: "Media storage is temporarily unavailable.",
     UPLOAD_RESUME_FAILED: "Could not resume the upload. Start a new upload if needed.",
+    NO_VIDEO_STREAM: "This file does not contain a usable video stream.",
+    INSUFFICIENT_WORKER_DISK: "The verification worker is temporarily out of disk space. Try again shortly.",
+    WORKER_UNAVAILABLE: "Gameplay verification is temporarily unavailable. Try again shortly.",
+    INSPECTION_TIMEOUT: "Gameplay verification timed out. Try again shortly.",
   };
   return map[code];
 }

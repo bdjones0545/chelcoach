@@ -27,6 +27,7 @@ export * from "./profile";
 export * from "./media-classification";
 export * from "./games";
 export * from "./upload-context";
+export * from "./media-inspection";
 export * from "./media-transfer";
 export * from "./effective-player";
 export * from "./provider-contracts";

@@ -1,8 +1,11 @@
-import { createApp } from "./app";
+import app from "./vercelApp";
 
-const port = Number(process.env.PORT) || 3001;
-const app = createApp();
+// Local / long-running process only — never listen inside Vercel Functions.
+if (!process.env.VERCEL) {
+  const port = Number(process.env.PORT) || 3001;
+  app.listen(port, () => {
+    console.log(`[chelcoach-api] listening on http://localhost:${port}`);
+  });
+}
 
-app.listen(port, () => {
-  console.log(`[chelcoach-api] listening on http://localhost:${port} (phase 0)`);
-});
+export default app;

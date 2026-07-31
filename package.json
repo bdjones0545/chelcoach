@@ -28,6 +28,8 @@
     "verify:supabase-auth": "npm --prefix server run verify:supabase-auth",
     "verify:supabase-storage": "npm --prefix server run verify:supabase-storage",
     "apply:supabase-storage-rls": "npm --prefix server run apply:supabase-storage-rls",
+    "verify:media-worker": "npm --prefix server run verify:media-worker",
+    "worker:media-inspection": "npm --prefix server run worker:media-inspection",
     "preview": "vite preview"
   },
   "dependencies": {

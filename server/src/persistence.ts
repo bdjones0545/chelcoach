@@ -37,6 +37,11 @@ import {
   InMemoryUploadRepository,
   setUploadRepositoryForTests,
 } from "./uploads/repository";
+import { DrizzleInspectionJobRepository } from "./inspection/drizzleRepository";
+import {
+  InMemoryInspectionJobRepository,
+  setInspectionJobRepositoryForTests,
+} from "./inspection/repository";
 
 let wired = false;
 let backend: "memory" | "drizzle" = "memory";
@@ -64,9 +69,10 @@ export function wirePersistence(): void {
   setSimulatorJobRepositoryForTests(new DrizzleSimulatorJobRepository());
   setIdentificationRepositoryForTests(new DrizzleIdentificationRepository());
   setRetentionRepositoryForTests(new DrizzleRetentionRepository());
+  setInspectionJobRepositoryForTests(new DrizzleInspectionJobRepository());
   backend = "drizzle";
   console.log(
-    "[chelcoach] persistence=drizzle (profiles + uploads + identification + retention + analysis_jobs + simulator_jobs)",
+    "[chelcoach] persistence=drizzle (profiles + uploads + identification + retention + analysis_jobs + simulator_jobs + inspection_jobs)",
   );
 
   // Fail closed: configured DATABASE_URL must be reachable. Do not silently use memory.
@@ -91,6 +97,7 @@ export function resetPersistenceForTests(): void {
   setSimulatorJobRepositoryForTests(new InMemorySimulatorJobRepository());
   setIdentificationRepositoryForTests(new InMemoryIdentificationRepository());
   setRetentionRepositoryForTests(new InMemoryRetentionRepository());
+  setInspectionJobRepositoryForTests(new InMemoryInspectionJobRepository());
 }
 
 export function persistenceBackend(): "memory" | "drizzle" {

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { mediaClassificationSchema } from "./enums";
 import { gameContextSchema } from "./game-context";
 import { playerContextSchema } from "./player-context";
+import { publicInspectionSummarySchema } from "./media-inspection";
 
 export const uploadGameplayContextSchema = z.object({
   gameContext: gameContextSchema,
@@ -74,5 +75,9 @@ export const publicUploadDetailSchema = z.object({
   createdAt: z.string().datetime({ offset: true }),
   uploadedAt: z.string().datetime({ offset: true }).optional(),
   readyAt: z.string().datetime({ offset: true }).optional(),
+  /** Present while trusted inspection is outstanding or recently completed. */
+  inspection: publicInspectionSummarySchema.optional(),
+  /** Recommended client poll interval while inspection is non-terminal. */
+  pollAfterMs: z.number().int().positive().max(30_000).optional(),
 });
 export type PublicUploadDetail = z.infer<typeof publicUploadDetailSchema>;

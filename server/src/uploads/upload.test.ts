@@ -681,6 +681,7 @@ describe("supabase_storage upload session", () => {
       assert.equal(body.error, "STORAGE_UPLOAD_FAILED");
 
       // Completion derives path from DB only — ignore any client path.
+      // Supabase mode enqueues inspection — must NOT mark ready or run ffprobe here.
       const complete = await fetch(`${base}/api/uploads/${session.uploadId}/complete`, {
         method: "POST",
         headers: {
@@ -690,8 +691,24 @@ describe("supabase_storage upload session", () => {
         body: JSON.stringify({ objectPath: "other-user/evil/source" }),
       });
       assert.equal(complete.status, 200);
-      const detail = (await complete.json()) as { uploadStatus: string };
-      assert.equal(detail.uploadStatus, "ready");
+      const detail = (await complete.json()) as {
+        uploadStatus: string;
+        inspection?: { status: string };
+        pollAfterMs?: number;
+      };
+      assert.equal(detail.uploadStatus, "processing");
+      assert.ok(detail.inspection);
+      assert.equal(detail.inspection?.status, "queued");
+      assert.ok(detail.pollAfterMs);
+
+      // Idempotent re-complete reuses the same logical job.
+      const again = await fetch(`${base}/api/uploads/${session.uploadId}/complete`, {
+        method: "POST",
+        headers: { authorization: `Bearer ${token}` },
+      });
+      assert.equal(again.status, 200);
+      const againBody = (await again.json()) as { uploadStatus: string };
+      assert.equal(againBody.uploadStatus, "processing");
     });
   });
 

@@ -23,6 +23,10 @@ export interface StoredObjectMetadata {
   byteSize: number;
   contentType: string;
   exists: boolean;
+  /** Opaque fingerprint for object-version integrity (etag/version/updated+size). */
+  fingerprint?: string;
+  etag?: string;
+  updatedAt?: string;
 }
 
 export interface UploadWriteHandle {

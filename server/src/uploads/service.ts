@@ -39,6 +39,9 @@ import {
 import { getUploadRepository, newUploadId, type MediaUploadRecord } from "./repository";
 import { assertUploadTransition } from "./transitions";
 import { getChelCoachConfig } from "../config/chelcoachConfig";
+import { getInspectionJobRepository } from "../inspection/repository";
+import { buildPublicInspectionSummary } from "../inspection/worker";
+import { pollAfterMsForInspection } from "../scottyContract";
 
 export class UploadServiceError extends Error {
   constructor(
@@ -63,8 +66,20 @@ function logEvent(event: string, fields: Record<string, string | number | boolea
   console.log(`[chelcoach-upload] event=${event} ${parts.join(" ")}`);
 }
 
-function toPublicDetail(rec: MediaUploadRecord): PublicUploadDetail {
+function usesWorkerInspection(): boolean {
+  const mode = getChelCoachConfig().storage.mode;
+  if (mode === "supabase_storage") return true;
+  return (process.env.CHELCOACH_MEDIA_INSPECTION_MODE ?? "").trim() === "worker";
+}
+
+async function toPublicDetail(rec: MediaUploadRecord): Promise<PublicUploadDetail> {
   const hours = getMediaRetentionPolicy().rawMediaRetentionHours;
+  const job = await getInspectionJobRepository().getActiveByUpload(rec.uploadId);
+  const inspection = buildPublicInspectionSummary(job);
+  const poll =
+    rec.uploadStatus === "processing" && job
+      ? pollAfterMsForInspection(job.status) ?? 2000
+      : undefined;
   return {
     uploadId: rec.uploadId,
     uploadStatus: rec.uploadStatus,
@@ -89,6 +104,8 @@ function toPublicDetail(rec: MediaUploadRecord): PublicUploadDetail {
     createdAt: rec.createdAt,
     uploadedAt: rec.uploadedAt,
     readyAt: rec.readyAt,
+    ...(inspection ? { inspection } : {}),
+    ...(poll ? { pollAfterMs: poll } : {}),
   };
 }
 
@@ -290,6 +307,66 @@ export async function markUploadTransferActive(
   return toPublicDetail(next!);
 }
 
+/** Enqueue durable inspection (supabase / worker mode). Does not run ffprobe. */
+async function enqueueMediaInspection(
+  record: MediaUploadRecord,
+  fingerprint: string,
+  trustedByteSize: number,
+  trustedMimeType: string,
+): Promise<PublicUploadDetail> {
+  const cfg = getChelCoachConfig();
+  const bucketAlias =
+    cfg.storage.mode === "supabase_storage"
+      ? cfg.storage.gameplayBucket
+      : "local-disk";
+  const jobs = getInspectionJobRepository();
+
+  const existing = await jobs.getActiveByUpload(record.uploadId);
+  if (
+    existing &&
+    existing.objectFingerprint !== fingerprint &&
+    (existing.status === "queued" ||
+      existing.status === "claimed" ||
+      existing.status === "downloading" ||
+      existing.status === "inspecting" ||
+      existing.status === "validating")
+  ) {
+    await jobs.update(existing.id, {
+      status: "failed",
+      errorCode: "STORAGE_OBJECT_MISMATCH",
+      errorMessage: "Stored media changed before verification completed.",
+      retryable: false,
+      failedAt: new Date().toISOString(),
+    });
+    logEvent("inspection_invalidated", {
+      uploadId: record.uploadId,
+      jobId: existing.id,
+      errorCode: "STORAGE_OBJECT_MISMATCH",
+    });
+  }
+
+  const job = await jobs.create({
+    uploadId: record.uploadId,
+    ownerId: record.ownerId,
+    storageProvider: record.storageProvider,
+    bucketAlias,
+    objectKey: record.storageObjectKey,
+    objectFingerprint: fingerprint,
+    trustedByteSize,
+    trustedMimeType,
+  });
+
+  logEvent("inspection_job_enqueued", {
+    uploadId: record.uploadId,
+    ownerId: record.ownerId,
+    jobId: job.id,
+    status: job.status,
+  });
+
+  const next = await getUploadRepository().get(record.uploadId);
+  return toPublicDetail(next!);
+}
+
 export async function beginStreamedUpload(
   ownerId: string,
   uploadId: string,
@@ -452,9 +529,36 @@ export async function completeUpload(ownerId: string, uploadId: string): Promise
     record = (await repo.get(uploadId))!;
   }
 
+  const fingerprint =
+    meta.fingerprint ||
+    `${meta.byteSize}|${meta.contentType}|${meta.updatedAt ?? meta.etag ?? "v0"}`;
+
+  // Production / supabase: enqueue durable worker inspection — never ffprobe here.
+  if (usesWorkerInspection()) {
+    if (record.uploadStatus === "processing") {
+      // Idempotent re-complete — reuse existing job.
+      return enqueueMediaInspection(
+        record,
+        fingerprint,
+        meta.byteSize || record.declaredByteSize,
+        record.mimeType,
+      );
+    }
+    assertUploadTransition("uploaded", "processing");
+    await repo.update(uploadId, { uploadStatus: "processing" });
+    record = (await repo.get(uploadId))!;
+    return enqueueMediaInspection(
+      record,
+      fingerprint,
+      meta.byteSize || record.declaredByteSize,
+      record.mimeType,
+    );
+  }
+
+  // Development local_disk: inline inspection (CI/E2E). Not used on Vercel/supabase path.
   assertUploadTransition(record.uploadStatus === "processing" ? "processing" : "uploaded", "processing");
   await repo.update(uploadId, { uploadStatus: "processing" });
-  logEvent("inspection_started", { uploadId, ownerId });
+  logEvent("inspection_started", { uploadId, ownerId, mode: "inline" });
 
   const started = Date.now();
   let inspection;
@@ -598,6 +702,9 @@ export async function cancelUpload(ownerId: string, uploadId: string): Promise<P
   if (record.uploadStatus === "deleted" || record.uploadStatus === "expired") {
     return toPublicDetail(record);
   }
+  await getInspectionJobRepository()
+    .cancelActiveForUpload(uploadId, "Upload cancelled.")
+    .catch(() => undefined);
   const media = getMediaObjectStorage();
   await media.deleteObject(record.storageObjectKey).catch(() => undefined);
   const updated = await repo.update(uploadId, {

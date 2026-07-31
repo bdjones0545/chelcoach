@@ -82,21 +82,36 @@ export class SupabaseMediaObjectStorage implements MediaObjectStorage {
     const { data: rows, error: queryError } = await this.client
       .schema("storage")
       .from("objects")
-      .select("name, metadata")
+      .select("name, metadata, updated_at, version, id")
       .eq("bucket_id", bucket)
       .eq("name", objectKey)
       .limit(1);
     if (!queryError && rows && rows.length > 0) {
       const row = rows[0] as {
         name: string;
-        metadata?: { size?: number; mimetype?: string } | null;
+        metadata?: { size?: number; mimetype?: string; eTag?: string; cacheControl?: string } | null;
+        updated_at?: string;
+        version?: string;
+        id?: string;
       };
       const meta = row.metadata ?? null;
+      const byteSize = Number(meta?.size ?? 0) || 0;
+      const contentType = String(meta?.mimetype ?? "application/octet-stream");
+      const etag = meta?.eTag ? String(meta.eTag) : undefined;
+      const fingerprint = [
+        row.version || row.id || "",
+        etag || "",
+        String(byteSize),
+        row.updated_at || "",
+      ].join("|");
       return {
         objectKey,
-        byteSize: Number(meta?.size ?? 0) || 0,
-        contentType: String(meta?.mimetype ?? "application/octet-stream"),
+        byteSize,
+        contentType,
         exists: true,
+        fingerprint,
+        etag,
+        updatedAt: row.updated_at,
       };
     }
 
