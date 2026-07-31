@@ -59,10 +59,19 @@ sample report):
 - **Smoke test** extended to 9 checks: validation (415/413), full init → PUT → commit → report
   loop on the memory backend, and demo back-compat.
 
-## ⏭️ Next — Phase 3: ffmpeg frame extraction
+## ✅ Phase 3 — Bounded FFmpeg frame extraction (complete)
 
-- Sample frames from the stored clip (capped fps/count), generate a poster + thumbnails.
-- **Still deferred:** AI analysis (Phase 4), Postgres persistence, auth & payments (later).
+- Commit leaves real clips `queued` and enqueues in-process extraction (HTTP returns immediately).
+- `ffprobe` inspects metadata; bounded JPEG frame sampling runs via system `ffmpeg`/`ffprobe`.
+- Public status stages: `inspecting_video` → `extracting_frames` → `finalizing` → `ready` (or `failed`).
+- Successful extraction still attaches the **deterministic sample report** (no AI yet).
+- Upload cap lowered to **250 MB** (shared `uploadRules`) to bound in-process RAM risk.
+- Docs: [ffmpeg-extraction.md](ffmpeg-extraction.md).
+
+## ⏭️ Next — Phase 4: AI analysis
+
+- Claude vision structured output → real `AnalysisReport`.
+- **Still deferred:** Postgres persistence, auth & payments (later).
 
 ## What CI guarantees today
 
