@@ -85,6 +85,8 @@ describe("database config (Step 10.1A)", () => {
     assert.equal((opts.ssl as { rejectUnauthorized: boolean }).rejectUnauthorized, true);
     assert.ok(!String(opts.connectionString).includes("sslmode="));
     assert.ok(!JSON.stringify(databaseDiagnostics(config)).includes("secret"));
+    // Supabase pooler CA is trusted via bundled cert (not rejectUnauthorized:false).
+    assert.ok((opts.ssl as { ca?: string }).ca);
   });
 
   it("owner id text can store Supabase auth UUID strings", () => {

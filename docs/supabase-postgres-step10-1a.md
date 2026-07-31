@@ -53,6 +53,7 @@ Supabase Dashboard → Project Settings → Database → Connection string → U
 - Client builds an explicit `ssl: { rejectUnauthorized: true }` object.
 - `sslmode` is stripped from the URL to avoid node-postgres override surprises.
 - **Never** set `rejectUnauthorized: false` for Supabase.
+- Shared pooler presents a chain rooted at **Supabase Root 2021 CA** (not in public trust stores). ChelCoach trusts `server/certs/supabase-pooler-chain.pem` automatically for `provider=supabase`. Optional override: `CHELCOACH_DB_SSL_CA_PATH`.
 
 ## Commands
 
@@ -146,18 +147,16 @@ Destructive reset (disposable projects only): drop public tables + drizzle schem
 - Public errors omit SQL/host details
 - Bundle + repository secret scans remain required
 
-## Phase status / blocker
+## Phase status (10.1A)
 
-**Live Supabase migrate + verify is blocked** until `.env` contains a Postgres URI:
+**Live Supabase migrate + verify completed** against the production project using **session pooler** (IPv4).
 
-```env
-DATABASE_URL=postgresql://postgres.[ref]:[PASSWORD]@aws-0-[region].pooler.supabase.com:5432/postgres
-DATABASE_URL_MIGRATE=postgresql://postgres:[PASSWORD]@db.[ref].supabase.co:5432/postgres
-```
+Notes from this environment:
 
-Do **not** paste `SUPABASE_URL` (`https://*.supabase.co`) into `DATABASE_URL`.
-
-After keys are set:
+- Direct host `db.<ref>.supabase.co:5432` is **IPv6-only** on free tier → `ENETUNREACH` from IPv4-only networks.
+- Prefer **Session pooler** URI from Dashboard → Connect (host shape `aws-<N>-<region>.pooler.supabase.com:5432`, user `postgres.<ref>`).
+- Do **not** paste `SUPABASE_URL` (`https://*.supabase.co`) into `DATABASE_URL`.
+- Do **not** leave template placeholders (`[ref]`, `[region]`, `[YOUR-PASSWORD]`).
 
 ```bash
 npm run db:migrate

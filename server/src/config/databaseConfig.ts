@@ -2,7 +2,21 @@
  * Central database configuration for ChelCoach → Postgres / Supabase.
  * Never log the full connection URL or password.
  */
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { ChelCoachConfigError } from "./chelcoachConfig";
+
+const here = dirname(fileURLToPath(import.meta.url));
+/** Bundled Supabase pooler CA chain (Supabase Root 2021 — not in public trust stores). */
+const DEFAULT_SUPABASE_CA_PATH = resolve(here, "../../certs/supabase-pooler-chain.pem");
+
+function loadSupabaseCa(env: NodeJS.ProcessEnv): string | undefined {
+  const override = (env.CHELCOACH_DB_SSL_CA_PATH ?? "").trim();
+  const path = override || DEFAULT_SUPABASE_CA_PATH;
+  if (!existsSync(path)) return undefined;
+  return readFileSync(path, "utf8");
+}
 
 export type DbSslMode = "require" | "verify-full" | "disable";
 export type DbConnectionMode = "direct" | "pooler" | "local";
@@ -201,7 +215,11 @@ export function databaseDiagnostics(config: DatabaseConfig): DatabaseDiagnostics
 }
 
 /** Build pg Pool config without embedding secrets in returned logs. */
-export function toPgPoolOptions(config: DatabaseConfig, purpose: "runtime" | "migrate") {
+export function toPgPoolOptions(
+  config: DatabaseConfig,
+  purpose: "runtime" | "migrate",
+  env: NodeJS.ProcessEnv = process.env,
+) {
   const connectionString = purpose === "migrate" ? config.migrateUrl : config.url;
   if (!connectionString) {
     throw new ChelCoachConfigError("DATABASE_URL_MISSING", "DATABASE_URL is not configured.");
@@ -216,14 +234,19 @@ export function toPgPoolOptions(config: DatabaseConfig, purpose: "runtime" | "mi
     cleaned = connectionString;
   }
 
-  const ssl =
-    config.sslMode === "disable"
-      ? undefined
-      : {
-          // verify-full / require: keep certificate verification enabled (system CAs).
-          // Do not set rejectUnauthorized: false.
-          rejectUnauthorized: true,
-        };
+  let ssl: undefined | { rejectUnauthorized: boolean; ca?: string };
+  if (config.sslMode === "disable") {
+    ssl = undefined;
+  } else {
+    // Keep certificate verification enabled. Never set rejectUnauthorized: false.
+    // Supabase pooler presents a chain rooted at "Supabase Root 2021 CA", which is
+    // not in public trust stores — load the bundled (or overridden) CA explicitly.
+    const ca =
+      config.provider === "supabase" ? loadSupabaseCa(env) : undefined;
+    ssl = ca
+      ? { rejectUnauthorized: true, ca }
+      : { rejectUnauthorized: true };
+  }
 
   return {
     connectionString: cleaned,
