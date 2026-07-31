@@ -95,7 +95,7 @@ Every feature below is driven by real content and screens in the codebase (`src/
 
 **Shared** ([`shared/`](shared/)) — the Analysis Contract (Zod schemas + inferred types).
 
-**Tooling:** npm (package-lock.json), `replit.nix` (Nix env, Node 22), GitHub Actions CI.
+**Tooling:** npm (package-lock.json), `.nvmrc` + package `engines` (Node 22), GitHub Actions CI.
 
 > The frontend, backend, and shared contract are **three isolated npm projects**. The
 > frontend build never compiles `server/` or `shared/`, so it always stays green.
@@ -106,10 +106,11 @@ Every feature below is driven by real content and screens in the codebase (`src/
 
 ### Prerequisites
 
-- **Node.js 22** (matches `replit.nix`)
+- **Node.js 22** (see `.nvmrc` and package `engines`)
 - **npm** (repository uses `package-lock.json`)
-- No database, object storage, ffmpeg, or AI keys are required to run the app — it runs on
-  mock data out of the box.
+- No database, object storage, or AI keys are required for the demo/mock path.
+- **ffmpeg/ffprobe** are required for live frame extraction (`docs/ffmpeg-extraction.md`).
+- **`ANTHROPIC_API_KEY`** is required for live AI analysis (`docs/ai-gameplay-analysis.md`).
 
 ### Frontend (from repo root)
 
@@ -207,7 +208,6 @@ chelcoach/
 ├─ public/                     Static assets (favicon.svg, icons.svg)
 ├─ docs/                       backend-plan.md, backend-setup-replit.md, phase-status.md
 ├─ .github/workflows/ci.yml    CI: frontend build + server typecheck + smoke
-├─ replit.nix                  Nix environment (Node 22)
 ├─ tailwind.config.js          "Pro Ice Analytics" design tokens
 ├─ vite.config.ts
 └─ index.html
@@ -229,8 +229,8 @@ ffmpeg/AI yet):
 
 ## Deployment
 
-The project targets **[Replit](https://replit.com/)** (per `replit.nix` and
-[docs/backend-setup-replit.md](docs/backend-setup-replit.md)):
+The project remains deployable on **[Replit](https://replit.com/)** (see
+[docs/backend-setup-replit.md](docs/backend-setup-replit.md)); local/Cursor use Node 22 via `.nvmrc`:
 
 - The **Vite frontend** deploys as a static build and calls the API base URL.
 - The **API** targets a Replit **Reserved VM** (always-on, for the eventual background job

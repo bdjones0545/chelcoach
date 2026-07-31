@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "ChelCoach backend API (Phase 3 — bounded FFmpeg frame extraction; no AI yet).",
+  "description": "ChelCoach backend API (Phase 3 \u2014 bounded FFmpeg frame extraction; no AI yet).",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
@@ -29,6 +29,9 @@
     "@types/pg": "^8.15.6",
     "drizzle-kit": "^0.31.6",
     "tsx": "^4.20.6",
-    "typescript": "^5.9.3"
+    "typescript": "~6.0.2"
+  },
+  "engines": {
+    "node": ">=22 <23"
   }
 }
