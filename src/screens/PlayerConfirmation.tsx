@@ -156,6 +156,8 @@ export default function PlayerConfirmation() {
       const result = await submitGameplayAnalysis(uploadId);
       setAcceptedRequestId(result.applicationRequestId);
       setSubmitState("accepted");
+      // Prefer the status screen for async provider workflows (simulator / future Scotty).
+      navigate(`/analysis-status?requestId=${encodeURIComponent(result.applicationRequestId)}`);
     } catch (err) {
       setSubmitState("submission_failed");
       setSubmitError(err instanceof Error ? err.message : "Analysis submission failed");
@@ -271,8 +273,18 @@ export default function PlayerConfirmation() {
               <div role="status" aria-live="polite" className="space-y-3">
                 <p className="font-body-md text-tertiary">
                   Analysis accepted{acceptedRequestId ? ` (${acceptedRequestId.slice(0, 8)}…)` : ""}.
-                  Full progress tracking arrives in a later step.
                 </p>
+                <Button
+                  onClick={() =>
+                    navigate(
+                      acceptedRequestId
+                        ? `/analysis-status?requestId=${encodeURIComponent(acceptedRequestId)}`
+                        : "/processing",
+                    )
+                  }
+                >
+                  Track analysis status
+                </Button>
                 <Button variant="ghost" onClick={() => navigate("/processing")}>
                   Continue to demo scorecard
                 </Button>

@@ -90,9 +90,16 @@ sample report):
 - Fake provider + HTTP Scotty skeleton + signing boundary (no live network).
 - Docs: [scotty-provider-step4.md](scotty-provider-step4.md).
 
-## ⏭️ Next — Scotty Step 5
+## ✅ Scotty Step 5 — Local Scotty lifecycle simulator (complete)
 
-- Local Scotty lifecycle simulator behind the same provider interface.
+- `SimulatorScottyProvider` with elapsed-time lifecycle (fake-clock friendly).
+- Status / report / remote confirmation / cancel routes (ownership-scoped).
+- Minimal `/analysis-status` polling UI (no fake percentages).
+- Docs: [scotty-simulator-step5.md](scotty-simulator-step5.md).
+
+## ⏭️ Next — Scotty Step 6
+
+- Durable Postgres analysis-job persistence + reload recovery foundations.
 - **Still deferred:** Cloudflare tunnel, live Scotty VM, paid vision, auth & payments.
 
 ## What CI guarantees today

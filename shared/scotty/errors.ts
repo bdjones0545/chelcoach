@@ -35,6 +35,8 @@ export const scottyErrorCodeSchema = z.enum([
   "MEDIA_DELETION_FAILED",
   "IDEMPOTENCY_CONFLICT",
   "PROVIDER_MISCONFIGURED",
+  "REPORT_NOT_READY",
+  "JOB_CANCELLED",
 ]);
 export type ScottyErrorCode = z.infer<typeof scottyErrorCodeSchema>;
 
@@ -94,6 +96,8 @@ export function scottyErrorMessage(code: ScottyErrorCode): string {
     MEDIA_DELETION_FAILED: "Source media could not be deleted safely. We will retry.",
     IDEMPOTENCY_CONFLICT: "This analysis request conflicts with a previous submission.",
     PROVIDER_MISCONFIGURED: "The analysis provider is not configured correctly.",
+    REPORT_NOT_READY: "The coaching report is not ready yet.",
+    JOB_CANCELLED: "This analysis job was cancelled.",
   };
   return map[code];
 }

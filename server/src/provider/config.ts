@@ -3,6 +3,8 @@
  * Never expose secrets or base URLs to the browser bundle.
  */
 import { analysisProviderSchema, type AnalysisProvider } from "../scottyContract";
+import type { SimulatorScenario } from "./simulator/scenarios";
+import { isSimulatorScenario } from "./simulator/scenarios";
 
 export interface ScottyProviderConfig {
   provider: AnalysisProvider;
@@ -16,6 +18,12 @@ export interface ScottyProviderConfig {
   nodeEnv: string;
   /** Dev/CI fixture mode for FakeScottyProvider. */
   fakeScenario?: FakeProviderScenario;
+  /** Local simulator enabled flag. */
+  simulatorEnabled: boolean;
+  /** Explicit override to allow simulator when NODE_ENV=production (staging/tests only). */
+  simulatorAllowInProduction: boolean;
+  /** Default simulator scenario (`auto` resolves from media class). */
+  simulatorDefaultScenario: SimulatorScenario | "auto";
 }
 
 export type FakeProviderScenario =
@@ -62,7 +70,7 @@ export function loadScottyProviderConfig(
   if (!parsed.success) {
     throw new ProviderConfigError(
       "PROVIDER_MISCONFIGURED",
-      `Unsupported CHELCOACH_ANALYSIS_PROVIDER="${providerRaw}". Use fake | direct_anthropic | scotty.`,
+      `Unsupported CHELCOACH_ANALYSIS_PROVIDER="${providerRaw}". Use fake | simulator | direct_anthropic | scotty.`,
     );
   }
   const provider = parsed.data;
@@ -74,6 +82,18 @@ export function loadScottyProviderConfig(
   const reportTimeoutMs = intEnv("SCOTTY_REPORT_TIMEOUT_MS", 30_000, 1_000, 300_000);
   const signingSecretConfigured = Boolean((env.SCOTTY_SIGNING_SECRET ?? "").trim());
   const nodeEnv = env.NODE_ENV ?? "development";
+  const simulatorEnabled = boolEnv("CHELCOACH_SCOTTY_SIMULATOR_ENABLED", true);
+  const simulatorAllowInProduction = boolEnv(
+    "CHELCOACH_SCOTTY_SIMULATOR_ALLOW_IN_PRODUCTION",
+    false,
+  );
+  const scenarioRaw = (env.SCOTTY_SIMULATOR_DEFAULT_SCENARIO ?? "auto").trim();
+  const simulatorDefaultScenario: SimulatorScenario | "auto" =
+    scenarioRaw === "auto"
+      ? "auto"
+      : isSimulatorScenario(scenarioRaw)
+        ? scenarioRaw
+        : "auto";
 
   if (provider === "scotty" && !scottyEnabled) {
     throw new ProviderConfigError(
@@ -104,6 +124,20 @@ export function loadScottyProviderConfig(
       "[chelcoach-provider] WARNING: CHELCOACH_ANALYSIS_PROVIDER=direct_anthropic is development-only.",
     );
   }
+  if (provider === "simulator") {
+    if (nodeEnv === "production" && !simulatorAllowInProduction) {
+      throw new ProviderConfigError(
+        "PROVIDER_MISCONFIGURED",
+        "simulator is blocked when NODE_ENV=production unless CHELCOACH_SCOTTY_SIMULATOR_ALLOW_IN_PRODUCTION=true.",
+      );
+    }
+    if (!simulatorEnabled) {
+      throw new ProviderConfigError(
+        "PROVIDER_MISCONFIGURED",
+        "CHELCOACH_ANALYSIS_PROVIDER=simulator requires CHELCOACH_SCOTTY_SIMULATOR_ENABLED=true.",
+      );
+    }
+  }
 
   const fakeRaw = env.CHELCOACH_FAKE_PROVIDER_SCENARIO as FakeProviderScenario | undefined;
   const fakeScenario =
@@ -122,6 +156,9 @@ export function loadScottyProviderConfig(
     signingSecretConfigured,
     nodeEnv,
     fakeScenario,
+    simulatorEnabled,
+    simulatorAllowInProduction,
+    simulatorDefaultScenario,
   };
 }
 
@@ -137,5 +174,6 @@ export function providerConfigDiagnostics(config: ScottyProviderConfig): Record<
     statusTimeoutMs: config.statusTimeoutMs,
     reportTimeoutMs: config.reportTimeoutMs,
     nodeEnv: config.nodeEnv,
+    simulatorEnabled: config.simulatorEnabled,
   };
 }

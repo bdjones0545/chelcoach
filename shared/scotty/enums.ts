@@ -48,8 +48,13 @@ export const evidenceConfidenceLabelSchema = z.enum([
 ]);
 export type EvidenceConfidenceLabel = z.infer<typeof evidenceConfidenceLabelSchema>;
 
-/** Production analysis providers — demo/sample reports are not a provider. */
-export const analysisProviderSchema = z.enum(["fake", "direct_anthropic", "scotty"]);
+/** Analysis providers — simulator is local-only; never silently used in production. */
+export const analysisProviderSchema = z.enum([
+  "fake",
+  "simulator",
+  "direct_anthropic",
+  "scotty",
+]);
 export type AnalysisProvider = z.infer<typeof analysisProviderSchema>;
 
 export const scottyJobStatusSchema = z.enum([

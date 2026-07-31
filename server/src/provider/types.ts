@@ -15,7 +15,7 @@ import type {
 } from "../scottyContract";
 
 export interface ScottyProvider {
-  readonly mode: "fake" | "direct_anthropic" | "scotty";
+  readonly mode: "fake" | "simulator" | "direct_anthropic" | "scotty";
 
   submitAnalysis(input: ScottyAnalysisSubmission): Promise<ScottyProviderJobReceipt>;
 

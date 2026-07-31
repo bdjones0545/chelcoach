@@ -9,6 +9,7 @@ import {
 import { DirectAnthropicProvider } from "./directAnthropicProvider";
 import { FakeScottyProvider } from "./fakeProvider";
 import { HttpScottyProvider } from "./httpScottyProvider";
+import { SimulatorScottyProvider } from "./simulator/simulatorProvider";
 import { NoopScottyRequestSigner, UnconfiguredHmacScottyRequestSigner } from "./signer";
 import type { ScottyProvider } from "./types";
 
@@ -27,6 +28,10 @@ export function createScottyProvider(config?: ScottyProviderConfig): ScottyProvi
   switch (cfg.provider) {
     case "fake":
       return new FakeScottyProvider(cfg.fakeScenario ?? "accept");
+    case "simulator":
+      return new SimulatorScottyProvider({
+        defaultScenario: cfg.simulatorDefaultScenario,
+      });
     case "direct_anthropic":
       return new DirectAnthropicProvider();
     case "scotty":
