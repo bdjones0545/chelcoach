@@ -26,6 +26,14 @@ import {
   evaluateRetention,
   DEFAULT_MEDIA_RETENTION_POLICY,
   mediaRetentionPolicySchema,
+  classifyMediaDuration,
+  defaultGameplayProfile,
+  gameplayProfileUpdateSchema,
+  createUploadSessionRequestSchema,
+  buildGameContextFromSelection,
+  isGameAcceptableForUpload,
+  RELEASED_NOT_SUPPORTED_MESSAGE,
+  findGameById,
 } from "./index";
 import {
   FIXED_NOW,
@@ -366,5 +374,52 @@ describe("Scotty contracts — retention calculations", () => {
     assert.equal(decision.maximumRetentionReached, true);
     assert.equal(decision.eligible, true);
     assert.equal(decision.reason, "force_expire_stuck_job");
+  });
+});
+
+describe("Scotty contracts — Step 2 profile / games / classification", () => {
+  it("classifies short, extended, and full-game durations", () => {
+    assert.equal(classifyMediaDuration(60), "short_clip");
+    assert.equal(classifyMediaDuration(120), "short_clip");
+    assert.equal(classifyMediaDuration(121), "extended_clip");
+    assert.equal(classifyMediaDuration(899), "extended_clip");
+    assert.equal(classifyMediaDuration(900), "full_game");
+    assert.equal(classifyMediaDuration(1800), "full_game");
+    assert.throws(() => classifyMediaDuration(1801));
+  });
+
+  it("builds gameplay profile defaults and accepts partial updates", () => {
+    const profile = defaultGameplayProfile("user-1", FIXED_NOW.toISOString());
+    assert.equal(profile.preferredPlatform, "unknown");
+    const patch = gameplayProfileUpdateSchema.parse({ preferredPlatform: "xbox_series" });
+    assert.equal(patch.preferredPlatform, "xbox_series");
+    assert.equal(Object.keys(patch).length, 1);
+  });
+
+  it("validates create-upload-session context and rejects unsupported game selection helpers", () => {
+    const nhl25 = findGameById("nhl-25");
+    assert.ok(nhl25);
+    assert.equal(isGameAcceptableForUpload(nhl25.supportStatus), true);
+
+    const nhl26 = findGameById("nhl-26");
+    assert.ok(nhl26);
+    assert.equal(isGameAcceptableForUpload(nhl26.supportStatus), false);
+    assert.match(RELEASED_NOT_SUPPORTED_MESSAGE, /still being verified/);
+
+    const ctx = buildGameContextFromSelection("nhl-26");
+    assert.equal(ctx.supportStatus, "released_not_yet_supported");
+
+    const req = createUploadSessionRequestSchema.parse({
+      filename: "clip.mp4",
+      contentType: "video/mp4",
+      sizeBytes: 1000,
+      saveAsDefaults: false,
+      context: {
+        gameContext: buildGameContextFromSelection("nhl-25"),
+        playerContext: xboxPlayerContext(),
+        singlePlayerControl: true,
+      },
+    });
+    assert.equal(req.saveAsDefaults, false);
   });
 });

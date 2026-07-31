@@ -17,7 +17,8 @@ import {
 
 export const USE_BACKEND_REPORTS = import.meta.env.VITE_USE_BACKEND_REPORTS === "true";
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "http://localhost:3001";
+export const API_BASE_URL =
+  (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "http://localhost:3001";
 
 /** Deterministic demo clip id used when no real upload has happened (flag on). */
 const DEMO_CLIP_ID = "static-demo-clip";

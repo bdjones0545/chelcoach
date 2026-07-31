@@ -29,6 +29,10 @@ shared/scotty/
   report.ts
   errors.ts
   retention.ts        policy schema + UTC eligibility helpers
+  profile.ts          reusable gameplay preferences (Step 2)
+  games.ts            NHL title catalog + support status (Step 2)
+  media-classification.ts
+  upload-context.ts   create-session + public upload detail (Step 2)
   index.ts
 ```
 
@@ -77,3 +81,8 @@ Your coaching report remains available.
 ```
 
 Storage object keys are never exposed on public upload views.
+
+## Step 2 follow-on
+
+Upload sessions, gameplay profiles, streamed media storage, and trusted inspection are
+documented in [scotty-upload-step2.md](scotty-upload-step2.md).

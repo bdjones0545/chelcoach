@@ -1,11 +1,18 @@
 import cors from "cors";
 import express from "express";
 import type { NextFunction, Request, Response } from "express";
+import { wirePersistence } from "./persistence";
 import { clipsRouter } from "./routes/clips";
 import { healthRouter } from "./routes/health";
+import { profileRouter } from "./routes/profile";
+import { scottyUploadsRouter } from "./routes/scottyUploads";
+import { sessionRouter } from "./routes/session";
 import { uploadsRouter } from "./routes/uploads";
 
 export function createApp() {
+  // Prefer Drizzle when DATABASE_URL is present; otherwise in-memory repos (CI/local).
+  wirePersistence();
+
   const app = express();
 
   // Lock CORS to the app origin(s). Comma-separated CORS_ORIGIN, or allow all in dev.
@@ -14,6 +21,11 @@ export function createApp() {
   app.use(express.json({ limit: "1mb" }));
 
   app.use("/api/health", healthRouter);
+  app.use("/api", sessionRouter);
+  app.use("/api", profileRouter);
+  // Scotty Step 2 streamed uploads (must register before legacy buffered routes).
+  app.use("/api", scottyUploadsRouter);
+  // Legacy Phase-2 clip upload path (buffered) — retained for back-compat demos.
   app.use("/api", uploadsRouter);
   app.use("/api", clipsRouter);
 

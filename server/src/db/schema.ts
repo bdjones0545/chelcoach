@@ -138,6 +138,21 @@ export const analyses = pgTable("analyses", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+/** Reusable gameplay preferences per pseudonymous owner (Step 2). */
+export const gameplayProfiles = pgTable("gameplay_profiles", {
+  userId: text("user_id").primaryKey(),
+  preferredPlatform: text("preferred_platform").notNull(),
+  consoleGeneration: text("console_generation"),
+  preferredControlScheme: text("preferred_control_scheme").notNull(),
+  primaryPosition: text("primary_position").notNull(),
+  commonGameMode: text("common_game_mode").notNull(),
+  defaultIndicatorColor: text("default_indicator_color"),
+  defaultTeamSide: text("default_team_side"),
+  lastSelectedGameId: text("last_selected_game_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 /**
  * Scotty-era upload record — ownership + storage refs + retention state only.
  * No raw video bytes / base64 columns.
@@ -153,15 +168,22 @@ export const mediaUploads = pgTable("media_uploads", {
   byteSize: bigint("byte_size", { mode: "number" }).notNull(),
   clientDeclaredDurationSec: integer("client_declared_duration_sec"),
   trustedMedia: jsonb("trusted_media").$type<TrustedMediaMetadata>(),
+  mediaClassification: text("media_classification"),
+  /** Immutable per-upload gameplay context snapshot. */
+  gameplayContext: jsonb("gameplay_context"),
   uploadStatus: uploadStorageStatusEnum("upload_status").notNull().default("pending"),
   checksumSha256: text("checksum_sha256"),
   retentionPolicyVersion: text("retention_policy_version").notNull(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   absoluteDeleteAt: timestamp("absolute_delete_at", { withTimezone: true }).notNull(),
+  pendingExpiresAt: timestamp("pending_expires_at", { withTimezone: true }),
   uploadedAt: timestamp("uploaded_at", { withTimezone: true }),
+  readyAt: timestamp("ready_at", { withTimezone: true }),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   deletionAttemptCount: integer("deletion_attempt_count").notNull().default(0),
   lastDeletionErrorCode: text("last_deletion_error_code"),
+  errorCode: text("error_code"),
+  errorMessage: text("error_message"),
   earlyDeletionRequestedAt: timestamp("early_deletion_requested_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),

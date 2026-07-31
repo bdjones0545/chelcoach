@@ -67,10 +67,18 @@ sample report):
 - Drizzle tables prepared for `media_uploads`, leases, Scotty jobs/reports — **no raw video in Postgres**.
 - Docs: [scotty-contracts.md](scotty-contracts.md).
 
-## ⏭️ Next — Phase 3 / Scotty Step 2
+## ✅ Scotty Step 2 — Upload sessions + gameplay profile (complete)
 
-- FFmpeg frame extraction (if not already landed) and Scotty transport / simulator wiring.
-- **Still deferred:** Cloudflare tunnel, live Scotty VM, paid vision, full confirmation UX, auth & payments.
+- Streamed upload path (`PUT /api/uploads/:id/content`) — no full-file Buffer on ingress.
+- Gameplay profile defaults + per-upload context overrides (`saveAsDefaults` explicit).
+- Trusted media inspection (ffprobe / fake in CI), duration + byte limits, media classification.
+- Retention timestamps + abandoned pending expiration; ownership-scoped APIs.
+- Docs: [scotty-upload-step2.md](scotty-upload-step2.md).
+
+## ⏭️ Next — Scotty Step 3
+
+- Controlled-player confirmation UI, Scotty transport / simulator wiring.
+- **Still deferred:** Cloudflare tunnel, live Scotty VM, paid vision, auth & payments.
 
 ## What CI guarantees today
 

@@ -7,6 +7,7 @@ import {
   mediaRetentionPolicySchema,
   type MediaRetentionPolicy,
   RETENTION_POLICY_VERSION,
+  SCOTTY_DEFAULT_MAX_UPLOAD_BYTES,
 } from "../scottyContract";
 
 function intEnv(name: string, fallback: number, min: number, max: number): number {
@@ -45,7 +46,16 @@ export function resetRetentionPolicyCacheForTests(): void {
   cached = null;
 }
 
-/** Configurable upload byte cap — defaults to current shared uploadRules (2 GB). */
+/** Configurable upload byte cap — defaults to shared SCOTTY_DEFAULT_MAX_UPLOAD_BYTES (2 GB). */
 export function getMaxUploadBytes(): number {
-  return intEnv("CHELCOACH_MAX_UPLOAD_BYTES", 2 * 1024 ** 3, 1_000_000, 10 * 1024 ** 3);
+  return intEnv("CHELCOACH_MAX_UPLOAD_BYTES", SCOTTY_DEFAULT_MAX_UPLOAD_BYTES, 1_000_000, 10 * 1024 ** 3);
+}
+
+/** Pending/abandoned upload expiration (hours). */
+export function getPendingUploadExpirationHours(): number {
+  return intEnv("CHELCOACH_PENDING_UPLOAD_EXPIRATION_HOURS", 2, 1, 72);
+}
+
+export function retentionNoticeText(hours = getMediaRetentionPolicy().rawMediaRetentionHours): string {
+  return `Uploaded gameplay video is automatically deleted after ${hours} hours. Your completed coaching report can remain available.`;
 }

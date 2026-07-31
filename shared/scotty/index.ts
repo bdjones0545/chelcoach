@@ -19,6 +19,10 @@ export * from "./strategies";
 export * from "./faceoffs";
 export * from "./drills";
 export * from "./report";
+export * from "./profile";
+export * from "./media-classification";
+export * from "./games";
+export * from "./upload-context";
 export {
   FIXED_NOW,
   xboxPlayerContext,
