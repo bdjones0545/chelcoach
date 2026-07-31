@@ -792,8 +792,8 @@ describe("frontend minimal status poller", () => {
     const labels = statusLabel("analyzing_gameplay");
     assert.equal(labels, "Analyzing gameplay");
     assert.equal(clampPollAfterMs(null), null);
-    assert.ok((clampPollAfterMs(50) ?? 0) >= 200);
-    assert.ok((clampPollAfterMs(99_999) ?? 0) <= 10_000);
+    assert.ok((clampPollAfterMs(50) ?? 0) >= 1000);
+    assert.ok((clampPollAfterMs(99_999) ?? 0) <= 15_000);
     assert.equal(shouldStopPolling({ status: "completed", terminal: true, userActionRequired: false, pollAfterMs: null, reportReady: true }), true);
     assert.equal(
       shouldStopPolling({

@@ -157,7 +157,7 @@ export default function PlayerConfirmation() {
       setAcceptedRequestId(result.applicationRequestId);
       setSubmitState("accepted");
       // Prefer the status screen for async provider workflows (simulator / future Scotty).
-      navigate(`/analysis-status?requestId=${encodeURIComponent(result.applicationRequestId)}`);
+      navigate(`/analysis/${encodeURIComponent(result.applicationRequestId)}`);
     } catch (err) {
       setSubmitState("submission_failed");
       setSubmitError(err instanceof Error ? err.message : "Analysis submission failed");
@@ -278,7 +278,7 @@ export default function PlayerConfirmation() {
                   onClick={() =>
                     navigate(
                       acceptedRequestId
-                        ? `/analysis-status?requestId=${encodeURIComponent(acceptedRequestId)}`
+                        ? `/analysis/${encodeURIComponent(acceptedRequestId)}`
                         : "/processing",
                     )
                   }

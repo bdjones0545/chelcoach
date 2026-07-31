@@ -3,6 +3,7 @@ import Landing from "./screens/Landing";
 import Upload from "./screens/Upload";
 import PlayerConfirmation from "./screens/PlayerConfirmation";
 import AnalysisStatus from "./screens/AnalysisStatus";
+import AnalysisReport from "./screens/AnalysisReport";
 import Processing from "./screens/Processing";
 import Scorecard from "./screens/Scorecard";
 import FilmPreview from "./screens/FilmPreview";
@@ -15,6 +16,11 @@ export default function App() {
       <Route path="/" element={<Landing />} />
       <Route path="/upload" element={<Upload />} />
       <Route path="/player-confirmation" element={<PlayerConfirmation />} />
+      {/* Durable analysis routes — application request ID is the recovery key (Step 7). */}
+      <Route path="/analysis/:applicationRequestId" element={<AnalysisStatus />} />
+      <Route path="/analysis/:applicationRequestId/confirm-player" element={<AnalysisStatus />} />
+      <Route path="/analysis/:applicationRequestId/report" element={<AnalysisReport />} />
+      {/* Legacy query-param route redirects to durable path. */}
       <Route path="/analysis-status" element={<AnalysisStatus />} />
       <Route path="/processing" element={<Processing />} />
       <Route path="/scorecard" element={<Scorecard />} />

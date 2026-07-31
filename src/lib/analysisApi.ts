@@ -2,7 +2,7 @@
  * Step 4 analysis submission client — ChelCoach backend only.
  * Never selects provider URL, signing mode, model, or API keys.
  */
-import { API_BASE_URL } from "./reportApi";
+import { API_BASE_URL } from "./apiBase";
 import { ensureOwnerSession } from "./scottyUploadApi";
 
 export type AnalysisSubmitUiState =

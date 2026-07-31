@@ -54,6 +54,12 @@ jobs:
       - name: Install frontend
         run: npm ci
 
+      - name: Test frontend (Vitest)
+        run: npm test
+
+      - name: Lint frontend
+        run: npm run lint
+
       - name: Build frontend
         run: npm run build
 

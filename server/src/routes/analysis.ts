@@ -100,6 +100,8 @@ analysisRouter.get(
         ownerId,
         applicationRequestId: requestIdParam(req),
       });
+      // Authenticated status must not be cached by browsers or intermediaries.
+      res.setHeader("Cache-Control", "no-store");
       res.json(status);
     } catch (err) {
       sendError(res, err);
@@ -117,6 +119,8 @@ analysisRouter.get(
         ownerId,
         applicationRequestId: requestIdParam(req),
       });
+      // Ownership is rechecked on every request; private no-store keeps intermediaries honest.
+      res.setHeader("Cache-Control", "private, no-store");
       res.json(report);
     } catch (err) {
       sendError(res, err);

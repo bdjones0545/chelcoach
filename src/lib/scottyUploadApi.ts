@@ -1,7 +1,7 @@
 /**
  * Scotty Step 2 upload + profile client (streamed PUT with progress).
  */
-import { API_BASE_URL } from "./reportApi";
+import { API_BASE_URL } from "./apiBase";
 
 const TOKEN_KEY = "chelcoach_owner_token";
 
