@@ -2,8 +2,10 @@ import cors from "cors";
 import express from "express";
 import type { NextFunction, Request, Response } from "express";
 import { wirePersistence } from "./persistence";
+import { configureDefaultFrameExtractor } from "./identification/extractor";
 import { clipsRouter } from "./routes/clips";
 import { healthRouter } from "./routes/health";
+import { playerIdentificationRouter } from "./routes/playerIdentification";
 import { profileRouter } from "./routes/profile";
 import { scottyUploadsRouter } from "./routes/scottyUploads";
 import { sessionRouter } from "./routes/session";
@@ -12,6 +14,7 @@ import { uploadsRouter } from "./routes/uploads";
 export function createApp() {
   // Prefer Drizzle when DATABASE_URL is present; otherwise in-memory repos (CI/local).
   wirePersistence();
+  configureDefaultFrameExtractor();
 
   const app = express();
 
@@ -25,7 +28,9 @@ export function createApp() {
   app.use("/api", profileRouter);
   // Scotty Step 2 streamed uploads (must register before legacy buffered routes).
   app.use("/api", scottyUploadsRouter);
-  // Legacy Phase-2 clip upload path (buffered) — retained for back-compat demos.
+  // Scotty Step 3 controlled-player identification / confirmation.
+  app.use("/api", playerIdentificationRouter);
+  // Legacy Phase-2 clip upload path (buffered) — demo/legacy only; capped separately.
   app.use("/api", uploadsRouter);
   app.use("/api", clipsRouter);
 

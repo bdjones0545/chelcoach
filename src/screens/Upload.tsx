@@ -13,6 +13,7 @@ import {
 } from "../data/gameCatalog";
 import { uploadErrors, uploadRules } from "../data/mockData";
 import { USE_BACKEND_REPORTS } from "../lib/reportApi";
+import { storeReadyUploadId } from "../lib/playerIdentificationApi";
 import {
   cancelUpload,
   createUploadSession,
@@ -339,8 +340,9 @@ export default function Upload() {
         setTrustedDuration(detail.durationSec ?? null);
         setMediaClass(detail.mediaClassification ?? null);
         setRetentionNotice(detail.retentionNotice);
-        // Step 2 stops at ready — no analysis job yet. Continue into the demo processing loop.
-        navigate("/processing");
+        storeReadyUploadId(session.uploadId);
+        // Step 3: identify / confirm controlled player before demo processing loop.
+        navigate(`/player-confirmation?uploadId=${encodeURIComponent(session.uploadId)}`);
         return;
       }
 
@@ -348,7 +350,8 @@ export default function Upload() {
         setUiState("inspecting");
       }
       setUiState("ready");
-      navigate("/processing");
+      storeReadyUploadId(session.uploadId);
+      navigate(`/player-confirmation?uploadId=${encodeURIComponent(session.uploadId)}`);
     } catch (err) {
       if (controller.signal.aborted || (err instanceof Error && err.message === "Upload cancelled")) {
         setUiState("cancelled");

@@ -34,6 +34,9 @@ import {
   isGameAcceptableForUpload,
   RELEASED_NOT_SUPPORTED_MESSAGE,
   findGameById,
+  boundingBoxSchema,
+  publicPlayerIdentificationSchema,
+  MAX_PLAYER_CANDIDATES,
 } from "./index";
 import {
   FIXED_NOW,
@@ -374,6 +377,30 @@ describe("Scotty contracts — retention calculations", () => {
     assert.equal(decision.maximumRetentionReached, true);
     assert.equal(decision.eligible, true);
     assert.equal(decision.reason, "force_expire_stuck_job");
+  });
+});
+
+describe("Scotty contracts — Step 3 identification / candidates", () => {
+  it("validates bounding boxes and public identification shapes", () => {
+    assert.ok(boundingBoxSchema.safeParse({ x: 0, y: 0, width: 1, height: 1 }).success);
+    assert.equal(boundingBoxSchema.safeParse({ x: 0.5, y: 0, width: 0.6, height: 0.5 }).success, false);
+    assert.equal(MAX_PLAYER_CANDIDATES, 4);
+    const pub = publicPlayerIdentificationSchema.parse({
+      identificationId: "id-1",
+      uploadId: "up-1",
+      status: "confirmation_required",
+      detected: true,
+      confidence: 0.5,
+      confidenceLabel: "moderate",
+      uncertainties: ["Multiple players match the provided context"],
+      userConfirmed: false,
+      frames: [],
+      candidates: [],
+      additionalExtractionAvailable: true,
+      sourceExpiresAt: FIXED_NOW.toISOString(),
+      retentionNotice: "Complete player confirmation before the source video expires.",
+    });
+    assert.equal(pub.status, "confirmation_required");
   });
 });
 

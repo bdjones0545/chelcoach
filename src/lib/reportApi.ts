@@ -85,7 +85,11 @@ function putFileWithProgress(url: string, file: File, onProgress?: (percent: num
   });
 }
 
-/** init → PUT bytes → commit. Returns the new clipId. */
+/**
+ * @deprecated LEGACY buffered demo path (`/api/uploads/init` + `/api/clips/:id/file`).
+ * The main Upload UI uses streamed Scotty sessions via `scottyUploadApi` instead.
+ * Kept only for smoke/back-compat helpers — do not wire new production UI here.
+ */
 async function uploadClip(file: File, onProgress?: (percent: number) => void): Promise<string> {
   const initRes = await fetch(`${API_BASE_URL}/api/uploads/init`, {
     method: "POST",
@@ -104,6 +108,11 @@ async function uploadClip(file: File, onProgress?: (percent: number) => void): P
   const commitRes = await fetch(`${API_BASE_URL}/api/clips/${clipId}/commit`, { method: "POST" });
   if (!commitRes.ok) throw new Error(`commit failed: ${commitRes.status}`);
   return clipId;
+}
+
+/** Assert main Upload UI client does not target the legacy buffered route. */
+export function usesLegacyBufferedUploadPath(uploadUrl: string): boolean {
+  return uploadUrl.includes("/api/clips/") && uploadUrl.endsWith("/file");
 }
 
 /** Upload a real clip and resolve its normalized report. */

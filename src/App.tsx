@@ -1,6 +1,7 @@
 import { Route, Routes } from "react-router-dom";
 import Landing from "./screens/Landing";
 import Upload from "./screens/Upload";
+import PlayerConfirmation from "./screens/PlayerConfirmation";
 import Processing from "./screens/Processing";
 import Scorecard from "./screens/Scorecard";
 import FilmPreview from "./screens/FilmPreview";
@@ -12,6 +13,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/upload" element={<Upload />} />
+      <Route path="/player-confirmation" element={<PlayerConfirmation />} />
       <Route path="/processing" element={<Processing />} />
       <Route path="/scorecard" element={<Scorecard />} />
       <Route path="/film-preview" element={<FilmPreview />} />

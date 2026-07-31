@@ -242,6 +242,85 @@ export const scottyAnalysisReports = pgTable("scotty_analysis_reports", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+/**
+ * Controlled-player identification (Step 3) — separate from upload/job status.
+ * No frame binaries here. Full record mirrored in `record` jsonb for flexibility.
+ */
+export const playerIdentifications = pgTable("player_identifications", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  uploadId: uuid("upload_id")
+    .notNull()
+    .unique()
+    .references(() => mediaUploads.id, { onDelete: "cascade" }),
+  ownerId: text("owner_id").notNull(),
+  analysisJobId: uuid("analysis_job_id"),
+  contractVersion: text("contract_version").notNull(),
+  status: text("status").notNull(),
+  detected: boolean("detected").notNull().default(false),
+  userConfirmed: boolean("user_confirmed").notNull().default(false),
+  confirmationId: uuid("confirmation_id"),
+  provider: text("provider").notNull(),
+  record: jsonb("record").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+/** Confirmation frame metadata only — bytes live in object storage. */
+export const confirmationFrames = pgTable("confirmation_frames", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  uploadId: uuid("upload_id")
+    .notNull()
+    .references(() => mediaUploads.id, { onDelete: "cascade" }),
+  identificationId: uuid("identification_id")
+    .notNull()
+    .references(() => playerIdentifications.id, { onDelete: "cascade" }),
+  ownerId: text("owner_id").notNull(),
+  storageObjectKey: text("storage_object_key").notNull(),
+  timestampSec: integer("timestamp_sec").notNull(),
+  mimeType: text("mime_type").notNull(),
+  width: integer("width").notNull(),
+  height: integer("height").notNull(),
+  byteSize: integer("byte_size").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+/** Bounded candidate skaters for confirmation UI. */
+export const playerCandidates = pgTable("player_candidates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  uploadId: uuid("upload_id")
+    .notNull()
+    .references(() => mediaUploads.id, { onDelete: "cascade" }),
+  identificationId: uuid("identification_id")
+    .notNull()
+    .references(() => playerIdentifications.id, { onDelete: "cascade" }),
+  representativeFrameId: uuid("representative_frame_id")
+    .notNull()
+    .references(() => confirmationFrames.id, { onDelete: "cascade" }),
+  payload: jsonb("payload").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+/** User confirmation of controlled skater. */
+export const playerConfirmations = pgTable("player_confirmations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  identificationId: uuid("identification_id")
+    .notNull()
+    .references(() => playerIdentifications.id, { onDelete: "cascade" }),
+  uploadId: uuid("upload_id")
+    .notNull()
+    .references(() => mediaUploads.id, { onDelete: "cascade" }),
+  ownerId: text("owner_id").notNull(),
+  selectedCandidateId: uuid("selected_candidate_id").notNull(),
+  selectedFrameId: uuid("selected_frame_id").notNull(),
+  payload: jsonb("payload").notNull(),
+  confirmedAt: timestamp("confirmed_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 /** Optional advisory cleanup lock table for multi-instance safety later. */
 export const mediaCleanupLocks = pgTable("media_cleanup_locks", {
   uploadId: uuid("upload_id")

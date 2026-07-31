@@ -56,6 +56,29 @@ export function getPendingUploadExpirationHours(): number {
   return intEnv("CHELCOACH_PENDING_UPLOAD_EXPIRATION_HOURS", 2, 1, 72);
 }
 
+/** Confidence below this requires user confirmation (centralized). */
+export function getPlayerIdentityConfidenceThreshold(): number {
+  const raw = process.env.CHELCOACH_PLAYER_IDENTITY_CONFIDENCE_THRESHOLD;
+  if (raw === undefined || raw === "") return 0.75;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0 || n > 1) {
+    throw new Error(
+      `[chelcoach-api] Invalid CHELCOACH_PLAYER_IDENTITY_CONFIDENCE_THRESHOLD=${raw} (expected 0–1).`,
+    );
+  }
+  return n;
+}
+
+/** Confirmation frame longest-edge max (pixels). */
+export function getConfirmationFrameMaxEdge(): number {
+  return intEnv("CHELCOACH_CONFIRMATION_FRAME_MAX_EDGE", 1280, 320, 1920);
+}
+
+/** Confirmation frame max bytes. */
+export function getConfirmationFrameMaxBytes(): number {
+  return intEnv("CHELCOACH_CONFIRMATION_FRAME_MAX_BYTES", 500_000, 50_000, 2_000_000);
+}
+
 export function retentionNoticeText(hours = getMediaRetentionPolicy().rawMediaRetentionHours): string {
   return `Uploaded gameplay video is automatically deleted after ${hours} hours. Your completed coaching report can remain available.`;
 }

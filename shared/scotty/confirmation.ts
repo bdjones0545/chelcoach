@@ -13,6 +13,11 @@ export const frameReferenceSchema = z.object({
 });
 export type FrameReference = z.infer<typeof frameReferenceSchema>;
 
+/**
+ * Scotty-era confirmation request (requires jobId once an analysis job exists).
+ * Step 3 pre-analysis confirmation uses `playerConfirmationSubmitSchema`
+ * in identification-state.ts (jobId optional).
+ */
 export const playerConfirmationRequestSchema = z.object({
   contractVersion: scottyContractVersionSchema.default(SCOTTY_CONTRACT_VERSION),
   jobId: z.string().trim().min(1).max(128),

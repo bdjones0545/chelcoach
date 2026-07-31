@@ -99,3 +99,23 @@ export type LeaseStatus = z.infer<typeof leaseStatusSchema>;
 
 export const storageProviderSchema = z.enum(["memory", "replit", "s3", "gcs", "other"]);
 export type StorageProvider = z.infer<typeof storageProviderSchema>;
+
+/**
+ * Controlled-player identification lifecycle — distinct from upload status
+ * and future Scotty analysis-job status.
+ */
+export const playerIdentificationStatusSchema = z.enum([
+  "not_started",
+  "checking",
+  "identified",
+  "confirmation_required",
+  "confirmed",
+  "failed",
+  "expired",
+  "unresolved",
+]);
+export type PlayerIdentificationStatus = z.infer<typeof playerIdentificationStatusSchema>;
+
+/** Step-3 local providers only — never claim fixture output is Scotty. */
+export const playerIdentificationProviderSchema = z.enum(["fixture", "local_simulator"]);
+export type PlayerIdentificationProvider = z.infer<typeof playerIdentificationProviderSchema>;

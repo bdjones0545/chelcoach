@@ -75,9 +75,17 @@ sample report):
 - Retention timestamps + abandoned pending expiration; ownership-scoped APIs.
 - Docs: [scotty-upload-step2.md](scotty-upload-step2.md).
 
-## ⏭️ Next — Scotty Step 3
+## ✅ Scotty Step 3 — Controlled-player confirmation (complete)
 
-- Controlled-player confirmation UI, Scotty transport / simulator wiring.
+- Fixture identification adapter + confirmation frames/candidates persistence.
+- Ownership-scoped confirmation APIs + authenticated frame delivery.
+- `/player-confirmation` UI with bounding-box overlay, none-of-the-above, correction.
+- Legacy buffered upload capped (demo-only); production Upload UI uses streamed sessions.
+- Docs: [scotty-player-confirmation-step3.md](scotty-player-confirmation-step3.md).
+
+## ⏭️ Next — Scotty Step 4
+
+- Scotty transport / simulator wiring replacing the fixture identifier.
 - **Still deferred:** Cloudflare tunnel, live Scotty VM, paid vision, auth & payments.
 
 ## What CI guarantees today
