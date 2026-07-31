@@ -63,15 +63,21 @@ sample report):
 
 - Commit leaves real clips `queued` and enqueues in-process extraction (HTTP returns immediately).
 - `ffprobe` inspects metadata; bounded JPEG frame sampling runs via system `ffmpeg`/`ffprobe`.
-- Public status stages: `inspecting_video` → `extracting_frames` → `finalizing` → `ready` (or `failed`).
-- Successful extraction still attaches the **deterministic sample report** (no AI yet).
+- Temporary frames are retained until analysis finishes, then cleaned up.
 - Upload cap lowered to **250 MB** (shared `uploadRules`) to bound in-process RAM risk.
 - Docs: [ffmpeg-extraction.md](ffmpeg-extraction.md).
 
-## ⏭️ Next — Phase 4: AI analysis
+## ✅ Phase 4 — Structured AI gameplay analysis (complete)
 
-- Claude vision structured output → real `AnalysisReport`.
-- **Still deferred:** Postgres persistence, auth & payments (later).
+- After extraction, frames + metadata go to a vision provider (Anthropic `claude-sonnet-5` by default).
+- Structured output + local Zod validation against the shared `AnalysisReport` contract.
+- Stages: `inspecting_video` → `extracting_frames` → `analyzing_gameplay` → `validating_report` → `finalizing`.
+- Live failures never fall back to the demo/sample report; demo mode remains intentional.
+- Docs: [ai-gameplay-analysis.md](ai-gameplay-analysis.md).
+
+## ⏭️ Next
+
+- **Still deferred:** Postgres persistence, auth, payments, distributed workers.
 
 ## What CI guarantees today
 

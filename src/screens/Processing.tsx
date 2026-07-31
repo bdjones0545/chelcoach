@@ -48,6 +48,8 @@ function stageLabel(phase: LivePhase, stage?: string): string {
   if (stage === "queued") return "Queued";
   if (stage === "inspecting_video") return "Inspecting";
   if (stage === "extracting_frames") return "Extracting";
+  if (stage === "analyzing_gameplay") return "Analyzing";
+  if (stage === "validating_report") return "Validating";
   if (stage === "finalizing") return "Finalizing";
   if (phase === "preparing") return "Preparing";
   if (phase === "completed") return "Complete";

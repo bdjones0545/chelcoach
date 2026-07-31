@@ -16,6 +16,8 @@ import {
 } from "../store";
 import { resetStorageForTests, getStorage } from "../storage";
 import type { RunProcessResult } from "../media/processRunner";
+import { FakeGameplayAnalysisProvider } from "../ai/fakeProvider";
+import { setAnalysisProviderForTests } from "../ai/provider";
 
 function ok(stdout = ""): RunProcessResult {
   return { code: 0, stdout, stderr: "", timedOut: false, signal: null };
@@ -36,6 +38,7 @@ describe("extractionQueue", () => {
     resetExtractionQueueForTests();
     resetStorageForTests();
     process.env.STORAGE_BACKEND = "memory";
+    setAnalysisProviderForTests(new FakeGameplayAnalysisProvider({ mode: "success" }));
   });
 
   afterEach(async () => {
@@ -43,6 +46,7 @@ describe("extractionQueue", () => {
     await new Promise((r) => setTimeout(r, 50));
     resetExtractionQueueForTests();
     setExtractionRunnerForTests(undefined);
+    setAnalysisProviderForTests(undefined);
   });
 
   it("suppresses duplicate enqueue for the same clip", async () => {

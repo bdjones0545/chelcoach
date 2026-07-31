@@ -1,8 +1,9 @@
 # ChelCoach — FFmpeg Frame Extraction (Phase 3)
 
 Bounded, in-process video inspection and frame extraction after clip commit.
-**AI analysis is not included** — a successful extraction still attaches the
-deterministic sample report. Extracted frames are analysis inputs for a later phase.
+Extracted frames are consumed by Phase 4 AI analysis **before** workspace cleanup
+(see [`docs/ai-gameplay-analysis.md`](ai-gameplay-analysis.md)). Extraction success
+alone does not mark the job completed.
 
 ## Prerequisites
 
@@ -24,9 +25,10 @@ ffmpeg -version
 ffprobe -version
 ```
 
-### Replit
+### Replit / deploy images
 
-Uncomment `pkgs.ffmpeg-full` in `replit.nix`, then rebuild the Repl environment.
+Install system ffmpeg in the environment image (the repo no longer pins ffmpeg via
+`replit.nix`). On Debian-based images: `apt-get install -y ffmpeg`.
 
 ## Environment variables
 

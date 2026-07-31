@@ -61,23 +61,27 @@ describe("runExtractionPipeline (ffmpeg)", { skip: !hasFfmpeg }, () => {
     markUploaded(clip.id, fixtureBytes.length);
 
     const stages: string[] = [];
-    const result = await runExtractionPipeline({
+    const session = await runExtractionPipeline({
       clipId: clip.id,
       storageKey: clip.storageKey,
       sizeBytes: fixtureBytes.length,
       onStage: (stage) => stages.push(stage),
     });
+    const { result } = session;
 
-    assert.ok(result.frameCount >= 1);
-    assert.ok(result.frameCount <= 12);
-    assert.equal(result.timestampsSec.length, result.frameCount);
-    assert.ok(result.metadata.hasVideoStream);
-    assert.ok(result.metadata.durationSec > 0);
-    assert.ok(stages.includes("inspecting_video"));
-    assert.ok(stages.includes("extracting_frames"));
-    assert.ok(stages.includes("finalizing"));
-    // Paths cleared after cleanup — no public serving of temp frames.
-    assert.ok(result.frames.every((f) => f.path === ""));
+    try {
+      assert.ok(result.frameCount >= 1);
+      assert.ok(result.frameCount <= 12);
+      assert.equal(result.timestampsSec.length, result.frameCount);
+      assert.ok(result.metadata.hasVideoStream);
+      assert.ok(result.metadata.durationSec > 0);
+      assert.ok(stages.includes("inspecting_video"));
+      assert.ok(stages.includes("extracting_frames"));
+      // Frame paths remain until cleanup so AI can consume them.
+      assert.ok(result.frames.every((f) => f.path.length > 0));
+    } finally {
+      await session.cleanup();
+    }
   });
 });
 

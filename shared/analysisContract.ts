@@ -156,6 +156,17 @@ export const errorCodeSchema = z.enum([
   "video_too_large",
   "processing_busy",
   "process_timeout",
+  // AI analysis (Phase 4) — snake_case to match existing public codes
+  "ai_not_configured",
+  "ai_authentication_failed",
+  "ai_request_timeout",
+  "ai_rate_limited",
+  "ai_provider_unavailable",
+  "ai_response_invalid",
+  "ai_response_refused",
+  "ai_content_unsupported",
+  "ai_request_too_large",
+  "analysis_internal_error",
 ]);
 export type ErrorCode = z.infer<typeof errorCodeSchema>;
 
@@ -261,12 +272,14 @@ export type AnalysisJobStatusValue = z.infer<typeof analysisJobStatusValueSchema
 
 /**
  * Coarse stage labels the server may report. Only claim work the backend
- * actually performs (Phase 3: inspect + extract frames; no AI yet).
+ * actually performs (Phase 4: inspect → extract → AI analyze → validate).
  */
 export const analysisJobStageSchema = z.enum([
   "queued",
   "inspecting_video",
   "extracting_frames",
+  "analyzing_gameplay",
+  "validating_report",
   "finalizing",
   "ready",
   "failed",

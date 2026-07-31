@@ -2,11 +2,11 @@
  * In-memory clip store.
  *
  * Lifecycle (real uploads):
- *   uploading → queued (bytes stored) → commit keeps queued + enqueues extraction
- *   → extracting (inspect/extract/finalize stages) → complete | failed
+ *   uploading → queued (bytes stored) → commit keeps queued + enqueues job
+ *   → extracting → analyzing → complete | failed
  *
  * Demo commit (unknown id, e.g. static-demo-clip): still completes immediately
- * with the sample report — intentional demo path, no FFmpeg.
+ * with the sample report — intentional demo path, no FFmpeg / no AI key.
  *
  * State resets on server restart. No database yet.
  */
@@ -14,6 +14,7 @@ import { randomUUID } from "node:crypto";
 import { extname } from "node:path";
 import type { AnalysisJobStage, AnalysisReport, ClipStatus, ErrorCode } from "./contract";
 import { uploadRules } from "./contract";
+import type { AnalysisProvenance, ReportSource } from "./ai/analyze";
 import { sampleReport } from "./data/sampleReport";
 import type { ExtractionResult } from "./media/types";
 
@@ -31,7 +32,7 @@ export interface ClipRecord {
   storedBytes?: number;
   storageKey: string;
   status: ClipStatus;
-  /** Finer public stage while status === extracting. */
+  /** Finer public stage while status === extracting | analyzing. */
   stage?: AnalysisJobStage;
   phaseProgress?: number;
   jobId?: string;
@@ -40,8 +41,11 @@ export interface ClipRecord {
   errorMessage?: string;
   /** Internal extraction summary retained after workspace cleanup (no frame bytes). */
   extraction?: ExtractionResult;
-  /** True while an extraction job is queued or running for this clip. */
+  /** True while an analysis job is queued or running for this clip. */
   extractionQueued?: boolean;
+  /** Internal provenance — not part of the public AnalysisReport. */
+  reportSource?: ReportSource;
+  provenance?: AnalysisProvenance;
   createdAt: string;
   updatedAt: string;
 }
@@ -104,13 +108,13 @@ export function markUploaded(id: string, storedBytes: number): ClipRecord {
 
 export interface CommitResult {
   clip: ClipRecord;
-  /** True when the caller should enqueue extraction (real upload). */
+  /** True when the caller should enqueue analysis (real upload). */
   shouldExtract: boolean;
 }
 
 /**
- * Finalize upload. Real clips stay `queued` and signal extraction.
- * Unknown ids synthesize an immediately-completed demo record (no FFmpeg).
+ * Finalize upload. Real clips stay `queued` and signal analysis.
+ * Unknown ids synthesize an immediately-completed demo record (no FFmpeg/AI).
  * Idempotent: re-commit of complete/failed/in-flight clips does not restart work.
  */
 export function commitClip(id: string): CommitResult {
@@ -128,6 +132,16 @@ export function commitClip(id: string): CommitResult {
       phaseProgress: 100,
       jobId: randomUUID(),
       report: sampleReport,
+      reportSource: "demo",
+      provenance: {
+        reportSource: "demo",
+        contractVersion: "1",
+        rubricVersion: "demo",
+        promptVersion: "demo",
+        provider: "none",
+        model: "none",
+        generatedAt: now(),
+      },
       createdAt: now(),
       updatedAt: now(),
     };
@@ -135,11 +149,15 @@ export function commitClip(id: string): CommitResult {
     return { clip: demo, shouldExtract: false };
   }
 
-  // Terminal or already running — do not create duplicate work.
+  // Terminal or already running — do not create duplicate work / provider charges.
   if (existing.status === "complete" || existing.status === "failed") {
     return { clip: existing, shouldExtract: false };
   }
-  if (existing.status === "extracting" || existing.extractionQueued) {
+  if (
+    existing.status === "extracting" ||
+    existing.status === "analyzing" ||
+    existing.extractionQueued
+  ) {
     return { clip: existing, shouldExtract: false };
   }
   if (existing.status !== "queued") {
@@ -169,25 +187,58 @@ export function beginExtraction(id: string): ClipRecord {
   return clip;
 }
 
+export function updateJobProgress(
+  id: string,
+  stage: AnalysisJobStage,
+  phaseProgress: number,
+  status?: ClipStatus,
+): ClipRecord {
+  const clip = clips.get(id);
+  if (!clip) throw new ClipStoreError(404, "not_found", "No such clip.");
+  if (clip.status === "complete" || clip.status === "failed") return clip;
+  if (status) clip.status = status;
+  else if (stage === "analyzing_gameplay" || stage === "validating_report") {
+    clip.status = "analyzing";
+  } else if (stage === "inspecting_video" || stage === "extracting_frames") {
+    clip.status = "extracting";
+  }
+  clip.stage = stage;
+  clip.phaseProgress = Math.max(0, Math.min(100, phaseProgress));
+  clip.updatedAt = now();
+  return clip;
+}
+
+/** @deprecated Use updateJobProgress — kept for existing call sites during migration. */
 export function updateExtractionProgress(
   id: string,
   stage: AnalysisJobStage,
   phaseProgress: number,
   message?: string,
 ): ClipRecord {
+  void message;
+  return updateJobProgress(id, stage, phaseProgress);
+}
+
+/**
+ * Persist extraction metadata only — does NOT mark the job completed.
+ * Live completion requires a validated AI report via completeAnalysis.
+ */
+export function recordExtraction(id: string, extraction: ExtractionResult): ClipRecord {
   const clip = clips.get(id);
   if (!clip) throw new ClipStoreError(404, "not_found", "No such clip.");
   if (clip.status === "complete" || clip.status === "failed") return clip;
-  clip.status = "extracting";
-  clip.stage = stage;
-  clip.phaseProgress = Math.max(0, Math.min(100, phaseProgress));
-  if (message) clip.errorMessage = undefined; // clear stale; public message comes from projection
+  clip.extraction = extraction;
+  clip.status = "analyzing";
+  clip.stage = "analyzing_gameplay";
+  clip.phaseProgress = 58;
   clip.updatedAt = now();
-  // Stash a transient status message on a dedicated field via errorMessage? Better: use stage only.
-  void message;
   return clip;
 }
 
+/**
+ * Legacy helper used by older tests — attaches the deterministic sample report.
+ * Not used by the live job path (which must never silently fall back to sample).
+ */
 export function completeExtraction(id: string, extraction: ExtractionResult): ClipRecord {
   const clip = clips.get(id);
   if (!clip) throw new ClipStoreError(404, "not_found", "No such clip.");
@@ -195,7 +246,33 @@ export function completeExtraction(id: string, extraction: ExtractionResult): Cl
   clip.stage = "ready";
   clip.phaseProgress = 100;
   clip.report = sampleReport;
+  clip.reportSource = "deterministic_sample";
   clip.extraction = extraction;
+  clip.extractionQueued = false;
+  clip.errorCode = undefined;
+  clip.errorMessage = undefined;
+  clip.updatedAt = now();
+  return clip;
+}
+
+export function completeAnalysis(
+  id: string,
+  report: AnalysisReport,
+  provenance: AnalysisProvenance,
+  extraction?: ExtractionResult,
+): ClipRecord {
+  const clip = clips.get(id);
+  if (!clip) throw new ClipStoreError(404, "not_found", "No such clip.");
+  // Idempotent: do not overwrite a completed report (guards duplicate charges).
+  if (clip.status === "complete" && clip.report) return clip;
+
+  clip.status = "complete";
+  clip.stage = "ready";
+  clip.phaseProgress = 100;
+  clip.report = report;
+  clip.reportSource = provenance.reportSource;
+  clip.provenance = provenance;
+  if (extraction) clip.extraction = extraction;
   clip.extractionQueued = false;
   clip.errorCode = undefined;
   clip.errorMessage = undefined;
@@ -210,10 +287,13 @@ export function markFailed(
 ): ClipRecord {
   const clip = clips.get(id);
   if (!clip) throw new ClipStoreError(404, "not_found", "No such clip.");
+  if (clip.status === "complete" && clip.report) return clip;
   clip.status = "failed";
   clip.stage = "failed";
   clip.phaseProgress = 0;
   clip.report = undefined;
+  clip.reportSource = undefined;
+  clip.provenance = undefined;
   clip.errorCode = errorCode;
   clip.errorMessage = errorMessage;
   clip.extractionQueued = false;

@@ -6,8 +6,8 @@ on:
   pull_request:
     branches: [main]
 
-# No Postgres, object storage, or AI keys are required for CI.
-# FFmpeg is installed for Phase-3 extraction unit/integration/smoke coverage.
+# No Postgres, object storage, or paid AI keys are required for CI.
+# FFmpeg is installed for extraction coverage; smoke uses AI_PROVIDER=fake.
 jobs:
   build-and-test:
     runs-on: ubuntu-latest

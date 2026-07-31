@@ -8,11 +8,10 @@ unlocks the full AI breakdown. It is built as a conversion-first product MVP for
 NHL ("Chel") players who want to understand *why* they win and lose — in plain hockey
 language — and turn that into a plan for their next game.
 
-> **MVP status.** This is a product-experience MVP. There is **no real AI, no video
-> processing, no payments, and no auth** yet. Analysis is polished mock data
-> ([`src/data/mockData.ts`](src/data/mockData.ts)); the backend serves a deterministic,
-> contract-validated static report matching that data. The backend is being built out phase
-> by phase toward real uploads and analysis — see [docs/phase-status.md](docs/phase-status.md).
+> **MVP status.** Demo mode needs no ffmpeg/AI keys, payments, or auth. Live mode can
+> extract frames and run structured AI analysis when configured
+> ([`docs/ai-gameplay-analysis.md`](docs/ai-gameplay-analysis.md)). See
+> [docs/phase-status.md](docs/phase-status.md).
 
 ---
 
@@ -169,7 +168,7 @@ to override.
 | `STORAGE_BACKEND` | backend | auto | Object storage backend: `memory` \| `replit`. Auto = `replit` on Replit (`REPL_ID` present), else `memory`. Local dev + CI use `memory`. |
 | `DATABASE_URL` | backend | — | Postgres connection string. **Not required yet** — used from the database phase onward. |
 
-> `ANTHROPIC_API_KEY` and other keys are reserved for later phases — do not set them yet.
+> Live AI requires `ANTHROPIC_API_KEY` — see [`docs/ai-gameplay-analysis.md`](docs/ai-gameplay-analysis.md).
 
 ---
 
@@ -206,7 +205,7 @@ chelcoach/
 │  └─ drizzle.config.ts
 │
 ├─ public/                     Static assets (favicon.svg, icons.svg)
-├─ docs/                       backend-plan.md, backend-setup-replit.md, phase-status.md
+├─ docs/                       backend-plan.md, ffmpeg-extraction.md, ai-gameplay-analysis.md, …
 ├─ .github/workflows/ci.yml    CI: frontend build + server typecheck + smoke
 ├─ tailwind.config.js          "Pro Ice Analytics" design tokens
 ├─ vite.config.ts
@@ -252,9 +251,9 @@ into a real one, phase by phase:
 - ✅ **Frontend read flag** — UI can consume the backend report with zero shape drift.
 - ✅ **Phase 2** — Real video upload + object storage (init → PUT bytes → commit); report is
   still the static sample.
-- ✅ **Phase 3** — Bounded FFmpeg frame extraction (inspect → sample frames → sample report).
-- ⏭️ **Later** — AI analysis, Postgres persistence, auth, and payments. See
-  [`docs/ffmpeg-extraction.md`](docs/ffmpeg-extraction.md).
+- ✅ **Phase 3** — Bounded FFmpeg frame extraction (`docs/ffmpeg-extraction.md`).
+- ✅ **Phase 4** — Structured AI gameplay analysis (`docs/ai-gameplay-analysis.md`).
+- ⏭️ **Later** — Postgres persistence, auth, and payments.
 
 Full detail: [docs/phase-status.md](docs/phase-status.md) ·
 [docs/backend-plan.md](docs/backend-plan.md) ·
@@ -266,4 +265,4 @@ Full detail: [docs/phase-status.md](docs/phase-status.md) ·
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on push and pull request and
 checks: frontend `npm run build`, and server `typecheck` + `smoke`. It requires **no**
-Postgres, object storage, ffmpeg, or AI keys.
+Postgres or object storage. Demo mode needs no ffmpeg/AI keys; live mode does.

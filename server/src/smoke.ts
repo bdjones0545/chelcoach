@@ -1,18 +1,21 @@
 /**
  * Backend smoke test. Boots the app on an ephemeral port with memory storage.
- * When ffmpeg/ffprobe are available, exercises real extraction end-to-end.
+ * When ffmpeg/ffprobe are available, exercises real extraction + fake AI end-to-end.
  * When missing, still validates demo commit + status contract (extraction tests skip).
+ *
+ * Uses AI_PROVIDER=fake (set in npm script) — never calls a paid provider.
  *
  * Run: `npm run smoke`. Exits non-zero on any failure.
  */
 process.env.STORAGE_BACKEND = "memory";
+process.env.AI_PROVIDER = process.env.AI_PROVIDER || "fake";
 
 import assert from "node:assert/strict";
 import type { AddressInfo } from "node:net";
 import { createApp } from "./app";
 import { analysisJobStatusSchema, analysisReportSchema, uploadRules } from "./contract";
 import { mediaBinariesAvailable } from "./media/binaries";
-import { markFailed } from "./store";
+import { markFailed, getClip } from "./store";
 
 async function sleep(ms: number) {
   await new Promise((r) => setTimeout(r, ms));
@@ -56,11 +59,17 @@ async function main() {
   try {
     const health = await fetch(`${base}/api/health`);
     assert.equal(health.status, 200);
-    const healthBody = (await health.json()) as { status: string; storageBackend: string; phase: number };
+    const healthBody = (await health.json()) as {
+      status: string;
+      storageBackend: string;
+      phase: number;
+      aiConfigured?: boolean;
+    };
     assert.equal(healthBody.status, "ok");
     assert.equal(healthBody.storageBackend, "memory");
-    assert.equal(healthBody.phase, 3);
-    pass("server boots + health (phase 3, memory storage)");
+    assert.equal(healthBody.phase, 4);
+    assert.equal(healthBody.aiConfigured, true);
+    pass("server boots + health (phase 4, memory storage, fake AI)");
 
     // Validation still works
     const bad = await fetch(`${base}/api/uploads/init`, {
@@ -92,7 +101,8 @@ async function main() {
     );
     assert.equal(demoStatus.status, "completed");
     assert.equal(demoStatus.reportReady, true);
-    pass("static/demo commit still completes immediately (no ffmpeg)");
+    assert.equal(getClip("static-demo-clip")?.reportSource, "demo");
+    pass("static/demo commit still completes immediately without AI key");
 
     // Malformed / unknown
     const malformed = await fetch(`${base}/api/clips/bad.id!/status`);
@@ -125,7 +135,6 @@ async function main() {
     if (!hasFfmpeg) {
       console.log("  ↷ ffmpeg/ffprobe not on PATH — skipping real extraction smoke checks");
     } else {
-      // Tiny synthetic "video" bytes won't probe — generate via ffmpeg into a buffer for upload.
       const { spawnSync } = await import("node:child_process");
       const { mkdtemp, readFile, rm } = await import("node:fs/promises");
       const { tmpdir } = await import("node:os");
@@ -134,7 +143,19 @@ async function main() {
       const mp4 = join(dir, "clip.mp4");
       const gen = spawnSync(
         "ffmpeg",
-        ["-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=blue:s=320x240:d=1", "-frames:v", "24", "-y", mp4],
+        [
+          "-hide_banner",
+          "-loglevel",
+          "error",
+          "-f",
+          "lavfi",
+          "-i",
+          "color=c=blue:s=320x240:d=1",
+          "-frames:v",
+          "24",
+          "-y",
+          mp4,
+        ],
         { encoding: "utf8" },
       );
       assert.equal(gen.status, 0, `ffmpeg fixture failed: ${gen.stderr}`);
@@ -144,7 +165,11 @@ async function main() {
       const init = await fetch(`${base}/api/uploads/init`, {
         method: "POST",
         headers: jsonHeaders,
-        body: JSON.stringify({ filename: "game.mp4", contentType: "video/mp4", sizeBytes: bytes.length }),
+        body: JSON.stringify({
+          filename: "game.mp4",
+          contentType: "video/mp4",
+          sizeBytes: bytes.length,
+        }),
       });
       assert.equal(init.status, 201);
       const { clipId, uploadUrl } = (await init.json()) as { clipId: string; uploadUrl: string };
@@ -161,15 +186,13 @@ async function main() {
       const commit = await fetch(`${base}/api/clips/${clipId}/commit`, { method: "POST" });
       assert.equal(commit.status, 200);
       const commitBody = (await commit.json()) as { status: string };
-      assert.equal(commitBody.status, "queued", "commit leaves job queued for extraction");
+      assert.equal(commitBody.status, "queued", "commit leaves job queued for analysis");
       pass("commit returns immediately with queued status");
 
-      // Report must not be ready yet (or may complete very fast — either way poll).
       const earlyAnalysis = await fetch(`${base}/api/clips/${clipId}/analysis`);
       if (earlyAnalysis.status === 409) {
         pass("report unavailable before completion (409)");
       } else if (earlyAnalysis.status === 200) {
-        // Extremely fast machine completed before we checked — still OK.
         pass("report became available quickly after commit");
       } else {
         assert.fail(`unexpected analysis status ${earlyAnalysis.status}`);
@@ -181,12 +204,15 @@ async function main() {
         completed.stage === "ready" || completed.status === "completed",
         "completed stage ready",
       );
-      pass("GET status reaches completed with reportReady after extraction");
+      const liveClip = getClip(clipId);
+      assert.ok(liveClip?.reportSource === "test" || liveClip?.reportSource === "live_ai");
+      assert.notEqual(liveClip?.reportSource, "demo");
+      pass("GET status reaches completed with validated fake-AI report (not demo)");
 
       const analysis = await fetch(`${base}/api/clips/${clipId}/analysis`);
       assert.equal(analysis.status, 200);
       analysisReportSchema.parse(((await analysis.json()) as { report: unknown }).report);
-      pass("GET analysis returns contract-valid report after extraction");
+      pass("GET analysis returns contract-valid report after AI validation");
 
       // Corrupt / non-video bytes → failed
       const badInit = await fetch(`${base}/api/uploads/init`, {

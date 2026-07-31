@@ -358,7 +358,7 @@ export const stateCopy: Record<
     tone: "error",
     title: "Analysis interrupted",
     message:
-      "The review stopped before it finished. Your clip is still on file — check status again, or go back to upload and start a new analysis.",
+      "The review stopped before it finished — live analysis does not fall back to the demo report. Check status again, or go back to upload and start a new analysis.",
     primaryLabel: "Check Status Again",
     secondaryLabel: "Back to Upload",
   },

@@ -38,7 +38,6 @@ function projectClip(clip: ClipRecord): JobProjection {
       const messages: Partial<Record<AnalysisJobStage, string>> = {
         inspecting_video: "Inspecting your video…",
         extracting_frames: "Extracting frames…",
-        finalizing: "Finalizing…",
       };
       return {
         status: "processing",
@@ -48,15 +47,21 @@ function projectClip(clip: ClipRecord): JobProjection {
         message: messages[stage] ?? "Processing your clip…",
       };
     }
-    case "analyzing":
-      // Reserved for Phase 4 AI — not produced yet.
+    case "analyzing": {
+      const stage: AnalysisJobStage = clip.stage ?? "analyzing_gameplay";
+      const messages: Partial<Record<AnalysisJobStage, string>> = {
+        analyzing_gameplay: "Analyzing gameplay…",
+        validating_report: "Validating your report…",
+        finalizing: "Finalizing…",
+      };
       return {
         status: "processing",
-        stage: "finalizing",
-        phaseProgress: clip.phaseProgress ?? 80,
+        stage,
+        phaseProgress: clip.phaseProgress ?? 70,
         reportReady: false,
-        message: "Analyzing your clip…",
+        message: messages[stage] ?? "Analyzing your clip…",
       };
+    }
     case "complete":
       return {
         status: "completed",

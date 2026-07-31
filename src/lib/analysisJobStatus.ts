@@ -12,6 +12,8 @@ const STAGE_VALUES = new Set([
   "queued",
   "inspecting_video",
   "extracting_frames",
+  "analyzing_gameplay",
+  "validating_report",
   "finalizing",
   "ready",
   "failed",

@@ -1,6 +1,9 @@
 /**
  * End-to-end extraction pipeline for one clip:
- * read storage → workspace → probe → sample → extract → result → cleanup.
+ * read storage → workspace → probe → sample → extract.
+ *
+ * Temporary frames remain on disk until the caller invokes `cleanup()`.
+ * AI analysis must run before cleanup so it can reuse extracted JPEGs.
  */
 import { getStorage } from "../storage";
 import { MediaProcessingError } from "./errors";
@@ -10,7 +13,12 @@ import type { ProcessRunner } from "./processRunner";
 import { runProcess } from "./processRunner";
 import { sampleTimestamps } from "./sample";
 import type { ExtractionResult } from "./types";
-import { cleanupJobWorkspace, createJobWorkspace, writeSourceFile } from "./workspace";
+import {
+  cleanupJobWorkspace,
+  createJobWorkspace,
+  writeSourceFile,
+  type JobWorkspace,
+} from "./workspace";
 
 export interface RunExtractionOptions {
   clipId: string;
@@ -18,14 +26,38 @@ export interface RunExtractionOptions {
   sizeBytes: number;
   runner?: ProcessRunner;
   /** Optional progress hook for truthful stage updates. */
-  onStage?: (stage: "inspecting_video" | "extracting_frames" | "finalizing", progress: number) => void;
+  onStage?: (stage: "inspecting_video" | "extracting_frames", progress: number) => void;
 }
 
-export async function runExtractionPipeline(options: RunExtractionOptions): Promise<ExtractionResult> {
+export interface ExtractionSession {
+  result: ExtractionResult;
+  workspace: JobWorkspace;
+  /** Always call — safe to invoke more than once. */
+  cleanup: () => Promise<void>;
+}
+
+/** Strip absolute paths before retaining extraction metadata in the clip store. */
+export function stripFramePaths(result: ExtractionResult): ExtractionResult {
+  return {
+    ...result,
+    frames: result.frames.map((f) => ({ ...f, path: "" })),
+  };
+}
+
+export async function runExtractionPipeline(
+  options: RunExtractionOptions,
+): Promise<ExtractionSession> {
   const started = Date.now();
   const runner = options.runner ?? runProcess;
   const workspace = await createJobWorkspace(options.clipId);
   const warnings: string[] = [];
+  let cleaned = false;
+
+  const cleanup = async () => {
+    if (cleaned) return;
+    cleaned = true;
+    await cleanupJobWorkspace(workspace);
+  };
 
   try {
     options.onStage?.("inspecting_video", 15);
@@ -56,13 +88,10 @@ export async function runExtractionPipeline(options: RunExtractionOptions): Prom
       runner,
     });
 
-    // Progress based on real completed frames.
     options.onStage?.(
       "extracting_frames",
-      35 + Math.round((frames.length / Math.max(timestampsSec.length, 1)) * 50),
+      35 + Math.round((frames.length / Math.max(timestampsSec.length, 1)) * 20),
     );
-
-    options.onStage?.("finalizing", 90);
 
     const result: ExtractionResult = {
       clipId: options.clipId,
@@ -75,13 +104,9 @@ export async function runExtractionPipeline(options: RunExtractionOptions): Prom
       completedAt: new Date().toISOString(),
     };
 
-    // Strip absolute paths before returning a retained copy — workspace is deleted next.
-    // Future AI phase can re-extract or persist frames deliberately; MVP keeps metadata only.
-    return {
-      ...result,
-      frames: frames.map((f) => ({ ...f, path: "" })),
-    };
-  } finally {
-    await cleanupJobWorkspace(workspace);
+    return { result, workspace, cleanup };
+  } catch (err) {
+    await cleanup();
+    throw err;
   }
 }
