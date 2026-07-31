@@ -138,7 +138,10 @@ export const clipStatusSchema = z.enum([
 ]);
 export type ClipStatus = z.infer<typeof clipStatusSchema>;
 
-/** Machine-readable failure reasons, mapped to existing UI state panels. */
+/**
+ * Machine-readable failure reasons returned to the client.
+ * Internal FFmpeg/process codes map into this set before leaving the server.
+ */
 export const errorCodeSchema = z.enum([
   "unsupported_file",
   "oversized_file",
@@ -147,6 +150,12 @@ export const errorCodeSchema = z.enum([
   "analysis_failed",
   "invalid_report",
   "rate_limited",
+  "ffmpeg_unavailable",
+  "invalid_video",
+  "video_too_long",
+  "video_too_large",
+  "processing_busy",
+  "process_timeout",
 ]);
 export type ErrorCode = z.infer<typeof errorCodeSchema>;
 
@@ -159,12 +168,19 @@ export const uploadInitRequestSchema = z.object({
 });
 export type UploadInitRequest = z.infer<typeof uploadInitRequestSchema>;
 
-/** Accepted upload constraints — server-authoritative, shared source of truth. */
+/**
+ * Accepted upload constraints — server-authoritative, shared source of truth.
+ *
+ * Cap lowered from 2 GB → 250 MB for Phase 3: the upload path still buffers the
+ * whole body in Node RAM, and FFmpeg extraction runs in-process. 250 MB keeps
+ * gameplay clips workable while bounding memory risk. Revisit when streaming
+ * uploads / out-of-process workers land.
+ */
 export const uploadRules = {
   acceptExtensions: [".mp4", ".mov"],
   acceptMimeTypes: ["video/mp4", "video/quicktime"],
-  maxBytes: 2 * 1024 ** 3, // 2 GB
-  maxLabel: "2 GB",
+  maxBytes: 250 * 1024 ** 2, // 250 MB
+  maxLabel: "250 MB",
 } as const;
 
 export interface UploadValidationError {
@@ -245,11 +261,12 @@ export type AnalysisJobStatusValue = z.infer<typeof analysisJobStatusValueSchema
 
 /**
  * Coarse stage labels the server may report. Only claim work the backend
- * actually performs — no frame-extraction / AI labels until those phases land.
+ * actually performs (Phase 3: inspect + extract frames; no AI yet).
  */
 export const analysisJobStageSchema = z.enum([
   "queued",
-  "processing",
+  "inspecting_video",
+  "extracting_frames",
   "finalizing",
   "ready",
   "failed",

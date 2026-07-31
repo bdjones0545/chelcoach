@@ -46,7 +46,9 @@ function statusLabel(phase: LivePhase, serverMessage?: string): string {
 function stageLabel(phase: LivePhase, stage?: string): string {
   if (stage === "ready") return "Ready";
   if (stage === "queued") return "Queued";
-  if (stage === "processing" || stage === "finalizing") return "Processing";
+  if (stage === "inspecting_video") return "Inspecting";
+  if (stage === "extracting_frames") return "Extracting";
+  if (stage === "finalizing") return "Finalizing";
   if (phase === "preparing") return "Preparing";
   if (phase === "completed") return "Complete";
   return "In progress";
