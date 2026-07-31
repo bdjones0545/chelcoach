@@ -15,6 +15,7 @@ import {
   getChelCoachConfig,
   resetChelCoachConfigCacheForTests,
 } from "./config/chelcoachConfig";
+import { loadLocalEnvFiles } from "./config/loadEnv";
 import { loadScottyProviderConfig, ProviderConfigError } from "./provider/config";
 import { createScottyProvider, setScottyProviderForTests } from "./provider/factory";
 import { analysisRouter } from "./routes/analysis";
@@ -32,6 +33,9 @@ import { securityHeadersMiddleware } from "./security/headers";
 import { publicErrorMessage } from "./security/logging";
 
 export function createApp() {
+  // Load local .env without overriding explicit process env (never logs secrets).
+  loadLocalEnvFiles();
+
   // Fail-closed boot validation (skipped only when explicitly opted out for unit tests).
   if (process.env.CHELCOACH_SKIP_CONFIG_VALIDATION !== "1") {
     try {

@@ -8,6 +8,13 @@
       "when": 1785472503108,
       "tag": "0000_scotty_durable_jobs",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1785547200000,
+      "tag": "0001_supabase_alignment",
+      "breakpoints": true
     }
   ]
 }

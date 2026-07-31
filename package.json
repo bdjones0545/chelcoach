@@ -23,6 +23,8 @@
     "audit:bundle": "node scripts/scan-bundle-secrets.mjs",
     "audit:security-scan": "node scripts/scan-server-security.mjs",
     "cleanup:media": "node scripts/cleanup-media.mjs",
+    "db:migrate": "npm --prefix server run db:migrate",
+    "verify:supabase-db": "npm --prefix server run verify:supabase-db",
     "preview": "vite preview"
   },
   "dependencies": {

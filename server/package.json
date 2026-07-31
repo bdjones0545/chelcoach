@@ -9,12 +9,14 @@
     "start": "tsx src/index.ts",
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/retention/*.test.ts src/uploads/*.test.ts src/identification/*.test.ts src/provider/*.test.ts src/provider/jobs/*.test.ts src/config/*.test.ts src/security/*.test.ts src/auth/*.test.ts",
+    "test": "tsx --test src/retention/*.test.ts src/uploads/*.test.ts src/identification/*.test.ts src/provider/*.test.ts src/provider/jobs/*.test.ts src/config/*.test.ts src/security/*.test.ts src/auth/*.test.ts src/db/*.test.ts",
     "test:pg": "CHELCOACH_RUN_PG_TESTS=1 tsx --test --test-concurrency=1 src/provider/jobs/drizzleJobRepository.test.ts src/identification/drizzleRepository.test.ts src/retention/drizzleRepository.test.ts",
     "cleanup:media": "node ../scripts/cleanup-media.mjs",
     "smoke": "tsx src/smoke.ts",
     "db:generate": "drizzle-kit generate",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "db:migrate": "tsx src/db/migrate.ts",
+    "verify:supabase-db": "tsx src/db/verifySupabase.ts"
   },
   "dependencies": {
     "@replit/object-storage": "^1.0.0",

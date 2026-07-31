@@ -3,7 +3,7 @@
  * CI and local demos default to memory; production with Postgres uses Drizzle.
  * When DATABASE_URL is configured outside test mode, production must not silently use memory.
  */
-import { isDbConfigured } from "./db/client";
+import { assertDatabaseReady, isDbConfigured } from "./db/client";
 import { DrizzleIdentificationRepository } from "./identification/drizzleRepository";
 import {
   InMemoryIdentificationRepository,
@@ -68,6 +68,15 @@ export function wirePersistence(): void {
   console.log(
     "[chelcoach] persistence=drizzle (profiles + uploads + identification + retention + analysis_jobs + simulator_jobs)",
   );
+
+  // Fail closed: configured DATABASE_URL must be reachable. Do not silently use memory.
+  void assertDatabaseReady().catch((err) => {
+    const message = err instanceof Error ? err.message : "DATABASE_UNAVAILABLE";
+    console.error(`[chelcoach] ${message}`);
+    if (process.env.NODE_ENV === "production") {
+      process.exit(1);
+    }
+  });
 
   // Non-blocking restart recovery signal — do not process all jobs before serving traffic.
   void detectRestartRecoveryCandidates(5).catch(() => undefined);

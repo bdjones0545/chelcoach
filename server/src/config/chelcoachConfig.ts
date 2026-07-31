@@ -545,3 +545,14 @@ export function configDiagnostics(config: ChelCoachConfig): Record<string, strin
     cleanupSecretConfigured: config.internal.cleanupSecretConfigured,
   };
 }
+
+/** Assert diagnostics payload never embeds connection strings. */
+export function assertDiagnosticsSafe(payload: unknown): void {
+  const text = JSON.stringify(payload);
+  if (/postgres(?:ql)?:\/\//i.test(text)) {
+    throw new ChelCoachConfigError("DIAGNOSTICS_LEAK", "Diagnostics must not include DATABASE_URL.");
+  }
+  if (/SERVICE_ROLE|SCOTTY_SIGNING_SECRET|password=/i.test(text)) {
+    throw new ChelCoachConfigError("DIAGNOSTICS_LEAK", "Diagnostics must not include secrets.");
+  }
+}
