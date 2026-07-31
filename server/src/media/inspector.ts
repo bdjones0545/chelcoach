@@ -87,9 +87,22 @@ export class FfprobeMediaInspector implements MediaInspector {
     declaredMimeType: string;
   }): Promise<MediaInspectionResult> {
     const media = getMediaObjectStorage();
-    const local = media.resolveLocalPath
-      ? await media.resolveLocalPath(input.objectKey)
-      : null;
+    const supabaseMedia = media as {
+      materializeForInspection?: (
+        key: string,
+      ) => Promise<{ localPath: string; cleanup: () => Promise<void> }>;
+      resolveLocalPath?: (key: string) => Promise<string | null>;
+    };
+
+    let local: string | null = null;
+    let cleanup: (() => Promise<void>) | null = null;
+    if (typeof supabaseMedia.materializeForInspection === "function") {
+      const materialized = await supabaseMedia.materializeForInspection(input.objectKey);
+      local = materialized.localPath;
+      cleanup = materialized.cleanup;
+    } else if (supabaseMedia.resolveLocalPath) {
+      local = await supabaseMedia.resolveLocalPath(input.objectKey);
+    }
     if (!local) {
       throw Object.assign(new Error("MEDIA_INSPECTION_FAILED"), {
         code: "MEDIA_INSPECTION_FAILED",
@@ -110,10 +123,13 @@ export class FfprobeMediaInspector implements MediaInspector {
     try {
       parsed = (await runFfprobeJson(local)) as typeof parsed;
     } catch (err) {
+      if (cleanup) await cleanup().catch(() => undefined);
       throw Object.assign(
         new Error(err instanceof Error ? err.message : "inspection failed"),
         { code: "MEDIA_INSPECTION_FAILED" },
       );
+    } finally {
+      if (cleanup) await cleanup().catch(() => undefined);
     }
 
     const video = parsed.streams?.find((s) => s.codec_type === "video");

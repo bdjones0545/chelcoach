@@ -2,7 +2,7 @@
  * Postgres-backed upload repository (used when DATABASE_URL is set).
  * Raw video bytes are never written to Postgres — only metadata + storage refs.
  */
-import { and, eq, inArray, lte } from "drizzle-orm";
+import { and, count, eq, inArray, lte } from "drizzle-orm";
 import { getDb } from "../db/client";
 import { mediaUploads } from "../db/schema";
 import type {
@@ -153,5 +153,38 @@ export class DrizzleUploadRepository implements UploadRepository {
       )
       .limit(limit);
     return rows.map(rowToRecord);
+  }
+
+  async countActiveUploadsForOwner(ownerId: string): Promise<number> {
+    const db = getDb();
+    const [row] = await db
+      .select({ n: count() })
+      .from(mediaUploads)
+      .where(
+        and(
+          eq(mediaUploads.ownerId, ownerId),
+          inArray(mediaUploads.uploadStatus, [
+            "pending",
+            "uploading",
+            "uploaded",
+            "processing",
+          ]),
+        ),
+      );
+    return Number(row?.n ?? 0);
+  }
+
+  async countPendingUploadsForOwner(ownerId: string): Promise<number> {
+    const db = getDb();
+    const [row] = await db
+      .select({ n: count() })
+      .from(mediaUploads)
+      .where(
+        and(
+          eq(mediaUploads.ownerId, ownerId),
+          inArray(mediaUploads.uploadStatus, ["pending", "uploading"]),
+        ),
+      );
+    return Number(row?.n ?? 0);
   }
 }

@@ -16,7 +16,11 @@ import { isSimulatorScenario, type SimulatorScenario } from "../provider/simulat
  */
 export type AuthMode = "development_session" | "supabase_auth" | "existing_auth" | "disabled";
 export type ExistingAuthProvider = "supabase" | "none";
-export type MediaStorageMode = "local_disk" | "memory" | "object_storage";
+export type MediaStorageMode =
+  | "local_disk"
+  | "memory"
+  | "object_storage"
+  | "supabase_storage";
 
 export interface ChelCoachConfig {
   nodeEnv: string;
@@ -68,6 +72,9 @@ export interface ChelCoachConfig {
     productionMediaStorageReady: boolean;
     databaseUrlConfigured: boolean;
     forceMemoryRepos: boolean;
+    gameplayBucket: string;
+    derivedMediaBucket: string;
+    supabaseStorageConfigured: boolean;
   };
 
   internal: {
@@ -87,6 +94,7 @@ export interface ChelCoachConfig {
     maxActiveJobsPerUser: number;
     maxDailySubmissionsPerUser: number;
     maxConcurrentUploadsPerUser: number;
+    maxPendingUploadsPerUser: number;
   };
 
   secrets: {
@@ -197,7 +205,14 @@ export function normalizeAuthMode(
 
 function parseStorageMode(raw: string | undefined, env: NodeJS.ProcessEnv): MediaStorageMode {
   const v = (raw ?? "").trim();
-  if (v === "local_disk" || v === "memory" || v === "object_storage") return v;
+  if (
+    v === "local_disk" ||
+    v === "memory" ||
+    v === "object_storage" ||
+    v === "supabase_storage"
+  ) {
+    return v;
+  }
   if (env.STORAGE_BACKEND === "replit") return "object_storage";
   if (env.STORAGE_BACKEND === "memory") return "memory";
   return "local_disk";
@@ -284,6 +299,16 @@ export function loadChelCoachConfig(env: NodeJS.ProcessEnv = process.env): ChelC
   );
   const forceMemoryRepos =
     env.CHELCOACH_FORCE_MEMORY_REPOS === "1" || isTest;
+  const gameplayBucket = (env.SUPABASE_GAMEPLAY_BUCKET ?? "chelcoach-gameplay").trim();
+  const derivedMediaBucket = (
+    env.SUPABASE_DERIVED_MEDIA_BUCKET ?? "chelcoach-derived-media"
+  ).trim();
+  const supabaseStorageConfigured =
+    Boolean((env.SUPABASE_URL ?? "").trim()) &&
+    Boolean((env.SUPABASE_ANON_KEY ?? "").trim()) &&
+    Boolean((env.SUPABASE_SERVICE_ROLE_KEY ?? "").trim()) &&
+    Boolean(gameplayBucket) &&
+    Boolean(derivedMediaBucket);
 
   const origins = (env.CORS_ORIGIN ?? "")
     .split(",")
@@ -344,6 +369,9 @@ export function loadChelCoachConfig(env: NodeJS.ProcessEnv = process.env): ChelC
       productionMediaStorageReady,
       databaseUrlConfigured: Boolean((env.DATABASE_URL ?? "").trim()),
       forceMemoryRepos,
+      gameplayBucket,
+      derivedMediaBucket,
+      supabaseStorageConfigured,
     },
     internal: {
       reconcileSecretConfigured: Boolean(reconcileSecret) && !isPlaceholderSecret(reconcileSecret),
@@ -360,6 +388,7 @@ export function loadChelCoachConfig(env: NodeJS.ProcessEnv = process.env): ChelC
       maxActiveJobsPerUser: intEnv(env, "CHELCOACH_MAX_ACTIVE_JOBS_PER_USER", 5, 1, 100),
       maxDailySubmissionsPerUser: intEnv(env, "CHELCOACH_MAX_DAILY_SUBMISSIONS_PER_USER", 20, 1, 1000),
       maxConcurrentUploadsPerUser: intEnv(env, "CHELCOACH_MAX_CONCURRENT_UPLOADS_PER_USER", 3, 1, 50),
+      maxPendingUploadsPerUser: intEnv(env, "CHELCOACH_MAX_PENDING_UPLOADS_PER_USER", 3, 1, 50),
     },
     secrets: {
       sessionSecretConfigured: Boolean(sessionSecret) && !isPlaceholderSecret(sessionSecret),
@@ -540,8 +569,30 @@ export function validateChelCoachConfig(config: ChelCoachConfig): ConfigValidati
     issues.push({
       code: "LOCAL_DISK_NOT_PRODUCTION_READY",
       message:
-        "local_disk media storage is not production-durable; set CHELCOACH_PRODUCTION_MEDIA_STORAGE_READY only after reviewing risk, or use object_storage.",
+        "local_disk media storage is not production-durable; use CHELCOACH_MEDIA_STORAGE_MODE=supabase_storage for production.",
       severity: "medium",
+    });
+  }
+
+  if (config.storage.mode === "supabase_storage" && !config.storage.supabaseStorageConfigured) {
+    issues.push({
+      code: "STORAGE_NOT_CONFIGURED",
+      message:
+        "supabase_storage requires SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, and bucket names.",
+      severity: "critical",
+    });
+  }
+
+  if (
+    config.isProduction &&
+    config.storage.productionMediaStorageReady &&
+    config.storage.mode !== "supabase_storage"
+  ) {
+    issues.push({
+      code: "MEDIA_STORAGE_READY_WITHOUT_SUPABASE",
+      message:
+        "CHELCOACH_PRODUCTION_MEDIA_STORAGE_READY=true requires CHELCOACH_MEDIA_STORAGE_MODE=supabase_storage.",
+      severity: "critical",
     });
   }
 
@@ -637,6 +688,9 @@ export function configDiagnostics(config: ChelCoachConfig): Record<string, strin
     forceMemoryRepos: config.storage.forceMemoryRepos,
     mediaStorageMode: config.storage.mode,
     productionMediaStorageReady: config.storage.productionMediaStorageReady,
+    gameplayBucket: config.storage.gameplayBucket,
+    derivedMediaBucket: config.storage.derivedMediaBucket,
+    supabaseStorageConfigured: config.storage.supabaseStorageConfigured,
     legacyUploadEnabled: config.internal.legacyUploadEnabled,
     e2eMode: config.internal.e2eMode,
     corsOriginCount: config.cors.allowedOrigins.length,

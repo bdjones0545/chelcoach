@@ -45,6 +45,10 @@ export interface UploadRepository {
   get(uploadId: string): Promise<MediaUploadRecord | undefined>;
   update(uploadId: string, patch: Partial<MediaUploadRecord>): Promise<MediaUploadRecord>;
   listExpiredPending(now: Date, limit: number): Promise<MediaUploadRecord[]>;
+  /** Active transfer or unfinished sessions for quota enforcement. */
+  countActiveUploadsForOwner(ownerId: string): Promise<number>;
+  /** Pending sessions awaiting transfer start. */
+  countPendingUploadsForOwner(ownerId: string): Promise<number>;
 }
 
 export class InMemoryUploadRepository implements UploadRepository {
@@ -78,6 +82,31 @@ export class InMemoryUploadRepository implements UploadRepository {
       if (out.length >= limit) break;
     }
     return out;
+  }
+
+  async countActiveUploadsForOwner(ownerId: string): Promise<number> {
+    let n = 0;
+    for (const row of this.rows.values()) {
+      if (row.ownerId !== ownerId) continue;
+      if (
+        row.uploadStatus === "pending" ||
+        row.uploadStatus === "uploading" ||
+        row.uploadStatus === "uploaded" ||
+        row.uploadStatus === "processing"
+      ) {
+        n += 1;
+      }
+    }
+    return n;
+  }
+
+  async countPendingUploadsForOwner(ownerId: string): Promise<number> {
+    let n = 0;
+    for (const row of this.rows.values()) {
+      if (row.ownerId !== ownerId) continue;
+      if (row.uploadStatus === "pending" || row.uploadStatus === "uploading") n += 1;
+    }
+    return n;
   }
 
   clear(): void {

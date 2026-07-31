@@ -11,12 +11,14 @@ import { Router } from "express";
 import { requireOwnerAuth, type AuthedRequest } from "../auth/session";
 import { getMaxUploadBytes } from "../retention/policy";
 import { limits } from "../security/rateLimit";
+import { getChelCoachConfig } from "../config/chelcoachConfig";
 import {
   cancelUpload,
   completeUpload,
   createUploadSession,
   finishStreamedUpload,
   getUploadForOwner,
+  markUploadTransferActive,
   rejectOversizedUpload,
   UploadServiceError,
 } from "../uploads/service";
@@ -64,6 +66,15 @@ scottyUploadsRouter.put(
   const { ownerId } = req as AuthedRequest;
   const uploadId = uploadIdParam(req);
   try {
+    if (getChelCoachConfig().storage.mode === "supabase_storage") {
+      res.status(409).json({
+        error: "STORAGE_UPLOAD_FAILED",
+        message:
+          "Server-streamed upload is disabled when using Supabase Storage. Use the direct resumable upload session.",
+        retryable: false,
+      });
+      return;
+    }
     const maxBytes = getMaxUploadBytes();
     const declared = Number(req.header("content-length"));
     if (Number.isFinite(declared) && declared > maxBytes) {
@@ -83,6 +94,21 @@ scottyUploadsRouter.put(
     sendError(res, err);
   }
 },
+);
+
+/** Heartbeat / mark transfer active for resumable Supabase uploads. */
+scottyUploadsRouter.post(
+  "/uploads/:uploadId/transfer-active",
+  requireOwnerAuth,
+  async (req, res) => {
+    try {
+      const { ownerId } = req as AuthedRequest;
+      const detail = await markUploadTransferActive(ownerId, uploadIdParam(req));
+      res.status(200).json(detail);
+    } catch (err) {
+      sendError(res, err);
+    }
+  },
 );
 
 scottyUploadsRouter.post("/uploads/:uploadId/complete", requireOwnerAuth, async (req, res) => {

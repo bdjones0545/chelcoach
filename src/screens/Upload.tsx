@@ -19,7 +19,7 @@ import {
   createUploadSession,
   ensureOwnerSession,
   fetchGameplayProfile,
-  putUploadContent,
+  uploadDirect,
 } from "../lib/scottyUploadApi";
 type UploadUiState =
   | "idle"
@@ -330,13 +330,13 @@ export default function Upload() {
       setRetentionNotice(session.retentionNotice);
       setUiState("uploading");
 
-      const detail = await putUploadContent(
+      const detail = await uploadDirect(
         token,
-        session.uploadUrl,
+        session,
         file,
-        (pct) => {
-          setProgress(pct);
-          if (pct >= 100) setUiState("verifying");
+        ({ percent }) => {
+          setProgress(percent);
+          if (percent >= 100) setUiState("verifying");
         },
         controller.signal,
       );

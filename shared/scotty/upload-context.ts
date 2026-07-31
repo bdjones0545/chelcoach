@@ -27,14 +27,28 @@ export const createUploadSessionRequestSchema = z.object({
 });
 export type CreateUploadSessionRequest = z.infer<typeof createUploadSessionRequestSchema>;
 
+export const uploadTransportSchema = z.enum(["server_stream", "supabase_resumable"]);
+export type UploadTransport = z.infer<typeof uploadTransportSchema>;
+
 export const publicUploadSessionResponseSchema = z.object({
   uploadId: z.string(),
   uploadStatus: z.string(),
-  /** Relative API path for streamed PUT (or future signed URL). */
+  /**
+   * Relative API path for streamed PUT (server_stream).
+   * Empty when transport is supabase_resumable.
+   */
   uploadUrl: z.string(),
+  transport: uploadTransportSchema.default("server_stream"),
+  /** Private gameplay bucket name (supabase_resumable). */
+  bucket: z.string().optional(),
+  /** Server-generated object path under the user prefix (supabase_resumable). */
+  objectPath: z.string().optional(),
+  /** Supabase TUS resumable endpoint (supabase_resumable). */
+  resumableEndpoint: z.string().optional(),
   allowedMimeTypes: z.array(z.string()),
   maxBytes: z.number().int().positive(),
   expiresAt: z.string().datetime({ offset: true }),
+  pendingExpiresAt: z.string().datetime({ offset: true }).optional(),
   retentionHours: z.number().int().positive(),
   retentionNotice: z.string(),
   gameSupportMessage: z.string().optional(),

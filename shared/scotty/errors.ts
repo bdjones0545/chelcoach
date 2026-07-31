@@ -37,6 +37,16 @@ export const scottyErrorCodeSchema = z.enum([
   "PROVIDER_MISCONFIGURED",
   "REPORT_NOT_READY",
   "JOB_CANCELLED",
+  "STORAGE_NOT_CONFIGURED",
+  "STORAGE_UPLOAD_FAILED",
+  "STORAGE_UPLOAD_INTERRUPTED",
+  "STORAGE_UPLOAD_EXPIRED",
+  "STORAGE_OBJECT_NOT_FOUND",
+  "STORAGE_OBJECT_MISMATCH",
+  "STORAGE_ACCESS_DENIED",
+  "STORAGE_RATE_LIMITED",
+  "STORAGE_UNAVAILABLE",
+  "UPLOAD_RESUME_FAILED",
 ]);
 export type ScottyErrorCode = z.infer<typeof scottyErrorCodeSchema>;
 
@@ -98,6 +108,16 @@ export function scottyErrorMessage(code: ScottyErrorCode): string {
     PROVIDER_MISCONFIGURED: "The analysis provider is not configured correctly.",
     REPORT_NOT_READY: "The coaching report is not ready yet.",
     JOB_CANCELLED: "This analysis job was cancelled.",
+    STORAGE_NOT_CONFIGURED: "Media storage is not configured.",
+    STORAGE_UPLOAD_FAILED: "Gameplay upload failed. Try again.",
+    STORAGE_UPLOAD_INTERRUPTED: "Upload was interrupted. You can resume if the session is still valid.",
+    STORAGE_UPLOAD_EXPIRED: "The upload session expired. Start a new upload.",
+    STORAGE_OBJECT_NOT_FOUND: "Uploaded media was not found in storage.",
+    STORAGE_OBJECT_MISMATCH: "Stored media does not match the authorized upload.",
+    STORAGE_ACCESS_DENIED: "You don't have access to this media object.",
+    STORAGE_RATE_LIMITED: "Storage is rate limited. Wait a moment and try again.",
+    STORAGE_UNAVAILABLE: "Media storage is temporarily unavailable.",
+    UPLOAD_RESUME_FAILED: "Could not resume the upload. Start a new upload if needed.",
   };
   return map[code];
 }

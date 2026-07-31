@@ -16,6 +16,7 @@ import { pipeline } from "node:stream/promises";
 import type { Readable } from "node:stream";
 import { Transform } from "node:stream";
 import { getStorage, type ObjectStorage } from "./storage";
+import { createSupabaseMediaObjectStorage } from "./storage/supabaseMediaObjectStorage";
 
 export interface StoredObjectMetadata {
   objectKey: string;
@@ -248,7 +249,13 @@ export async function syncDiskObjectToLegacyStorage(
 let mediaInstance: MediaObjectStorage | null = null;
 
 export function getMediaObjectStorage(): MediaObjectStorage {
-  if (!mediaInstance) mediaInstance = new DiskMediaObjectStorage();
+  if (!mediaInstance) {
+    const mode = (process.env.CHELCOACH_MEDIA_STORAGE_MODE ?? "").trim();
+    mediaInstance =
+      mode === "supabase_storage"
+        ? createSupabaseMediaObjectStorage()
+        : new DiskMediaObjectStorage();
+  }
   return mediaInstance;
 }
 

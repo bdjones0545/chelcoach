@@ -135,7 +135,8 @@ export function createApp() {
   app.use("/api", internalMediaRouter);
 
   // Legacy Phase-2 clip upload path — disabled in production by default.
-  if (config.internal.legacyUploadEnabled) {
+  // Legacy buffered clip routes — never available alongside supabase_storage production path.
+  if (config.internal.legacyUploadEnabled && config.storage.mode !== "supabase_storage") {
     app.use("/api", uploadsRouter);
     app.use("/api", clipsRouter);
   }

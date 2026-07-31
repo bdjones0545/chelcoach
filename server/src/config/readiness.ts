@@ -62,8 +62,10 @@ export function computeReadiness(config: ChelCoachConfig = getChelCoachConfig())
   }
 
   const mediaStorageReady = config.isProduction
-    ? config.storage.mode === "object_storage" || config.storage.productionMediaStorageReady
-    : true;
+    ? config.storage.mode === "supabase_storage" &&
+      config.storage.supabaseStorageConfigured &&
+      config.storage.productionMediaStorageReady
+    : config.storage.mode !== "supabase_storage" || config.storage.supabaseStorageConfigured;
   if (!mediaStorageReady) {
     reasons.push("MEDIA_STORAGE_NOT_PRODUCTION_READY");
   }

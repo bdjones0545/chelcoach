@@ -15,7 +15,13 @@ import { resetUploadRepositoryForTests, getUploadRepository } from "./repository
 import { expireAbandonedUploads } from "./service";
 import { canTransitionUpload } from "./transitions";
 import { classifyMediaDuration } from "../scottyContract";
+import {
+  getChelCoachConfig,
+  resetChelCoachConfigCacheForTests,
+} from "../config/chelcoachConfig";
 import type { AddressInfo } from "node:net";
+import type { MediaObjectStorage, StoredObjectMetadata } from "../mediaStorage";
+import { setMediaObjectStorageForTests } from "../mediaStorage";
 
 function xboxContext(overrides: Record<string, unknown> = {}) {
   return {
@@ -58,6 +64,10 @@ async function withServer(
 beforeEach(() => {
   process.env.CHELCOACH_FORCE_MEMORY_REPOS = "1";
   process.env.NODE_ENV = "test";
+  delete process.env.CHELCOACH_MEDIA_STORAGE_MODE;
+  delete process.env.CHELCOACH_MAX_CONCURRENT_UPLOADS_PER_USER;
+  delete process.env.CHELCOACH_MAX_PENDING_UPLOADS_PER_USER;
+  resetChelCoachConfigCacheForTests();
   resetSessionsForTests();
   resetUploadRepositoryForTests();
   resetProfileRepositoryForTests();
@@ -80,6 +90,11 @@ beforeEach(() => {
 afterEach(() => {
   setMediaInspectorForTests(undefined);
   resetMediaObjectStorageForTests();
+  delete process.env.CHELCOACH_MEDIA_STORAGE_MODE;
+  delete process.env.SUPABASE_URL;
+  delete process.env.SUPABASE_ANON_KEY;
+  delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+  resetChelCoachConfigCacheForTests();
 });
 
 describe("gameplay profile", () => {
@@ -584,6 +599,128 @@ describe("inspection failures + MIME", () => {
         }),
       });
       assert.equal(res.status, 400);
+    });
+  });
+});
+
+describe("supabase_storage upload session", () => {
+  it("returns resumable session and blocks server-stream PUT", async () => {
+    process.env.CHELCOACH_MEDIA_STORAGE_MODE = "supabase_storage";
+    process.env.SUPABASE_URL = "https://example.supabase.co";
+    process.env.SUPABASE_ANON_KEY = "anon-test";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "service-test";
+    resetChelCoachConfigCacheForTests();
+    assert.equal(getChelCoachConfig().storage.mode, "supabase_storage");
+
+    const fake: MediaObjectStorage = {
+      backend: "supabase",
+      createObjectKey(ownerId, uploadId) {
+        return `${ownerId}/${uploadId}/source`;
+      },
+      async openWriteStream() {
+        throw Object.assign(new Error("STORAGE_UPLOAD_FAILED"), { code: "STORAGE_UPLOAD_FAILED" });
+      },
+      async statObject(objectKey): Promise<StoredObjectMetadata> {
+        return {
+          objectKey,
+          byteSize: 128,
+          contentType: "video/mp4",
+          exists: true,
+        };
+      },
+      async openReadStream() {
+        return Readable.from(Buffer.alloc(128));
+      },
+      async deleteObject() {
+        return { deleted: true, alreadyAbsent: false };
+      },
+      async exists() {
+        return true;
+      },
+    };
+    setMediaObjectStorageForTests(fake);
+
+    await withServer(async (base, token, ownerId) => {
+      const create = await fetch(`${base}/api/uploads`, {
+        method: "POST",
+        headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+        body: JSON.stringify({
+          filename: "gameplay.mp4",
+          contentType: "video/mp4",
+          sizeBytes: 128,
+          context: xboxContext(),
+        }),
+      });
+      assert.equal(create.status, 201);
+      const session = (await create.json()) as {
+        uploadId: string;
+        transport: string;
+        bucket: string;
+        objectPath: string;
+        resumableEndpoint: string;
+        uploadUrl: string;
+      };
+      assert.equal(session.transport, "supabase_resumable");
+      assert.equal(session.bucket, "chelcoach-gameplay");
+      assert.equal(session.objectPath, `${ownerId}/${session.uploadId}/source`);
+      assert.ok(session.objectPath.endsWith("/source"));
+      assert.ok(!session.objectPath.includes("gameplay.mp4"));
+      assert.equal(
+        session.resumableEndpoint,
+        "https://example.supabase.co/storage/v1/upload/resumable",
+      );
+      assert.equal(session.uploadUrl, "");
+
+      const put = await fetch(`${base}/api/uploads/${session.uploadId}/content`, {
+        method: "PUT",
+        headers: { authorization: `Bearer ${token}`, "content-type": "video/mp4" },
+        body: Buffer.alloc(128, 1),
+      });
+      assert.equal(put.status, 409);
+      const body = (await put.json()) as { error: string };
+      assert.equal(body.error, "STORAGE_UPLOAD_FAILED");
+
+      // Completion derives path from DB only — ignore any client path.
+      const complete = await fetch(`${base}/api/uploads/${session.uploadId}/complete`, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${token}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ objectPath: "other-user/evil/source" }),
+      });
+      assert.equal(complete.status, 200);
+      const detail = (await complete.json()) as { uploadStatus: string };
+      assert.equal(detail.uploadStatus, "ready");
+    });
+  });
+
+  it("enforces concurrent upload quota before issuing a session", async () => {
+    process.env.CHELCOACH_MAX_CONCURRENT_UPLOADS_PER_USER = "1";
+    resetChelCoachConfigCacheForTests();
+    await withServer(async (base, token) => {
+      const first = await fetch(`${base}/api/uploads`, {
+        method: "POST",
+        headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+        body: JSON.stringify({
+          filename: "a.mp4",
+          contentType: "video/mp4",
+          sizeBytes: 100,
+          context: xboxContext(),
+        }),
+      });
+      assert.equal(first.status, 201);
+      const second = await fetch(`${base}/api/uploads`, {
+        method: "POST",
+        headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+        body: JSON.stringify({
+          filename: "b.mp4",
+          contentType: "video/mp4",
+          sizeBytes: 100,
+          context: xboxContext(),
+        }),
+      });
+      assert.equal(second.status, 429);
     });
   });
 });

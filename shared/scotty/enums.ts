@@ -102,7 +102,15 @@ export type MediaClassification = z.infer<typeof mediaClassificationSchema>;
 export const leaseStatusSchema = z.enum(["active", "released", "expired", "revoked"]);
 export type LeaseStatus = z.infer<typeof leaseStatusSchema>;
 
-export const storageProviderSchema = z.enum(["memory", "replit", "s3", "gcs", "other"]);
+export const storageProviderSchema = z.enum([
+  "memory",
+  "replit",
+  "s3",
+  "gcs",
+  "supabase",
+  "disk",
+  "other",
+]);
 export type StorageProvider = z.infer<typeof storageProviderSchema>;
 
 /**

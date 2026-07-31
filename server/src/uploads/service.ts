@@ -32,8 +32,13 @@ import {
   getPendingUploadExpirationHours,
   retentionNoticeText,
 } from "../retention/policy";
+import {
+  loadSupabaseStorageConfig,
+  resumableUploadEndpoint,
+} from "../storage/supabaseStorageConfig";
 import { getUploadRepository, newUploadId, type MediaUploadRecord } from "./repository";
 import { assertUploadTransition } from "./transitions";
+import { getChelCoachConfig } from "../config/chelcoachConfig";
 
 export class UploadServiceError extends Error {
   constructor(
@@ -144,6 +149,25 @@ export async function createUploadSession(
     logEvent("profile_defaults_saved", { ownerId });
   }
 
+  const cfg = getChelCoachConfig();
+  const repo = getUploadRepository();
+  const activeCount = await repo.countActiveUploadsForOwner(ownerId);
+  if (activeCount >= cfg.quotas.maxConcurrentUploadsPerUser) {
+    throw new UploadServiceError(
+      429,
+      "RATE_LIMITED",
+      "Too many active uploads. Finish or cancel an existing upload first.",
+    );
+  }
+  const pendingCount = await repo.countPendingUploadsForOwner(ownerId);
+  if (pendingCount >= cfg.quotas.maxPendingUploadsPerUser) {
+    throw new UploadServiceError(
+      429,
+      "RATE_LIMITED",
+      "Too many pending uploads. Finish or cancel an existing upload first.",
+    );
+  }
+
   const now = new Date();
   const policy = getMediaRetentionPolicy();
   const uploadId = newUploadId();
@@ -172,7 +196,7 @@ export async function createUploadSession(
     deletionAttemptCount: 0,
   };
 
-  await getUploadRepository().create(record);
+  await repo.create(record);
   logEvent("upload_record_created", {
     uploadId,
     ownerId,
@@ -181,16 +205,89 @@ export async function createUploadSession(
   });
 
   const hours = policy.rawMediaRetentionHours;
+  const storageMode = cfg.storage.mode;
+  if (storageMode === "supabase_storage" || media.backend === "supabase") {
+    const storageCfg = loadSupabaseStorageConfig();
+    return {
+      uploadId,
+      uploadStatus: "pending",
+      uploadUrl: "",
+      transport: "supabase_resumable",
+      bucket: storageCfg.gameplayBucket,
+      objectPath: objectKey,
+      resumableEndpoint: resumableUploadEndpoint(storageCfg.url),
+      allowedMimeTypes: ["video/mp4", "video/quicktime"],
+      maxBytes,
+      expiresAt: record.expiresAt,
+      pendingExpiresAt,
+      retentionHours: hours,
+      retentionNotice: retentionNoticeText(hours),
+    };
+  }
+
   return {
     uploadId,
     uploadStatus: "pending",
     uploadUrl: `/api/uploads/${uploadId}/content`,
+    transport: "server_stream",
     allowedMimeTypes: ["video/mp4", "video/quicktime"],
     maxBytes,
     expiresAt: record.expiresAt,
+    pendingExpiresAt,
     retentionHours: hours,
     retentionNotice: retentionNoticeText(hours),
   };
+}
+
+/** In-memory heartbeat rate limit — min interval between extensions per upload. */
+const lastHeartbeatAt = new Map<string, number>();
+const MIN_HEARTBEAT_INTERVAL_MS = 30_000;
+/** Absolute max upload-session lifetime from create (cannot be extended by heartbeat). */
+const MAX_UPLOAD_SESSION_HOURS = 6;
+
+/** Mark transfer active (resumable heartbeat / start). Bounded pending lifetime still applies. */
+export async function markUploadTransferActive(
+  ownerId: string,
+  uploadId: string,
+): Promise<PublicUploadDetail> {
+  const repo = getUploadRepository();
+  const record = await repo.get(uploadId);
+  if (!record) throw new UploadServiceError(404, "UPLOAD_NOT_FOUND", "Upload not found.");
+  if (record.ownerId !== ownerId) {
+    throw new UploadServiceError(403, "FORBIDDEN", "You don't have access to this upload.");
+  }
+  const sessionCapMs =
+    new Date(record.createdAt).getTime() + MAX_UPLOAD_SESSION_HOURS * 3600_000;
+  if (Date.now() > sessionCapMs) {
+    throw new UploadServiceError(410, "STORAGE_UPLOAD_EXPIRED", "The upload session expired.");
+  }
+  if (record.uploadStatus === "pending") {
+    assertUploadTransition("pending", "uploading");
+    await repo.update(uploadId, {
+      uploadStatus: "uploading",
+    });
+    lastHeartbeatAt.set(uploadId, Date.now());
+    logEvent("upload_started", { uploadId, ownerId, transport: "supabase_resumable" });
+  } else if (record.uploadStatus === "uploading") {
+    const prev = lastHeartbeatAt.get(uploadId) ?? 0;
+    if (Date.now() - prev < MIN_HEARTBEAT_INTERVAL_MS) {
+      // Ignore chatty heartbeats — do not extend indefinitely.
+      const next = await repo.get(uploadId);
+      return toPublicDetail(next!);
+    }
+    lastHeartbeatAt.set(uploadId, Date.now());
+    // Heartbeat — refresh pending expiry slightly but never past session/absolute caps.
+    const pendingHours = getPendingUploadExpirationHours();
+    const nextPendingMs = Date.now() + pendingHours * 3600_000;
+    const absoluteMs = new Date(record.absoluteDeleteAt).getTime();
+    const cappedMs = Math.min(nextPendingMs, sessionCapMs, absoluteMs);
+    await repo.update(uploadId, { pendingExpiresAt: new Date(cappedMs).toISOString() });
+    logEvent("upload_heartbeat", { uploadId, ownerId });
+  } else if (record.uploadStatus !== "uploaded" && record.uploadStatus !== "ready") {
+    throw new UploadServiceError(409, "INVALID_REQUEST", `Upload is "${record.uploadStatus}".`);
+  }
+  const next = await repo.get(uploadId);
+  return toPublicDetail(next!);
 }
 
 export async function beginStreamedUpload(
@@ -274,27 +371,86 @@ export async function finishStreamedUpload(
 
 export async function completeUpload(ownerId: string, uploadId: string): Promise<PublicUploadDetail> {
   const repo = getUploadRepository();
-  const record = await repo.get(uploadId);
+  let record = await repo.get(uploadId);
   if (!record) throw new UploadServiceError(404, "UPLOAD_NOT_FOUND", "Upload not found.");
   if (record.ownerId !== ownerId) {
     throw new UploadServiceError(403, "FORBIDDEN", "You don't have access to this upload.");
   }
   if (record.uploadStatus === "ready") return toPublicDetail(record);
-  if (record.uploadStatus !== "uploaded" && record.uploadStatus !== "processing") {
+  if (
+    record.uploadStatus !== "uploaded" &&
+    record.uploadStatus !== "processing" &&
+    record.uploadStatus !== "pending" &&
+    record.uploadStatus !== "uploading"
+  ) {
     throw new UploadServiceError(409, "INVALID_REQUEST", `Upload is "${record.uploadStatus}".`);
   }
 
   const media = getMediaObjectStorage();
-  const exists = await media.exists(record.storageObjectKey);
-  if (!exists) {
+  // Path always comes from the database record — never from the client body.
+  const objectKey = record.storageObjectKey;
+  const expectedPrefix = `${ownerId}/`;
+  if (media.backend === "supabase" && !objectKey.startsWith(expectedPrefix)) {
+    throw new UploadServiceError(403, "FORBIDDEN", "Storage path ownership mismatch.");
+  }
+
+  const meta = await media.statObject(objectKey);
+  if (!meta.exists) {
     await repo.update(uploadId, {
       uploadStatus: "expired",
-      errorCode: "UPLOAD_NOT_FOUND",
+      errorCode: "STORAGE_OBJECT_NOT_FOUND",
       errorMessage: "Stored object missing.",
     });
-    throw new UploadServiceError(404, "UPLOAD_NOT_FOUND", "Stored object missing.");
+    throw new UploadServiceError(404, "STORAGE_OBJECT_NOT_FOUND", "Stored object missing.");
   }
-  logEvent("storage_verified", { uploadId, ownerId });
+  const maxBytes = getMaxUploadBytes();
+  if (meta.byteSize > maxBytes) {
+    await failAndScheduleCleanup(
+      uploadId,
+      "VIDEO_FILE_TOO_LARGE",
+      "Video file exceeds the maximum upload size.",
+    );
+    throw new UploadServiceError(413, "VIDEO_FILE_TOO_LARGE", "Video file exceeds the maximum upload size.");
+  }
+  const mime = (meta.contentType || "").toLowerCase();
+  if (
+    mime &&
+    mime !== "application/octet-stream" &&
+    mime !== record.mimeType &&
+    mime !== "video/mp4" &&
+    mime !== "video/quicktime"
+  ) {
+    await failAndScheduleCleanup(
+      uploadId,
+      "STORAGE_OBJECT_MISMATCH",
+      "Stored media does not match the authorized upload.",
+    );
+    throw new UploadServiceError(
+      422,
+      "STORAGE_OBJECT_MISMATCH",
+      "Stored media does not match the authorized upload.",
+    );
+  }
+  logEvent("storage_verified", {
+    uploadId,
+    ownerId,
+    byteSize: meta.byteSize,
+  });
+
+  // Direct resumable path: pending/uploading → uploaded after trusted object existence.
+  if (record.uploadStatus === "pending" || record.uploadStatus === "uploading") {
+    if (record.uploadStatus === "pending") {
+      assertUploadTransition("pending", "uploading");
+      await repo.update(uploadId, { uploadStatus: "uploading" });
+    }
+    assertUploadTransition("uploading", "uploaded");
+    await repo.update(uploadId, {
+      uploadStatus: "uploaded",
+      storedByteSize: meta.byteSize || record.declaredByteSize,
+      uploadedAt: new Date().toISOString(),
+    });
+    record = (await repo.get(uploadId))!;
+  }
 
   assertUploadTransition(record.uploadStatus === "processing" ? "processing" : "uploaded", "processing");
   await repo.update(uploadId, { uploadStatus: "processing" });
@@ -324,7 +480,6 @@ export async function completeUpload(ownerId: string, uploadId: string): Promise
     throw new UploadServiceError(422, "VIDEO_DURATION_EXCEEDED", "Video exceeds the 30-minute maximum.");
   }
 
-  const maxBytes = getMaxUploadBytes();
   // Trusted size wins over client declaration.
   if (inspection.byteSize > maxBytes) {
     await failAndScheduleCleanup(uploadId, "VIDEO_FILE_TOO_LARGE", "Video file exceeds the maximum upload size.");
