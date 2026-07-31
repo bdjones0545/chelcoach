@@ -5,9 +5,22 @@ import { useAuthOptional } from "../state/AuthContext";
 export function AuthActions() {
   const auth = useAuthOptional();
   const navigate = useNavigate();
-  if (!auth || auth.mode !== "supabase") {
+  if (!auth) {
     return null;
   }
+
+  // Unconfigured builds still expose Sign in → /login (visible unavailable state).
+  if (auth.mode !== "supabase") {
+    return (
+      <Link
+        to="/login"
+        className="font-label-md uppercase tracking-wider text-primary hover:underline"
+      >
+        Sign in
+      </Link>
+    );
+  }
+
   const { authenticated, loading, signOut, user } = auth;
 
   if (loading) {
