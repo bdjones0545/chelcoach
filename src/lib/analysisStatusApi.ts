@@ -8,10 +8,14 @@ import type { AnalysisStatusSnapshot } from "./analysisStatusPoller";
 export interface ApplicationAnalysisStatus extends AnalysisStatusSnapshot {
   applicationRequestId: string;
   uploadId: string;
-  provider: string;
+  provider?: string;
+  statusLabel?: string;
   sequenceNumber: number;
   acceptedAt?: string;
   updatedAt: string;
+  reportAvailable?: boolean;
+  cancellationAvailable?: boolean;
+  degraded?: boolean;
 }
 
 async function authHeaders(): Promise<HeadersInit> {

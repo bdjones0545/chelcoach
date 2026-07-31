@@ -44,17 +44,43 @@ export const scottyJobStatusResponseSchema = z.object({
 });
 export type ScottyJobStatusResponse = z.infer<typeof scottyJobStatusResponseSchema>;
 
+/** Safe status labels — centralized for UI (no provider-specific strings). */
+export const ANALYSIS_STATUS_LABELS = {
+  queued: "Queued",
+  inspecting_input: "Inspecting gameplay",
+  extracting_frames: "Preparing frames",
+  identifying_controlled_player: "Confirming your player",
+  awaiting_player_confirmation: "Confirming your player",
+  validating_player_identity: "Confirming your player",
+  analyzing_gameplay: "Analyzing gameplay",
+  validating_report: "Validating coaching report",
+  finalizing: "Finalizing report",
+  completed: "Complete",
+  failed: "Failed",
+  cancelled: "Cancelled",
+} as const satisfies Record<z.infer<typeof scottyJobStatusSchema>, string>;
+
+export function analysisStatusLabel(status: z.infer<typeof scottyJobStatusSchema>): string {
+  return ANALYSIS_STATUS_LABELS[status];
+}
+
 /** Safe application-facing analysis status (ownership already verified). */
 export const applicationAnalysisStatusSchema = z.object({
   applicationRequestId: z.string().trim().min(1).max(128),
   uploadId: z.string().trim().min(1).max(128),
-  provider: analysisProviderSchema,
+  /** Omitted in production public responses when not needed; allowed for admin/dev. */
+  provider: analysisProviderSchema.optional(),
   status: scottyJobStatusSchema,
+  statusLabel: z.string().trim().min(1).max(80),
   sequenceNumber: z.number().int().positive(),
   pollAfterMs: z.number().int().positive().max(120_000).nullable(),
   userActionRequired: z.boolean(),
   terminal: z.boolean(),
   reportReady: z.boolean(),
+  reportAvailable: z.boolean().optional(),
+  cancellationAvailable: z.boolean().optional(),
+  /** True when last sync failed but durable state is still returned. */
+  degraded: z.boolean().optional(),
   message: z.string().trim().max(300).optional(),
   errorCode: scottyErrorCodeSchema.optional(),
   errorMessage: z.string().trim().max(500).optional(),

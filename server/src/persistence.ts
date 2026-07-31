@@ -3,12 +3,26 @@
  * CI and local demos default to memory; production with Postgres uses Drizzle.
  */
 import { isDbConfigured } from "./db/client";
+import {
+  DrizzleAnalysisJobRepository,
+} from "./provider/jobs/drizzleJobRepository";
+import {
+  getAnalysisJobRepository,
+  InMemoryAnalysisJobRepository,
+  setAnalysisJobRepositoryForTests,
+} from "./provider/jobs/jobRepository";
+import { detectRestartRecoveryCandidates } from "./provider/jobs/reconciliationService";
 import { DrizzleProfileRepository } from "./profile/drizzleRepository";
 import {
   getProfileRepository,
   InMemoryProfileRepository,
   setProfileRepositoryForTests,
 } from "./profile/repository";
+import { DrizzleSimulatorJobRepository } from "./provider/simulator/drizzleRepository";
+import {
+  InMemorySimulatorJobRepository,
+  setSimulatorJobRepositoryForTests,
+} from "./provider/simulator/repository";
 import { DrizzleUploadRepository } from "./uploads/drizzleRepository";
 import {
   getUploadRepository,
@@ -30,17 +44,27 @@ export function wirePersistence(): void {
   }
   setUploadRepositoryForTests(new DrizzleUploadRepository());
   setProfileRepositoryForTests(new DrizzleProfileRepository());
-  console.log("[chelcoach] persistence=drizzle (gameplay_profiles + media_uploads)");
+  setAnalysisJobRepositoryForTests(new DrizzleAnalysisJobRepository());
+  setSimulatorJobRepositoryForTests(new DrizzleSimulatorJobRepository());
+  console.log(
+    "[chelcoach] persistence=drizzle (profiles + uploads + analysis_jobs + simulator_jobs)",
+  );
+
+  // Non-blocking restart recovery signal — do not process all jobs before serving traffic.
+  void detectRestartRecoveryCandidates(5).catch(() => undefined);
 }
 
 export function resetPersistenceForTests(): void {
   wired = false;
   setUploadRepositoryForTests(new InMemoryUploadRepository());
   setProfileRepositoryForTests(new InMemoryProfileRepository());
+  setAnalysisJobRepositoryForTests(new InMemoryAnalysisJobRepository());
+  setSimulatorJobRepositoryForTests(new InMemorySimulatorJobRepository());
 }
 
 export function persistenceBackend(): "memory" | "drizzle" {
   void getUploadRepository;
   void getProfileRepository;
+  void getAnalysisJobRepository;
   return isDbConfigured() && wired ? "drizzle" : "memory";
 }

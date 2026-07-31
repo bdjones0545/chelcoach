@@ -129,7 +129,7 @@ export default function AnalysisStatus() {
     }
   };
 
-  const label = status ? statusLabel(status.status) : "Loading";
+  const label = status ? (status.statusLabel || statusLabel(status.status)) : "Loading";
   const showSimulatorBadge = isDevLike && status?.simulatorMode === true;
   const canCancel =
     status &&

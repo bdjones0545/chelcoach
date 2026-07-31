@@ -22,6 +22,7 @@ import { NoopScottyRequestSigner } from "./signer";
 import { classifyHttpStatus, isRetryableHttpStatus, isNonRetryableCategory } from "./retry";
 import { resolveEffectivePlayerContext } from "./effectivePlayer";
 import { buildIdempotencyKey, buildRequestFingerprint } from "./idempotency";
+import { resetAnalysisJobRepositoryForTests } from "./jobs/jobRepository";
 import { resetAnalysisSubmissionRepositoryForTests } from "./submissionRepository";
 import { scottyCallbackEventSchema, scottyAnalysisSubmissionSchema } from "../scottyContract";
 import type { PlayerIdentificationRecord } from "../identification/types";
@@ -113,6 +114,7 @@ beforeEach(() => {
   resetRetentionPolicyCacheForTests();
   resetIdentificationRepositoryForTests();
   resetAnalysisSubmissionRepositoryForTests();
+  resetAnalysisJobRepositoryForTests();
   resetScottyProviderForTests();
   setScottyProviderForTests(new FakeScottyProvider("accept"));
   setMediaInspectorForTests(

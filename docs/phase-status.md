@@ -97,9 +97,16 @@ sample report):
 - Minimal `/analysis-status` polling UI (no fake percentages).
 - Docs: [scotty-simulator-step5.md](scotty-simulator-step5.md).
 
-## ⏭️ Next — Scotty Step 6
+## ✅ Scotty Step 6 — Durable Postgres analysis jobs (complete)
 
-- Durable Postgres analysis-job persistence + reload recovery foundations.
+- Canonical `scotty_analysis_jobs` + events + reports + simulator jobs + callback dedupe.
+- Sequence-safe sync, optimistic concurrency, reconciliation batch + cron route.
+- Provider selected from the recorded job after restart; simulator state durable.
+- Docs: [scotty-durable-jobs-step6.md](scotty-durable-jobs-step6.md).
+
+## ⏭️ Next — Scotty Step 7
+
+- Browser reload recovery + resilient client polling experience.
 - **Still deferred:** Cloudflare tunnel, live Scotty VM, paid vision, auth & payments.
 
 ## What CI guarantees today

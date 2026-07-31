@@ -1,6 +1,6 @@
 /**
- * Provider-independent analysis submission service (Step 4).
- * No full polling lifecycle — accept and return.
+ * Provider-independent analysis submission service (Steps 4–6).
+ * Durable application job is created before the provider call.
  */
 import {
   DEFAULT_REQUESTED_CAPABILITIES,
@@ -27,10 +27,9 @@ import {
   buildRequestFingerprint,
   hashForLogs,
 } from "./idempotency";
-import {
-  getAnalysisSubmissionRepository,
-  newApplicationRequestId,
-} from "./submissionRepository";
+import { getAnalysisJobRepository } from "./jobs/jobRepository";
+import { getDefaultProviderMode } from "./jobs/syncService";
+import { newApplicationRequestId } from "./submissionRepository";
 
 export class AnalysisSubmissionError extends Error {
   constructor(
@@ -91,7 +90,6 @@ export async function submitAnalysis(input: {
     throw new AnalysisSubmissionError(400, "INVALID_REQUEST", "Invalid analysis submission.");
   }
 
-  // Capabilities are server-controlled for now.
   const capabilities: RequestedCapabilities = DEFAULT_REQUESTED_CAPABILITIES;
   void parsed.data.capabilities;
 
@@ -165,8 +163,8 @@ export async function submitAnalysis(input: {
     mediaClassification: upload.mediaClassification ?? "short_clip",
   });
 
-  const submissions = getAnalysisSubmissionRepository();
-  const existing = await submissions.getByIdempotencyKey(idempotencyKey);
+  const jobs = getAnalysisJobRepository();
+  const existing = await jobs.getByIdempotencyKey(idempotencyKey);
   if (existing) {
     if (existing.requestFingerprint !== fingerprint) {
       logEvent("submission_rejected", {
@@ -189,34 +187,47 @@ export async function submitAnalysis(input: {
         applicationRequestId: existing.applicationRequestId,
         uploadId: input.uploadId,
         provider: existing.provider,
-        status: existing.lastKnownStatus,
+        status: existing.canonicalStatus,
         acceptedAt: existing.acceptedAt,
         reused: true,
         nextAction: "poll_later",
         pollAfterMs: 1000,
       });
     }
+    // Acceptance unknown / pending — reuse same request + key.
   }
 
   return withLease(input.uploadId, async () => {
+    const provider = getScottyProvider();
     const applicationRequestId = existing?.applicationRequestId ?? newApplicationRequestId();
-    if (!existing) {
-      await submissions.create({
+    const providerMode = existing?.provider ?? provider.mode ?? getDefaultProviderMode();
+    let job =
+      existing ??
+      (await jobs.createPendingSubmission({
         applicationRequestId,
         uploadId: input.uploadId,
         ownerId: input.ownerId,
-        provider: getScottyProvider().mode,
+        provider: providerMode,
+        contractVersion: "1.0.0",
         idempotencyKey,
         requestFingerprint: fingerprint,
-        lastKnownStatus: "queued",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        requestedCapabilities: capabilities,
+        gameContext: upload.context.gameContext,
+        uploadContext: upload.context,
+        effectivePlayer,
+        mediaClassification: upload.mediaClassification ?? "short_clip",
+      }));
+
+    if (!existing) {
+      logEvent("application_job_created", {
+        uploadId: input.uploadId,
+        applicationRequestId: job.applicationRequestId,
+        provider: job.provider,
       });
     }
 
-    const provider = getScottyProvider();
     const submission = scottyAnalysisSubmissionSchema.parse({
-      requestId: applicationRequestId,
+      requestId: job.applicationRequestId,
       idempotencyKey,
       uploadId: input.uploadId,
       ownerReference: input.ownerId,
@@ -234,9 +245,14 @@ export async function submitAnalysis(input: {
       createdAt: new Date().toISOString(),
     });
 
+    // Ensure no secrets / signed URLs in durable snapshots (already true for our shape).
+    if (JSON.stringify(job.uploadContext).includes("X-Amz-") || JSON.stringify(submission).includes("signedUrl")) {
+      throw new AnalysisSubmissionError(500, "INVALID_REQUEST", "Refusing to persist signed URL material.");
+    }
+
     logEvent("submission_sent", {
       uploadId: input.uploadId,
-      applicationRequestId,
+      applicationRequestId: job.applicationRequestId,
       provider: provider.mode,
       idempotencyKeyHash: hashForLogs(idempotencyKey),
       requestFingerprintHash: hashForLogs(fingerprint),
@@ -249,9 +265,17 @@ export async function submitAnalysis(input: {
       if (!receiptResult.success) {
         logEvent("provider_response_invalid", {
           uploadId: input.uploadId,
-          applicationRequestId,
+          applicationRequestId: job.applicationRequestId,
           provider: provider.mode,
           errorCode: "REPORT_VALIDATION_FAILED",
+        });
+        await jobs.markFailed({
+          applicationRequestId: job.applicationRequestId,
+          expectedVersion: job.version,
+          safeErrorCode: "REPORT_VALIDATION_FAILED",
+          safeErrorMessage: "The analysis provider returned an invalid response.",
+          retryable: false,
+          eventSource: "application",
         });
         throw new AnalysisSubmissionError(
           502,
@@ -260,29 +284,30 @@ export async function submitAnalysis(input: {
         );
       }
       const receipt = receiptResult.data;
-
-      await submissions.update(applicationRequestId, {
+      const accepted = await jobs.markAccepted({
+        applicationRequestId: job.applicationRequestId,
+        expectedVersion: job.version,
         externalJobId: receipt.externalJobId,
         acceptedAt: receipt.acceptedAt,
-        lastKnownStatus: receipt.status,
-        provider: receipt.provider,
+        canonicalStatus: receipt.status,
+        pollAfterMs: receipt.pollAfterMs,
       });
 
-      logEvent("submission_accepted", {
+      logEvent("provider_acceptance_persisted", {
         uploadId: input.uploadId,
-        applicationRequestId,
-        externalJobId: receipt.externalJobId,
-        provider: receipt.provider,
-        status: receipt.status,
+        applicationRequestId: accepted.applicationRequestId,
+        externalJobId: accepted.externalJobId,
+        provider: accepted.provider,
+        status: accepted.canonicalStatus,
         elapsedMs: Date.now() - started,
       });
 
       return applicationAnalysisSubmissionResultSchema.parse({
-        applicationRequestId,
+        applicationRequestId: accepted.applicationRequestId,
         uploadId: input.uploadId,
-        provider: receipt.provider,
-        status: receipt.status,
-        acceptedAt: receipt.acceptedAt,
+        provider: accepted.provider,
+        status: accepted.canonicalStatus,
+        acceptedAt: accepted.acceptedAt!,
         reused: false,
         nextAction: "poll_later",
         pollAfterMs: receipt.pollAfterMs,
@@ -290,13 +315,39 @@ export async function submitAnalysis(input: {
     } catch (err) {
       if (err instanceof AnalysisSubmissionError) throw err;
       if (err instanceof ProviderError) {
-        logEvent("submission_rejected", {
-          uploadId: input.uploadId,
-          applicationRequestId,
-          provider: err.opts.provider,
-          errorCode: err.code,
-          elapsedMs: Date.now() - started,
-        });
+        const uncertain =
+          err.category === "timeout" ||
+          err.category === "network" ||
+          err.code === "ANALYSIS_TIMEOUT" ||
+          err.code === "PROVIDER_UNAVAILABLE";
+        if (uncertain) {
+          await jobs.markAcceptanceUnknown(job.applicationRequestId, job.version).catch(() => undefined);
+          logEvent("acceptance_uncertain", {
+            uploadId: input.uploadId,
+            applicationRequestId: job.applicationRequestId,
+            provider: provider.mode,
+            errorCode: err.code,
+            elapsedMs: Date.now() - started,
+          });
+        } else {
+          await jobs
+            .markFailed({
+              applicationRequestId: job.applicationRequestId,
+              expectedVersion: job.version,
+              safeErrorCode: err.code,
+              safeErrorMessage: err.message,
+              retryable: err.opts.retryable,
+              eventSource: "application",
+            })
+            .catch(() => undefined);
+          logEvent("submission_rejected", {
+            uploadId: input.uploadId,
+            applicationRequestId: job.applicationRequestId,
+            provider: err.opts.provider,
+            errorCode: err.code,
+            elapsedMs: Date.now() - started,
+          });
+        }
         const status =
           err.code === "ANALYSIS_TIMEOUT"
             ? 504
@@ -309,6 +360,7 @@ export async function submitAnalysis(input: {
                   : 422;
         throw new AnalysisSubmissionError(status, err.code, err.message);
       }
+      await jobs.markAcceptanceUnknown(job.applicationRequestId, job.version).catch(() => undefined);
       throw err;
     }
   });

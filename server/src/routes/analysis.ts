@@ -17,6 +17,9 @@ import {
   getAnalysisStatus,
 } from "../provider/statusService";
 import { getScottyProvider } from "../provider/factory";
+import { getAnalysisJobRepository } from "../provider/jobs/jobRepository";
+import { getAnalysisReconciliationService } from "../provider/jobs/reconciliationService";
+import { evaluateProviderStatusUpdate } from "../provider/jobs/sequence";
 import { scottyCallbackEventSchema } from "../scottyContract";
 
 export const analysisRouter = Router();
@@ -175,15 +178,34 @@ analysisRouter.post(
 );
 
 /**
- * Callback skeleton — feature-flagged OFF. Rejects all requests unless explicitly enabled.
- * Does not process production events in Step 5.
+ * Reconciliation entrypoint for an external scheduler (cron).
+ * Protected by shared secret header — not for browsers.
+ *
+ * Suggested production cadence: once per minute.
+ * Do not create one timer per job.
+ */
+analysisRouter.post("/internal/analysis/reconcile", async (req, res) => {
+  const expected = process.env.CHELCOACH_RECONCILE_SECRET?.trim();
+  if (!expected || req.header("x-chelcoach-reconcile-secret") !== expected) {
+    res.status(404).json({ error: "not_found", message: "No such endpoint." });
+    return;
+  }
+  const limitRaw = Number((req.body as { limit?: number } | undefined)?.limit);
+  const result = await getAnalysisReconciliationService().runBatch({
+    limit: Number.isFinite(limitRaw) ? limitRaw : 25,
+  });
+  res.json(result);
+});
+
+/**
+ * Callback skeleton — feature-flagged OFF.
+ * Dedupes event IDs when enabled; does not activate full callback processing yet.
  */
 analysisRouter.post("/internal/scotty/callbacks", async (req, res) => {
   if (process.env.CHELCOACH_SCOTTY_CALLBACKS_ENABLED !== "1") {
     res.status(404).json({ error: "not_found", message: "No such endpoint." });
     return;
   }
-  // Unsigned requests rejected even when flag is on.
   const sig = req.header("x-scotty-signature");
   if (!sig) {
     res.status(401).json({ error: "UNAUTHORIZED", message: "Missing signature." });
@@ -194,5 +216,46 @@ analysisRouter.post("/internal/scotty/callbacks", async (req, res) => {
     res.status(400).json({ error: "INVALID_REQUEST", message: "Invalid callback event." });
     return;
   }
+  const event = parsed.data;
+  const jobs = getAnalysisJobRepository();
+  const dedupe = await jobs.recordCallbackEvent({
+    eventId: event.eventId,
+    provider: "scotty",
+    externalJobId: event.externalJobId,
+    applicationRequestId: event.applicationRequestId,
+    sequenceNumber: event.sequenceNumber,
+    status: event.status,
+  });
+  if (!dedupe.inserted) {
+    res.status(202).json({ accepted: true, reason: "duplicate_event_idempotent" });
+    return;
+  }
+  const job = await jobs.getByApplicationRequestId(event.applicationRequestId);
+  if (job) {
+    const decision = evaluateProviderStatusUpdate({
+      currentJob: job,
+      incoming: {
+        contractVersion: event.contractVersion,
+        jobId: event.externalJobId,
+        uploadId: job.uploadId,
+        provider: job.provider,
+        externalScottyJobId: event.externalJobId,
+        applicationRequestId: event.applicationRequestId,
+        status: event.status,
+        sequenceNumber: event.sequenceNumber,
+        reportReady: event.status === "completed",
+        updatedAt: event.occurredAt,
+      },
+    });
+    if (decision.decision === "stale") {
+      res.status(202).json({ accepted: true, reason: "stale_sequence_ignored" });
+      return;
+    }
+    if (decision.decision === "conflict") {
+      res.status(409).json({ accepted: false, reason: "sequence_conflict" });
+      return;
+    }
+  }
+  // Step 6: acknowledge + dedupe only — full callback activation remains later.
   res.status(202).json({ accepted: false, reason: "callback_processing_disabled" });
 });

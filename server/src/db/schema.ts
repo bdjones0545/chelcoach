@@ -2,8 +2,8 @@
  * Drizzle schema — ChelCoach backend.
  *
  * Legacy clip/job/analysis tables remain for the current MVP loop.
- * Scotty Step 1 adds media_uploads, processing_leases, scotty_analysis_jobs,
- * and scotty_analysis_reports — raw video bytes are NEVER stored in Postgres.
+ * Scotty tables: media_uploads, processing_leases, analysis jobs/events/reports,
+ * simulator jobs, callback dedupe — raw video bytes are NEVER stored in Postgres.
  */
 import {
   bigint,
@@ -14,15 +14,21 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
+  index,
 } from "drizzle-orm/pg-core";
 import type { AnalysisReport } from "../contract";
 import type {
+  EffectivePlayerContext,
   GameContext,
+  MediaClassification,
   PlayerContext,
   ProcessingLease,
+  RequestedCapabilities,
   ScottyReport,
   TrustedMediaMetadata,
+  UploadGameplayContext,
 } from "../scottyContract";
 
 export const clipStatusEnum = pgEnum("clip_status", [
@@ -78,8 +84,34 @@ export const leaseStatusDbEnum = pgEnum("lease_status", [
 
 export const analysisProviderDbEnum = pgEnum("analysis_provider", [
   "fake",
+  "simulator",
   "direct_anthropic",
   "scotty",
+]);
+
+export const submissionAcceptanceStateDbEnum = pgEnum("submission_acceptance_state", [
+  "pending",
+  "accepted",
+  "acceptance_unknown",
+  "rejected",
+]);
+
+export const jobEventSourceDbEnum = pgEnum("job_event_source", [
+  "application",
+  "provider_poll",
+  "provider_callback",
+  "user_confirmation",
+  "user_cancellation",
+  "reconciliation",
+  "system",
+]);
+
+export const callbackProcessingStatusDbEnum = pgEnum("callback_processing_status", [
+  "received",
+  "processed",
+  "ignored_stale",
+  "rejected_conflict",
+  "failed",
 ]);
 
 /** Anonymous session (no auth in v1). Real accounts arrive in a later phase. */
@@ -169,7 +201,6 @@ export const mediaUploads = pgTable("media_uploads", {
   clientDeclaredDurationSec: integer("client_declared_duration_sec"),
   trustedMedia: jsonb("trusted_media").$type<TrustedMediaMetadata>(),
   mediaClassification: text("media_classification"),
-  /** Immutable per-upload gameplay context snapshot. */
   gameplayContext: jsonb("gameplay_context"),
   uploadStatus: uploadStorageStatusEnum("upload_status").notNull().default("pending"),
   checksumSha256: text("checksum_sha256"),
@@ -204,43 +235,209 @@ export const processingLeases = pgTable("processing_leases", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-/** Scotty analysis job — no video payload. */
-export const scottyAnalysisJobs = pgTable("scotty_analysis_jobs", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  uploadId: uuid("upload_id")
-    .notNull()
-    .references(() => mediaUploads.id, { onDelete: "restrict" }),
-  provider: analysisProviderDbEnum("provider").notNull(),
-  externalScottyJobId: text("external_scotty_job_id"),
-  idempotencyKey: text("idempotency_key").notNull().unique(),
-  status: scottyJobStatusDbEnum("status").notNull().default("queued"),
-  contractVersion: text("contract_version").notNull(),
-  playerContext: jsonb("player_context").$type<PlayerContext>(),
-  gameContext: jsonb("game_context").$type<GameContext>(),
-  errorCode: text("error_code"),
-  errorMessage: text("error_message"),
-  phaseProgress: integer("phase_progress").notNull().default(0),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-  finishedAt: timestamp("finished_at", { withTimezone: true }),
-});
+/**
+ * Canonical ChelCoach analysis job — application system of record (Step 6).
+ * Provider execution state is separate; this row owns ownership + lifecycle.
+ */
+export const scottyAnalysisJobs = pgTable(
+  "scotty_analysis_jobs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    applicationRequestId: text("application_request_id").notNull(),
+    uploadId: uuid("upload_id")
+      .notNull()
+      .references(() => mediaUploads.id, { onDelete: "restrict" }),
+    ownerId: text("owner_id").notNull(),
+    provider: analysisProviderDbEnum("provider").notNull(),
+    externalJobId: text("external_job_id"),
+    contractVersion: text("contract_version").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    requestFingerprint: text("request_fingerprint").notNull(),
+    requestedCapabilities: jsonb("requested_capabilities").$type<RequestedCapabilities>().notNull(),
+    gameContext: jsonb("game_context").$type<GameContext>().notNull(),
+    uploadContext: jsonb("upload_context").$type<UploadGameplayContext>().notNull(),
+    effectivePlayer: jsonb("effective_player").$type<EffectivePlayerContext>().notNull(),
+    mediaClassification: text("media_classification").$type<MediaClassification>().notNull(),
+    canonicalStatus: scottyJobStatusDbEnum("canonical_status").notNull().default("queued"),
+    providerStatus: scottyJobStatusDbEnum("provider_status"),
+    statusSequenceNumber: integer("status_sequence_number").notNull().default(1),
+    providerSequenceNumber: integer("provider_sequence_number"),
+    submissionAcceptanceState: submissionAcceptanceStateDbEnum("submission_acceptance_state")
+      .notNull()
+      .default("pending"),
+    confirmationRequired: boolean("confirmation_required").notNull().default(false),
+    cancellationRequested: boolean("cancellation_requested").notNull().default(false),
+    cancellationRequestedAt: timestamp("cancellation_requested_at", { withTimezone: true }),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    failedAt: timestamp("failed_at", { withTimezone: true }),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    lastSynchronizedAt: timestamp("last_synchronized_at", { withTimezone: true }),
+    nextSyncAfter: timestamp("next_sync_after", { withTimezone: true }),
+    reconciliationRequired: boolean("reconciliation_required").notNull().default(false),
+    safeErrorCode: text("safe_error_code"),
+    safeErrorMessage: text("safe_error_message"),
+    retryable: boolean("retryable").notNull().default(false),
+    reportId: uuid("report_id"),
+    reportAvailable: boolean("report_available").notNull().default(false),
+    version: integer("version").notNull().default(1),
+    submissionAttemptCount: integer("submission_attempt_count").notNull().default(0),
+    syncAttemptCount: integer("sync_attempt_count").notNull().default(0),
+    reportFetchAttemptCount: integer("report_fetch_attempt_count").notNull().default(0),
+    cancellationAttemptCount: integer("cancellation_attempt_count").notNull().default(0),
+    confirmationAttemptCount: integer("confirmation_attempt_count").notNull().default(0),
+    reconciliationAttemptCount: integer("reconciliation_attempt_count").notNull().default(0),
+    lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
+    nextRetryAt: timestamp("next_retry_at", { withTimezone: true }),
+    selectedRemoteCandidateId: text("selected_remote_candidate_id"),
+    remoteConfirmationAt: timestamp("remote_confirmation_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    appRequestUnique: uniqueIndex("scotty_jobs_application_request_id_uidx").on(t.applicationRequestId),
+    idempotencyUnique: uniqueIndex("scotty_jobs_idempotency_key_uidx").on(t.idempotencyKey),
+    providerExternalUnique: uniqueIndex("scotty_jobs_provider_external_uidx").on(
+      t.provider,
+      t.externalJobId,
+    ),
+    ownerRequestIdx: index("scotty_jobs_owner_request_idx").on(t.ownerId, t.applicationRequestId),
+    uploadIdx: index("scotty_jobs_upload_id_idx").on(t.uploadId),
+    statusSyncIdx: index("scotty_jobs_status_next_sync_idx").on(t.canonicalStatus, t.nextSyncAfter),
+    reconIdx: index("scotty_jobs_recon_updated_idx").on(t.reconciliationRequired, t.updatedAt),
+    reportIdx: index("scotty_jobs_report_id_idx").on(t.reportId),
+  }),
+);
+
+/** Append-only status history — never mutate rows. */
+export const scottyAnalysisJobEvents = pgTable(
+  "scotty_analysis_job_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    applicationRequestId: text("application_request_id").notNull(),
+    uploadId: uuid("upload_id")
+      .notNull()
+      .references(() => mediaUploads.id, { onDelete: "restrict" }),
+    ownerId: text("owner_id").notNull(),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => scottyAnalysisJobs.id, { onDelete: "cascade" }),
+    eventType: text("event_type").notNull(),
+    canonicalStatus: scottyJobStatusDbEnum("canonical_status").notNull(),
+    previousStatus: scottyJobStatusDbEnum("previous_status"),
+    sequenceNumber: integer("sequence_number").notNull(),
+    providerSequenceNumber: integer("provider_sequence_number"),
+    eventSource: jobEventSourceDbEnum("event_source").notNull(),
+    safeMessage: text("safe_message"),
+    safeErrorCode: text("safe_error_code"),
+    metadata: jsonb("metadata").$type<Record<string, string | number | boolean | null>>(),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
+    receivedAt: timestamp("received_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    jobSeqIdx: index("scotty_job_events_job_seq_idx").on(t.jobId, t.sequenceNumber),
+    requestIdx: index("scotty_job_events_request_idx").on(t.applicationRequestId),
+  }),
+);
 
 /** Validated Scotty report JSON — retained after source media deletion. */
-export const scottyAnalysisReports = pgTable("scotty_analysis_reports", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  jobId: uuid("job_id")
-    .notNull()
-    .unique()
-    .references(() => scottyAnalysisJobs.id, { onDelete: "cascade" }),
-  uploadId: uuid("upload_id")
-    .notNull()
-    .references(() => mediaUploads.id, { onDelete: "restrict" }),
-  report: jsonb("report").$type<ScottyReport>().notNull(),
-  reportVersion: text("report_version").notNull(),
-  rubricVersion: text("rubric_version").notNull(),
-  contractVersion: text("contract_version").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const scottyAnalysisReports = pgTable(
+  "scotty_analysis_reports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    applicationRequestId: text("application_request_id").notNull(),
+    jobId: uuid("job_id")
+      .notNull()
+      .unique()
+      .references(() => scottyAnalysisJobs.id, { onDelete: "cascade" }),
+    externalJobId: text("external_job_id").notNull(),
+    uploadId: uuid("upload_id")
+      .notNull()
+      .references(() => mediaUploads.id, { onDelete: "restrict" }),
+    ownerId: text("owner_id").notNull(),
+    provider: analysisProviderDbEnum("provider").notNull(),
+    contractVersion: text("contract_version").notNull(),
+    reportVersion: text("report_version").notNull(),
+    rubricVersion: text("rubric_version").notNull(),
+    strategyKnowledgeVersion: text("strategy_knowledge_version").notNull(),
+    controlKnowledgeVersion: text("control_knowledge_version").notNull(),
+    report: jsonb("report").$type<ScottyReport>().notNull(),
+    contentChecksum: text("content_checksum").notNull(),
+    schemaValidatedAt: timestamp("schema_validated_at", { withTimezone: true }).notNull(),
+    providerGeneratedAt: timestamp("provider_generated_at", { withTimezone: true }).notNull(),
+    persistedAt: timestamp("persisted_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    requestUnique: uniqueIndex("scotty_reports_application_request_uidx").on(t.applicationRequestId),
+    uploadIdx: index("scotty_reports_upload_id_idx").on(t.uploadId),
+  }),
+);
+
+/**
+ * Durable simulator execution state (Step 6) — recreate deterministic lifecycle after restart.
+ * Isolated from production-facing application fields.
+ */
+export const scottySimulatorJobs = pgTable(
+  "scotty_simulator_jobs",
+  {
+    externalJobId: text("external_job_id").primaryKey(),
+    applicationRequestId: text("application_request_id").notNull(),
+    uploadId: text("upload_id").notNull(),
+    ownerReference: text("owner_reference").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    requestFingerprint: text("request_fingerprint").notNull(),
+    contractVersion: text("contract_version").notNull(),
+    scenario: text("scenario").notNull(),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }).notNull(),
+    submission: jsonb("submission").notNull(),
+    effectivePlayer: jsonb("effective_player").$type<EffectivePlayerContext>().notNull(),
+    capabilities: jsonb("capabilities").$type<RequestedCapabilities>().notNull(),
+    mediaClassification: text("media_classification").notNull(),
+    mediaDurationSec: integer("media_duration_sec").notNull(),
+    confirmationRequired: boolean("confirmation_required").notNull().default(false),
+    confirmationReceivedAt: timestamp("confirmation_received_at", { withTimezone: true }),
+    selectedCandidateId: text("selected_candidate_id"),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    cancelReason: text("cancel_reason"),
+    failurePoint: text("failure_point"),
+    terminalStatus: text("terminal_status"),
+    errorCode: text("error_code"),
+    errorMessage: text("error_message"),
+    report: jsonb("report").$type<ScottyReport>(),
+    reportFixtureId: text("report_fixture_id"),
+    lastSequenceNumber: integer("last_sequence_number").notNull().default(1),
+    timingsProfile: jsonb("timings_profile"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    idempotencyUnique: uniqueIndex("scotty_sim_jobs_idempotency_uidx").on(t.idempotencyKey),
+    requestIdx: index("scotty_sim_jobs_request_idx").on(t.applicationRequestId),
+  }),
+);
+
+/** Callback event deduplication foundation — processing remains disabled. */
+export const scottyCallbackEvents = pgTable(
+  "scotty_callback_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    eventId: text("event_id").notNull(),
+    provider: analysisProviderDbEnum("provider").notNull(),
+    externalJobId: text("external_job_id").notNull(),
+    applicationRequestId: text("application_request_id"),
+    sequenceNumber: integer("sequence_number").notNull(),
+    status: scottyJobStatusDbEnum("status"),
+    processingStatus: callbackProcessingStatusDbEnum("processing_status").notNull().default("received"),
+    safeErrorCode: text("safe_error_code"),
+    receivedAt: timestamp("received_at", { withTimezone: true }).defaultNow().notNull(),
+    processedAt: timestamp("processed_at", { withTimezone: true }),
+  },
+  (t) => ({
+    eventUnique: uniqueIndex("scotty_callback_event_id_uidx").on(t.provider, t.eventId),
+    jobSeqIdx: index("scotty_callback_job_seq_idx").on(t.provider, t.externalJobId, t.sequenceNumber),
+  }),
+);
 
 /**
  * Controlled-player identification (Step 3) — separate from upload/job status.
@@ -339,6 +536,10 @@ export type MediaUploadRow = typeof mediaUploads.$inferSelect;
 export type ProcessingLeaseRow = typeof processingLeases.$inferSelect;
 export type ScottyAnalysisJobRow = typeof scottyAnalysisJobs.$inferSelect;
 export type ScottyAnalysisReportRow = typeof scottyAnalysisReports.$inferSelect;
+export type ScottyAnalysisJobEventRow = typeof scottyAnalysisJobEvents.$inferSelect;
+export type ScottySimulatorJobRow = typeof scottySimulatorJobs.$inferSelect;
+export type ScottyCallbackEventRow = typeof scottyCallbackEvents.$inferSelect;
 
 /** Compile-time guard: lease JSON shape stays aligned with the shared contract. */
 export type _LeaseShapeCheck = ProcessingLease;
+export type _PlayerContextCheck = PlayerContext;

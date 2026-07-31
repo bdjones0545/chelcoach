@@ -26,6 +26,7 @@ import {
   resetScottyProviderForTests,
   setScottyProviderForTests,
 } from "./factory";
+import { resetAnalysisJobRepositoryForTests } from "./jobs/jobRepository";
 import { resetAnalysisSubmissionRepositoryForTests } from "./submissionRepository";
 import { scottyAnalysisSubmissionSchema, type ScottyAnalysisSubmission } from "../scottyContract";
 import { FakeClock } from "./simulator/clock";
@@ -227,6 +228,7 @@ beforeEach(() => {
   resetRetentionPolicyCacheForTests();
   resetIdentificationRepositoryForTests();
   resetAnalysisSubmissionRepositoryForTests();
+  resetAnalysisJobRepositoryForTests();
   resetSimulatorJobRepositoryForTests();
   resetScottyProviderForTests();
   setConfirmationFrameExtractorForTests(new FakeConfirmationFrameExtractor());

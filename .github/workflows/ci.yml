@@ -6,10 +6,27 @@ on:
   pull_request:
     branches: [main]
 
-# No Postgres, object storage, ffmpeg, or AI keys are required for CI.
+# Object storage, ffmpeg, and AI keys are not required for CI.
+# Postgres is used for Step 6 durable job repository integration tests.
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: chelcoach
+          POSTGRES_PASSWORD: chelcoach
+          POSTGRES_DB: chelcoach_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U chelcoach -d chelcoach_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://chelcoach:chelcoach@localhost:5432/chelcoach_test
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -40,7 +57,7 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-      # Backend: install + type-check + retention tests + smoke (in-memory, no DB).
+      # Backend: install + type-check + tests + smoke (memory) + Postgres job repo.
       - name: Install server
         working-directory: server
         run: npm ci
@@ -49,10 +66,27 @@ jobs:
         working-directory: server
         run: npm run typecheck
 
-      - name: Test server retention foundation
+      - name: Apply Drizzle schema to CI Postgres
         working-directory: server
+        run: npx drizzle-kit push
+
+      - name: Test server (in-memory adapters)
+        working-directory: server
+        env:
+          CHELCOACH_FORCE_MEMORY_REPOS: "1"
+          DATABASE_URL: ""
         run: npm test
+
+      - name: Test durable job repository against Postgres
+        working-directory: server
+        env:
+          CHELCOACH_RUN_PG_TESTS: "1"
+          DATABASE_URL: postgresql://chelcoach:chelcoach@localhost:5432/chelcoach_test
+        run: npm run test:pg
 
       - name: Smoke test server
         working-directory: server
+        env:
+          CHELCOACH_FORCE_MEMORY_REPOS: "1"
+          DATABASE_URL: ""
         run: npm run smoke

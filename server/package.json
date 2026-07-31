@@ -9,7 +9,8 @@
     "start": "tsx src/index.ts",
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/retention/*.test.ts src/uploads/*.test.ts src/identification/*.test.ts src/provider/*.test.ts",
+    "test": "tsx --test src/retention/*.test.ts src/uploads/*.test.ts src/identification/*.test.ts src/provider/*.test.ts src/provider/jobs/*.test.ts",
+    "test:pg": "CHELCOACH_RUN_PG_TESTS=1 tsx --test src/provider/jobs/drizzleJobRepository.test.ts",
     "smoke": "tsx src/smoke.ts",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push"
