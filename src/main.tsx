@@ -17,6 +17,7 @@ import "material-symbols/outlined.css";
 
 import "./index.css";
 import App from "./App.tsx";
+import ErrorBoundary from "./components/ErrorBoundary.tsx";
 import { PremiumProvider } from "./state/PremiumContext.tsx";
 import { AnalysisProvider } from "./state/AnalysisContext.tsx";
 import { ReportProvider } from "./state/ReportContext.tsx";
@@ -27,7 +28,10 @@ createRoot(document.getElementById("root")!).render(
       <PremiumProvider>
         <AnalysisProvider>
           <ReportProvider>
-            <App />
+            {/* One boundary around the route tree: contexts above it survive a crash. */}
+            <ErrorBoundary>
+              <App />
+            </ErrorBoundary>
           </ReportProvider>
         </AnalysisProvider>
       </PremiumProvider>

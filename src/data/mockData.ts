@@ -342,7 +342,10 @@ export interface StatePanelCopy {
   secondaryLabel: string;
 }
 
-export const stateCopy: Record<"processingFailed" | "filmRoomEmpty" | "dataUnavailable", StatePanelCopy> = {
+export const stateCopy: Record<
+  "processingFailed" | "filmRoomEmpty" | "dataUnavailable" | "appCrash",
+  StatePanelCopy
+> = {
   processingFailed: {
     icon: "sync_problem",
     tone: "error",
@@ -369,5 +372,14 @@ export const stateCopy: Record<"processingFailed" | "filmRoomEmpty" | "dataUnava
       "Your analysis data didn't come through this time. Re-run the analysis and ChelCoach will rebuild your breakdown.",
     primaryLabel: "Re-run Analysis",
     secondaryLabel: "Back to Scorecard",
+  },
+  appCrash: {
+    icon: "error",
+    tone: "error",
+    title: "Something went wrong",
+    message:
+      "ChelCoach hit an unexpected error on this screen. Your upload and session may still be recoverable — reload to continue, or return home and try again.",
+    primaryLabel: "Reload",
+    secondaryLabel: "Return Home",
   },
 };
