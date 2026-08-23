@@ -29,6 +29,9 @@ import type { ScottyProvider } from "./types";
 
 export class HttpScottyProvider implements ScottyProvider {
   readonly mode = "scotty" as const;
+  // Step 4 skeleton: every method throws notNetworking() and no request ever leaves the
+  // process. Flip to true only when the transport genuinely calls the Scotty VM.
+  readonly canServeProductionTraffic = false;
 
   constructor(
     private config: ScottyProviderConfig,

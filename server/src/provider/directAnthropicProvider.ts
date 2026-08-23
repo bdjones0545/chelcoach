@@ -26,6 +26,8 @@ export const DIRECT_ANTHROPIC_PROVIDER_MARKER = "DirectAnthropicProvider";
 
 export class DirectAnthropicProvider implements ScottyProvider {
   readonly mode = "direct_anthropic" as const;
+  // Development-only exploration path; unimplemented and blocked in production by config.
+  readonly canServeProductionTraffic = false;
 
   async submitAnalysis(input: ScottyAnalysisSubmission): Promise<ScottyProviderJobReceipt> {
     void input;

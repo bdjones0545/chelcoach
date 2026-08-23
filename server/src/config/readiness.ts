@@ -5,6 +5,7 @@
  */
 import type { ChelCoachConfig } from "./chelcoachConfig";
 import { getChelCoachConfig, validateChelCoachConfig } from "./chelcoachConfig";
+import { providerCanServeProductionTraffic } from "../provider/factory";
 
 export type ChelCoachReadiness = {
   authReady: boolean;
@@ -82,7 +83,18 @@ export function computeReadiness(config: ChelCoachConfig = getChelCoachConfig())
       "UNSUPPORTED_PROVIDER",
     ].includes(i.code),
   );
-  const providerReady = providerBlocking.length === 0;
+  // Configuration validation can only tell us the provider is *configured*. It cannot see that an
+  // implementation never reaches the network, which is how a fully-configured skeleton previously
+  // reported ready and then failed every submission after creating an unrecoverable durable job.
+  // Ask the implementation directly, and only where it matters — production traffic.
+  const providerCapable = config.isProduction
+    ? providerCanServeProductionTraffic(config.provider.provider)
+    : true;
+  if (!providerCapable) {
+    reasons.push("PROVIDER_NOT_IMPLEMENTED");
+  }
+
+  const providerReady = providerBlocking.length === 0 && providerCapable;
   if (!providerReady) {
     reasons.push("PROVIDER_NOT_READY");
   }

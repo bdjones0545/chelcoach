@@ -49,6 +49,8 @@ export function computeSubmissionFingerprint(sub: ScottyAnalysisSubmission): str
 
 export class FakeScottyProvider implements ScottyProvider {
   readonly mode = "fake" as const;
+  // Deterministic fixtures for dev/CI only — never real analysis.
+  readonly canServeProductionTraffic = false;
   private jobs = new Map<string, StoredJob>();
   private byIdempotency = new Map<string, string>();
 

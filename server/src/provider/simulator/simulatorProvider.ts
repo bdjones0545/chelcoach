@@ -56,6 +56,8 @@ export type SimulatorTimeoutInjection =
 
 export class SimulatorScottyProvider implements ScottyProvider {
   readonly mode = "simulator" as const;
+  // Synthesises reports locally. Serving these as real coaching output would be fabrication.
+  readonly canServeProductionTraffic = false;
 
   constructor(
     private opts: {

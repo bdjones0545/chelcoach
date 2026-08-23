@@ -91,6 +91,48 @@ export function createScottyProviderForMode(mode: AnalysisProvider): ScottyProvi
   return buildProvider({ ...base, provider: mode });
 }
 
+/**
+ * Minimal config used only to construct a provider so its declared capability can be read.
+ * Never used to perform work — the probe instance is discarded immediately — so the values here
+ * carry no meaning beyond satisfying the constructor.
+ */
+const CAPABILITY_PROBE_CONFIG: ScottyProviderConfig = {
+  provider: "scotty",
+  scottyEnabled: false,
+  scottyBaseUrl: "",
+  contractVersion: "1.0.0",
+  requestTimeoutMs: 30_000,
+  statusTimeoutMs: 10_000,
+  reportTimeoutMs: 30_000,
+  signingSecretConfigured: false,
+  nodeEnv: "test",
+  simulatorEnabled: false,
+  simulatorAllowInProduction: false,
+  simulatorDefaultScenario: "auto",
+};
+
+/**
+ * Whether the implementation selected for `mode` can actually serve production traffic.
+ *
+ * Reads the flag the implementation declares rather than inferring anything from the mode string,
+ * so a provider that is perfectly configured but internally a skeleton still reports false. When a
+ * live provider is already wired for this mode we ask that instance; otherwise we construct a
+ * throwaway probe, which is pure — no network, no client wiring.
+ *
+ * Any failure is treated as "not capable" so the readiness gate fails closed rather than open.
+ */
+export function providerCanServeProductionTraffic(mode: AnalysisProvider): boolean {
+  try {
+    if (cached && cached.mode === mode) {
+      return cached.canServeProductionTraffic;
+    }
+    return buildProvider({ ...CAPABILITY_PROBE_CONFIG, provider: mode })
+      .canServeProductionTraffic;
+  } catch {
+    return false;
+  }
+}
+
 export function getScottyProvider(): ScottyProvider {
   if (!cached) {
     cachedConfig = loadScottyProviderConfig();
