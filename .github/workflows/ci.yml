@@ -75,9 +75,20 @@ jobs:
         working-directory: server
         run: npm run typecheck
 
-      - name: Apply Drizzle schema to CI Postgres
+      # Build the CI database with the SAME committed migrations production applies. Using
+      # `drizzle-kit push` here diffed schema.ts straight into Postgres, so every test below
+      # validated a schema production never builds, and a model shipped without its migration
+      # passed CI and failed on deploy. This step is also the fail-fast gate: a broken or
+      # mis-ordered migration terminates the job before test:pg is treated as authoritative.
+      - name: Apply production migrations to CI Postgres
         working-directory: server
-        run: npx drizzle-kit push
+        run: npm run db:migrate
+
+      # Table-level parity between schema.ts and the committed SQL, journal integrity, and an
+      # idempotent second migration pass against the real database.
+      - name: Verify migration parity
+        working-directory: server
+        run: npm run test:migration-parity
 
       - name: Test server (in-memory adapters)
         working-directory: server

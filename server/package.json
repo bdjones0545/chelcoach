@@ -23,7 +23,8 @@
     "verify:media-worker": "tsx src/inspection/verifyMediaWorker.ts",
     "worker:media-inspection": "tsx src/inspection/runWorker.ts",
     "test:storage": "tsx --test src/storage/*.test.ts src/uploads/upload.test.ts",
-    "test:inspection": "tsx --test src/inspection/*.test.ts"
+    "test:inspection": "tsx --test src/inspection/*.test.ts",
+    "test:migration-parity": "node scripts/verify-migration-parity.mjs"
   },
   "dependencies": {
     "@replit/object-storage": "^1.0.0",
