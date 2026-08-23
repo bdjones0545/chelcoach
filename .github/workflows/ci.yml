@@ -90,11 +90,15 @@ jobs:
         working-directory: server
         run: npm run test:migration-parity
 
+      # CHELCOACH_E2E_MODE is set job-wide for the Playwright step, but it leaks into this one:
+      # it installs the E2E fake media inspector, which rejects these tests' fixtures and fails 16
+      # of them. Scope it off here — the unit suite must exercise the real wiring, not E2E hooks.
       - name: Test server (in-memory adapters)
         working-directory: server
         env:
           CHELCOACH_FORCE_MEMORY_REPOS: "1"
           DATABASE_URL: ""
+          CHELCOACH_E2E_MODE: "0"
         run: npm test
 
       - name: Test durable job repository against Postgres
