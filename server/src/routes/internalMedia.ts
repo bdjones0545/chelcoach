@@ -34,6 +34,30 @@ function mediaAsObjectStorage(): ObjectStorage {
 
 export const internalMediaRouter = Router();
 
+/**
+ * Internal-endpoint auth for scheduled jobs.
+ *
+ * Platform cron (Vercel) issues GET with `Authorization: Bearer <secret>`, while operators and the
+ * existing manual callers use the route's custom header. Accept both against the same secret, via
+ * the timing-safe comparison in requireInternalSecret, which also rejects placeholder values.
+ */
+function internalSecretAccepted(
+  req: import("express").Request,
+  headerName: string,
+  expected: string,
+): boolean {
+  const headerSecret = req.header(headerName);
+  const bearer = (req.header("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+  return (
+    requireInternalSecret(headerSecret, expected) || requireInternalSecret(bearer, expected)
+  );
+}
+
+/** Generic fail-closed response — never confirms the endpoint exists to an unauthenticated caller. */
+function denyInternal(res: import("express").Response): void {
+  res.status(404).json({ error: "not_found", message: "No such endpoint." });
+}
+
 async function runCleanup(req: import("express").Request, res: import("express").Response) {
   const config = getChelCoachConfig();
   const expected = config.secrets.cleanupSecret;
@@ -75,17 +99,18 @@ internalMediaRouter.post("/internal/media/cleanup", limits.internal, runCleanup)
 internalMediaRouter.get("/internal/media/cleanup", limits.internal, runCleanup);
 
 /** Bounded DB-driven storage reconciliation (orphans / missing objects). */
-internalMediaRouter.post(
-  "/internal/media/storage-reconcile",
-  limits.internal,
-  async (req, res) => {
-    const config = getChelCoachConfig();
-    const expected = config.secrets.reconcileSecret;
-    const provided = req.header("x-chelcoach-reconcile-secret");
-    if (!requireInternalSecret(provided, expected)) {
-      res.status(404).json({ error: "not_found", message: "No such endpoint." });
-      return;
-    }
+async function runStorageReconcile(
+  req: import("express").Request,
+  res: import("express").Response,
+) {
+  const config = getChelCoachConfig();
+  if (
+    !internalSecretAccepted(req, "x-chelcoach-reconcile-secret", config.secrets.reconcileSecret)
+  ) {
+    denyInternal(res);
+    return;
+  }
+  {
     const limitRaw = Number((req.body as { limit?: number } | undefined)?.limit);
     const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 100) : 50;
     const repair = (req.body as { repair?: boolean } | undefined)?.repair !== false;
@@ -101,7 +126,19 @@ internalMediaRouter.post(
       repaired: result.repaired,
       kinds: result.issues.map((i) => i.kind),
     });
-  },
+  }
+}
+
+internalMediaRouter.post(
+  "/internal/media/storage-reconcile",
+  limits.internal,
+  runStorageReconcile,
+);
+/** Vercel Cron uses GET + Authorization Bearer <secret>. */
+internalMediaRouter.get(
+  "/internal/media/storage-reconcile",
+  limits.internal,
+  runStorageReconcile,
 );
 
 /**
@@ -111,18 +148,23 @@ internalMediaRouter.post(
  * when CHELCOACH_INSPECTION_WORKER_INLINE=0 (default). When inline=1 (dev/test),
  * it may process a tiny batch in-process (never enable on Vercel).
  */
-internalMediaRouter.post(
-  "/internal/media/inspection-worker",
-  limits.internal,
-  async (req, res) => {
-    const config = getChelCoachConfig();
-    const expected = config.secrets.inspectionWorkerSecret;
-    const provided = req.header("x-chelcoach-inspection-worker-secret");
-    if (!requireInternalSecret(provided, expected)) {
-      res.status(404).json({ error: "not_found", message: "No such endpoint." });
-      return;
-    }
+async function runInspectionWorker(
+  req: import("express").Request,
+  res: import("express").Response,
+) {
+  const config = getChelCoachConfig();
+  if (
+    !internalSecretAccepted(
+      req,
+      "x-chelcoach-inspection-worker-secret",
+      config.secrets.inspectionWorkerSecret,
+    )
+  ) {
+    denyInternal(res);
+    return;
+  }
 
+  {
     const inline = process.env.CHELCOACH_INSPECTION_WORKER_INLINE === "1";
     if (!inline) {
       // Wake signal only — dedicated worker polls DB. Do not run ffprobe here.
@@ -161,5 +203,17 @@ internalMediaRouter.post(
         errorCode: r.errorCode,
       })),
     });
-  },
+  }
+}
+
+internalMediaRouter.post(
+  "/internal/media/inspection-worker",
+  limits.internal,
+  runInspectionWorker,
+);
+/** Vercel Cron uses GET + Authorization Bearer <secret>. */
+internalMediaRouter.get(
+  "/internal/media/inspection-worker",
+  limits.internal,
+  runInspectionWorker,
 );

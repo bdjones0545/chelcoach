@@ -30,6 +30,10 @@
     {
       "path": "/api/internal/media/inspection-worker",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/internal/analysis/reconcile",
+      "schedule": "* * * * *"
     }
   ]
 }

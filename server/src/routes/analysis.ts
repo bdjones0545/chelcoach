@@ -231,15 +231,26 @@ analysisRouter.post(
  * Suggested production cadence: once per minute.
  * Do not create one timer per job.
  */
-analysisRouter.post("/internal/analysis/reconcile", limits.internal, async (req, res) => {
+async function runAnalysisReconcile(
+  req: import("express").Request,
+  res: import("express").Response,
+) {
   const config = getChelCoachConfig();
   const expected = config.secrets.reconcileSecret;
-  const provided = req.header("x-chelcoach-reconcile-secret");
-  if (!requireInternalSecret(provided, expected)) {
+  // Platform cron issues GET + Authorization Bearer; operators use the custom header. Both compare
+  // timing-safely against the same secret via requireInternalSecret.
+  const headerSecret = req.header("x-chelcoach-reconcile-secret");
+  const bearer = (req.header("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+  if (
+    !requireInternalSecret(headerSecret, expected) &&
+    !requireInternalSecret(bearer, expected)
+  ) {
     res.status(404).json({ error: "not_found", message: "No such endpoint." });
     return;
   }
   const limitRaw = Number((req.body as { limit?: number } | undefined)?.limit);
+  // The route is transport only: all lifecycle logic — including the bounded acceptance-unknown
+  // recovery — lives in the canonical service.
   const result = await getAnalysisReconciliationService().runBatch({
     limit: Number.isFinite(limitRaw) ? limitRaw : 25,
   });
@@ -250,7 +261,11 @@ analysisRouter.post("/internal/analysis/reconcile", limits.internal, async (req,
     unchanged: result.unchanged,
     failed: result.failed,
   });
-});
+}
+
+analysisRouter.post("/internal/analysis/reconcile", limits.internal, runAnalysisReconcile);
+/** Vercel Cron uses GET + Authorization Bearer <secret>. */
+analysisRouter.get("/internal/analysis/reconcile", limits.internal, runAnalysisReconcile);
 
 /**
  * Callback skeleton — feature-flagged OFF.
