@@ -55,6 +55,12 @@ export interface ChelCoachConfig {
     simulatorAllowInProduction: boolean;
     simulatorDefaultScenario: SimulatorScenario | "auto";
     fakeScenario?: string;
+    /**
+     * How long a submission may sit with an unresolved provider acceptance before reconciliation
+     * gives up and terminalizes it. Bounded so a typo cannot disable the recovery (too large) or
+     * terminalize healthy in-flight submissions (too small).
+     */
+    submissionAcceptanceTimeoutMs: number;
   };
 
   transport: {
@@ -357,6 +363,13 @@ export function loadChelCoachConfig(env: NodeJS.ProcessEnv = process.env): ChelC
       simulatorEnabled,
       simulatorAllowInProduction,
       simulatorDefaultScenario,
+      submissionAcceptanceTimeoutMs: intEnv(
+        env,
+        "CHELCOACH_SUBMISSION_ACCEPTANCE_TIMEOUT_MS",
+        15 * 60 * 1000,
+        5_000,
+        24 * 60 * 60 * 1000,
+      ),
       fakeScenario: env.CHELCOACH_FAKE_PROVIDER_SCENARIO,
     },
     transport: {

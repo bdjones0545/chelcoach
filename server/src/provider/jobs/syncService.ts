@@ -6,10 +6,12 @@ import {
   analysisStatusLabel,
   applicationAnalysisStatusSchema,
   scottyJobStatusResponseSchema,
+  scottyErrorMessage,
   scottyReportSchema,
   type ApplicationAnalysisStatus,
   type ScottyReport,
 } from "../../scottyContract";
+import { getChelCoachConfig } from "../../config/chelcoachConfig";
 import { ProviderError } from "../errors";
 import { createScottyProviderForMode, getScottyProvider } from "../factory";
 import { loadScottyProviderConfig } from "../config";
@@ -192,6 +194,70 @@ export async function synchronizeJob(input: {
     job.submissionAcceptanceState === "acceptance_unknown" ||
     !job.nextSyncAfter ||
     new Date(job.nextSyncAfter).getTime() <= Date.now();
+
+  // Bound the acceptance-unknown state.
+  //
+  // When a submission's provider call fails ambiguously (timeout / network), the durable job is left
+  // with submissionAcceptanceState=acceptance_unknown and no externalJobId. Synchronization below
+  // requires that ID, so such a job could never advance: reconciliation re-selected it on every
+  // batch forever while it stayed active and permanently consumed the owner's active-job quota.
+  //
+  // We do not resubmit. An uncertain response may mean the provider *did* accept the work, and a
+  // blind retry would create a duplicate job there. Failing closed after a bounded wait releases the
+  // quota and lets the user decide, which is recoverable; duplicating provider work is not.
+  //
+  // Age is measured from createdAt so rows already stuck before this change terminalize through
+  // ordinary reconciliation, with no one-off data repair.
+  if (
+    job.submissionAcceptanceState === "acceptance_unknown" &&
+    !job.externalJobId &&
+    !isTerminalStatus(job.canonicalStatus)
+  ) {
+    const timeoutMs = getChelCoachConfig().provider.submissionAcceptanceTimeoutMs;
+    const ageMs = Date.now() - new Date(job.createdAt).getTime();
+
+    if (ageMs >= timeoutMs) {
+      try {
+        // Version-checked, so concurrent reconcilers cannot both transition this job.
+        const failed = await repo.markFailed({
+          applicationRequestId: job.applicationRequestId,
+          expectedVersion: job.version,
+          safeErrorCode: "SUBMISSION_ACCEPTANCE_TIMEOUT",
+          safeErrorMessage: scottyErrorMessage("SUBMISSION_ACCEPTANCE_TIMEOUT"),
+          retryable: false,
+          reconciliationRequired: false,
+          eventSource,
+        });
+        logEvent("submission_acceptance_timeout", {
+          applicationRequestId: failed.applicationRequestId,
+          uploadId: failed.uploadId,
+          provider: failed.provider,
+          ageMs,
+          timeoutMs,
+        });
+        return {
+          job: failed,
+          status: toPublicJobStatus(failed, { pollAfterMs: null }),
+          synchronized: true,
+          degraded: false,
+        };
+      } catch (err) {
+        if (!(err instanceof OptimisticConcurrencyError)) throw err;
+        // Another reconciler terminalized it first — report the settled state, never a second write.
+        const fresh = await repo.getByApplicationRequestId(job.applicationRequestId);
+        const current = fresh ?? job;
+        return {
+          job: current,
+          status: toPublicJobStatus(current, { pollAfterMs: null }),
+          synchronized: false,
+          degraded: false,
+        };
+      }
+    }
+
+    // Still within the window: stay non-terminal and make no provider call. Falls through to the
+    // guard below, which returns unchanged because externalJobId is absent.
+  }
 
   if (!due || !job.externalJobId) {
     return {

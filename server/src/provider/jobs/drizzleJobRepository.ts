@@ -641,7 +641,12 @@ export class DrizzleAnalysisJobRepository implements AnalysisJobRepository {
       .where(
         or(
           eq(scottyAnalysisJobs.reconciliationRequired, true),
-          eq(scottyAnalysisJobs.submissionAcceptanceState, "acceptance_unknown"),
+          // Terminal jobs are settled: a job terminalized by the acceptance timeout keeps its
+          // acceptance_unknown marker, and without this guard it would be re-selected forever.
+          and(
+            eq(scottyAnalysisJobs.submissionAcceptanceState, "acceptance_unknown"),
+            inArray(scottyAnalysisJobs.canonicalStatus, [...activeStatuses]),
+          ),
           and(
             eq(scottyAnalysisJobs.cancellationRequested, true),
             ne(scottyAnalysisJobs.canonicalStatus, "cancelled"),

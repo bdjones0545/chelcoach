@@ -51,6 +51,7 @@ export const scottyErrorCodeSchema = z.enum([
   "INSUFFICIENT_WORKER_DISK",
   "WORKER_UNAVAILABLE",
   "INSPECTION_TIMEOUT",
+  "SUBMISSION_ACCEPTANCE_TIMEOUT",
 ]);
 export type ScottyErrorCode = z.infer<typeof scottyErrorCodeSchema>;
 
@@ -126,6 +127,8 @@ export function scottyErrorMessage(code: ScottyErrorCode): string {
     INSUFFICIENT_WORKER_DISK: "The verification worker is temporarily out of disk space. Try again shortly.",
     WORKER_UNAVAILABLE: "Gameplay verification is temporarily unavailable. Try again shortly.",
     INSPECTION_TIMEOUT: "Gameplay verification timed out. Try again shortly.",
+    SUBMISSION_ACCEPTANCE_TIMEOUT:
+      "We could not confirm this analysis was accepted. Nothing was charged to your limits — submit again.",
   };
   return map[code];
 }

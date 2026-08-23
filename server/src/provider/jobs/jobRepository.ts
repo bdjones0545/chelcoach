@@ -480,7 +480,14 @@ export class InMemoryAnalysisJobRepository implements AnalysisJobRepository {
     return [...this.jobs.values()]
       .filter((j) => {
         if (j.reconciliationRequired) return true;
-        if (j.submissionAcceptanceState === "acceptance_unknown") return true;
+        // Terminal jobs are settled: a job terminalized by the acceptance timeout keeps its
+        // acceptance_unknown marker, and without this guard it would be re-selected forever.
+        if (
+          j.submissionAcceptanceState === "acceptance_unknown" &&
+          !isTerminalStatus(j.canonicalStatus)
+        ) {
+          return true;
+        }
         if (j.cancellationRequested && j.canonicalStatus !== "cancelled") return true;
         if (isTerminalStatus(j.canonicalStatus)) return false;
         if (j.nextSyncAfter && new Date(j.nextSyncAfter).getTime() <= now) return true;
