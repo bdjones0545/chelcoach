@@ -27,6 +27,13 @@ export class OptimisticConcurrencyError extends Error {
   }
 }
 
+export type CallbackProcessingStatus =
+  | "received"
+  | "processed"
+  | "ignored_stale"
+  | "rejected_conflict"
+  | "failed";
+
 export interface AnalysisJobRepository {
   createPendingSubmission(input: CreateAnalysisJobInput): Promise<AnalysisJob>;
   markAccepted(input: MarkAcceptedInput): Promise<AnalysisJob>;
@@ -54,14 +61,20 @@ export interface AnalysisJobRepository {
     applicationRequestId: string,
   ): Promise<PersistedAnalysisReport | null>;
   listEvents(applicationRequestId: string, limit?: number): Promise<AnalysisJobEvent[]>;
-  recordCallbackEvent(input: {
+  claimCallbackEvent(input: {
     eventId: string;
     provider: AnalysisJob["provider"];
     externalJobId: string;
     applicationRequestId?: string;
     sequenceNumber: number;
     status?: ScottyJobStatus;
-  }): Promise<{ inserted: boolean; processingStatus: string }>;
+  }): Promise<{ claimed: boolean; processingStatus: CallbackProcessingStatus }>;
+  completeCallbackEvent(
+    provider: AnalysisJob["provider"],
+    eventId: string,
+    status: Exclude<CallbackProcessingStatus, "received" | "failed">,
+  ): Promise<void>;
+  releaseCallbackEvent(provider: AnalysisJob["provider"], eventId: string): Promise<void>;
   clear?(): void;
   /**
    * E2E-only: process-local totals for the in-memory adapter.
@@ -89,7 +102,7 @@ export class InMemoryAnalysisJobRepository implements AnalysisJobRepository {
   private byExternal = new Map<string, string>();
   private events: AnalysisJobEvent[] = [];
   private reports = new Map<string, PersistedAnalysisReport>();
-  private callbacks = new Map<string, true>();
+  private callbacks = new Map<string, CallbackProcessingStatus>();
   private locks = new Map<string, Promise<void>>();
 
   private async withJobLock<T>(applicationRequestId: string, fn: () => Promise<T>): Promise<T> {
@@ -534,21 +547,36 @@ export class InMemoryAnalysisJobRepository implements AnalysisJobRepository {
       .map((e) => structuredClone(e));
   }
 
-  async recordCallbackEvent(input: {
+  async claimCallbackEvent(input: {
     eventId: string;
     provider: AnalysisJob["provider"];
     externalJobId: string;
     applicationRequestId?: string;
     sequenceNumber: number;
     status?: ScottyJobStatus;
-  }): Promise<{ inserted: boolean; processingStatus: string }> {
+  }): Promise<{ claimed: boolean; processingStatus: CallbackProcessingStatus }> {
     const key = `${input.provider}:${input.eventId}`;
-    if (this.callbacks.has(key)) {
-      return { inserted: false, processingStatus: "processed" };
+    const existing = this.callbacks.get(key);
+    if (existing && existing !== "failed") {
+      return { claimed: false, processingStatus: existing };
     }
-    this.callbacks.set(key, true);
+    this.callbacks.set(key, "received");
     void input;
-    return { inserted: true, processingStatus: "received" };
+    return { claimed: true, processingStatus: "received" };
+  }
+
+  async completeCallbackEvent(
+    provider: AnalysisJob["provider"],
+    eventId: string,
+    status: Exclude<CallbackProcessingStatus, "received" | "failed">,
+  ): Promise<void> {
+    const key = `${provider}:${eventId}`;
+    if (this.callbacks.get(key) === "received") this.callbacks.set(key, status);
+  }
+
+  async releaseCallbackEvent(provider: AnalysisJob["provider"], eventId: string): Promise<void> {
+    const key = `${provider}:${eventId}`;
+    if (this.callbacks.get(key) === "received") this.callbacks.set(key, "failed");
   }
 
   clear(): void {

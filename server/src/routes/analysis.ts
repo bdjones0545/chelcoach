@@ -28,6 +28,11 @@ import { evaluateProviderStatusUpdate } from "../provider/jobs/sequence";
 import { scottyCallbackEventSchema } from "../scottyContract";
 import { limits } from "../security/rateLimit";
 import { requireInternalSecret } from "../security/secrets";
+import {
+  SCOTTY_CALLBACK_SIGNATURE_HEADER,
+  SCOTTY_CALLBACK_TIMESTAMP_HEADER,
+  verifyScottyCallback,
+} from "../security/callbackSignature";
 
 export const analysisRouter = Router();
 
@@ -268,8 +273,8 @@ analysisRouter.post("/internal/analysis/reconcile", limits.internal, runAnalysis
 analysisRouter.get("/internal/analysis/reconcile", limits.internal, runAnalysisReconcile);
 
 /**
- * Callback skeleton — feature-flagged OFF.
- * Dedupes event IDs when enabled; does not activate full callback processing yet.
+ * Authenticated callback receiver — feature-flagged OFF by default.
+ * Authenticates exact transport bytes before parsing, claiming, or reading protected job state.
  * Body size is capped by the global JSON limit (256kb).
  */
 analysisRouter.post("/internal/scotty/callbacks", limits.internal, async (req, res) => {
@@ -282,11 +287,16 @@ analysisRouter.post("/internal/scotty/callbacks", limits.internal, async (req, r
     res.status(404).json({ error: "not_found", message: "No such endpoint." });
     return;
   }
-  const sig = req.header("x-scotty-signature");
   const callbackSecret = config.secrets.callbackSecret;
-  // Skeleton: require signature header presence + constant-time compare against callback secret
-  // when a simple shared-secret mode is used. Full HMAC activation remains Step 11+.
-  if (!sig || !requireInternalSecret(sig, callbackSecret)) {
+  const rawBody = (req as typeof req & { rawBody?: Buffer }).rawBody;
+  if (
+    !verifyScottyCallback({
+      secret: callbackSecret,
+      timestamp: req.header(SCOTTY_CALLBACK_TIMESTAMP_HEADER),
+      signature: req.header(SCOTTY_CALLBACK_SIGNATURE_HEADER),
+      rawBody,
+    })
+  ) {
     res.status(401).json({ error: "UNAUTHORIZED", message: "Missing or invalid signature." });
     return;
   }
@@ -297,7 +307,7 @@ analysisRouter.post("/internal/scotty/callbacks", limits.internal, async (req, r
   }
   const event = parsed.data;
   const jobs = getAnalysisJobRepository();
-  const dedupe = await jobs.recordCallbackEvent({
+  const claim = await jobs.claimCallbackEvent({
     eventId: event.eventId,
     provider: "scotty",
     externalJobId: event.externalJobId,
@@ -305,36 +315,51 @@ analysisRouter.post("/internal/scotty/callbacks", limits.internal, async (req, r
     sequenceNumber: event.sequenceNumber,
     status: event.status,
   });
-  if (!dedupe.inserted) {
-    res.status(202).json({ accepted: true, reason: "duplicate_event_idempotent" });
+  if (!claim.claimed) {
+    res.status(202).json({
+      accepted: true,
+      reason:
+        claim.processingStatus === "received"
+          ? "duplicate_event_in_progress"
+          : "duplicate_event_idempotent",
+    });
     return;
   }
-  const job = await jobs.getByApplicationRequestId(event.applicationRequestId);
-  if (job) {
-    const decision = evaluateProviderStatusUpdate({
-      currentJob: job,
-      incoming: {
-        contractVersion: event.contractVersion,
-        jobId: event.externalJobId,
-        uploadId: job.uploadId,
-        provider: job.provider,
-        externalScottyJobId: event.externalJobId,
-        applicationRequestId: event.applicationRequestId,
-        status: event.status,
-        sequenceNumber: event.sequenceNumber,
-        reportReady: event.status === "completed",
-        updatedAt: event.occurredAt,
-      },
-    });
-    if (decision.decision === "stale") {
-      res.status(202).json({ accepted: true, reason: "stale_sequence_ignored" });
-      return;
+  try {
+    const job = await jobs.getByApplicationRequestId(event.applicationRequestId);
+    if (job) {
+      const decision = evaluateProviderStatusUpdate({
+        currentJob: job,
+        incoming: {
+          contractVersion: event.contractVersion,
+          jobId: event.externalJobId,
+          uploadId: job.uploadId,
+          provider: job.provider,
+          externalScottyJobId: event.externalJobId,
+          applicationRequestId: event.applicationRequestId,
+          status: event.status,
+          sequenceNumber: event.sequenceNumber,
+          reportReady: event.status === "completed",
+          updatedAt: event.occurredAt,
+        },
+      });
+      if (decision.decision === "stale") {
+        await jobs.completeCallbackEvent("scotty", event.eventId, "ignored_stale");
+        res.status(202).json({ accepted: true, reason: "stale_sequence_ignored" });
+        return;
+      }
+      if (decision.decision === "conflict") {
+        await jobs.completeCallbackEvent("scotty", event.eventId, "rejected_conflict");
+        res.status(409).json({ accepted: false, reason: "sequence_conflict" });
+        return;
+      }
     }
-    if (decision.decision === "conflict") {
-      res.status(409).json({ accepted: false, reason: "sequence_conflict" });
-      return;
-    }
+    // Callback-driven state transitions remain disabled; authenticated events are terminally
+    // acknowledged so provider retries stop without duplicating any domain side effect.
+    await jobs.completeCallbackEvent("scotty", event.eventId, "processed");
+    res.status(202).json({ accepted: false, reason: "callback_processing_disabled" });
+  } catch {
+    await jobs.releaseCallbackEvent("scotty", event.eventId).catch(() => undefined);
+    res.status(503).json({ accepted: false, reason: "callback_processing_retryable" });
   }
-  // Step 6: acknowledge + dedupe only — full callback activation remains later.
-  res.status(202).json({ accepted: false, reason: "callback_processing_disabled" });
 });

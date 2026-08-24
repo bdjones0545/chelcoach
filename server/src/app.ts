@@ -31,6 +31,12 @@ import { uploadsRouter } from "./routes/uploads";
 import { csrfProtection } from "./security/csrf";
 import { securityHeadersMiddleware } from "./security/headers";
 import { publicErrorMessage } from "./security/logging";
+import {
+  CallbackAuthenticationError,
+  SCOTTY_CALLBACK_SIGNATURE_HEADER,
+  SCOTTY_CALLBACK_TIMESTAMP_HEADER,
+  verifyScottyCallback,
+} from "./security/callbackSignature";
 
 export function createApp() {
   // Load local .env without overriding explicit process env (never logs secrets).
@@ -119,7 +125,31 @@ export function createApp() {
   }
 
   // Separate JSON limits — do not use a large global limit for video (streamed separately).
-  app.use(express.json({ limit: "256kb" }));
+  app.use(
+    express.json({
+      limit: "256kb",
+      verify(req, _res, body) {
+        // Callback HMAC verification must use the exact transport bytes, never reserialized JSON.
+        const rawBody = Buffer.from(body);
+        (req as Request & { rawBody?: Buffer }).rawBody = rawBody;
+        if (
+          req.originalUrl === "/api/internal/scotty/callbacks" &&
+          config.transport.callbacksEnabled &&
+          config.transport.callbackSigningConfigured &&
+          !verifyScottyCallback({
+            secret: config.secrets.callbackSecret,
+            timestamp: req.headers[SCOTTY_CALLBACK_TIMESTAMP_HEADER] as string | undefined,
+            signature: req.headers[SCOTTY_CALLBACK_SIGNATURE_HEADER] as string | undefined,
+            rawBody,
+          })
+        ) {
+          // express.json invokes verify before JSON.parse, so unauthenticated bytes cannot reach
+          // schema parsing or any callback repository operation.
+          throw new CallbackAuthenticationError();
+        }
+      },
+    }),
+  );
   app.use(csrfProtection);
 
   app.use("/api/health", healthRouter);
@@ -152,6 +182,10 @@ export function createApp() {
 
   // Central error handler — never leak stacks, SQL, or secrets in production.
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    if (err instanceof CallbackAuthenticationError) {
+      res.status(401).json({ error: "UNAUTHORIZED", message: "Missing or invalid signature." });
+      return;
+    }
     if (err && typeof err === "object" && (err as { type?: string }).type === "entity.too.large") {
       res.status(413).json({
         error: "oversized_payload",

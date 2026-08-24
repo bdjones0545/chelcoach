@@ -11,7 +11,11 @@ import {
   scottyCallbackEvents,
 } from "../../db/schema";
 import type { AnalysisProvider, ScottyJobStatus } from "../../scottyContract";
-import { OptimisticConcurrencyError, type AnalysisJobRepository } from "./jobRepository";
+import {
+  OptimisticConcurrencyError,
+  type AnalysisJobRepository,
+  type CallbackProcessingStatus,
+} from "./jobRepository";
 import type {
   AnalysisJob,
   AnalysisJobEvent,
@@ -717,17 +721,31 @@ export class DrizzleAnalysisJobRepository implements AnalysisJobRepository {
     }));
   }
 
-  async recordCallbackEvent(input: {
+  async claimCallbackEvent(input: {
     eventId: string;
     provider: AnalysisJob["provider"];
     externalJobId: string;
     applicationRequestId?: string;
     sequenceNumber: number;
     status?: ScottyJobStatus;
-  }): Promise<{ inserted: boolean; processingStatus: string }> {
+  }): Promise<{ claimed: boolean; processingStatus: CallbackProcessingStatus }> {
     const db = getDb();
-    try {
-      await db.insert(scottyCallbackEvents).values({
+    const reclaimed = await db
+      .update(scottyCallbackEvents)
+      .set({ processingStatus: "received", safeErrorCode: null, processedAt: null })
+      .where(
+        and(
+          eq(scottyCallbackEvents.provider, input.provider),
+          eq(scottyCallbackEvents.eventId, input.eventId),
+          eq(scottyCallbackEvents.processingStatus, "failed"),
+        ),
+      )
+      .returning({ processingStatus: scottyCallbackEvents.processingStatus });
+    if (reclaimed[0]) return { claimed: true, processingStatus: "received" };
+
+    const inserted = await db
+      .insert(scottyCallbackEvents)
+      .values({
         eventId: input.eventId,
         provider: input.provider,
         externalJobId: input.externalJobId,
@@ -735,11 +753,52 @@ export class DrizzleAnalysisJobRepository implements AnalysisJobRepository {
         sequenceNumber: input.sequenceNumber,
         status: input.status,
         processingStatus: "received",
-      });
-      return { inserted: true, processingStatus: "received" };
-    } catch {
-      return { inserted: false, processingStatus: "processed" };
-    }
+      })
+      .onConflictDoNothing({ target: [scottyCallbackEvents.provider, scottyCallbackEvents.eventId] })
+      .returning({ processingStatus: scottyCallbackEvents.processingStatus });
+    if (inserted[0]) return { claimed: true, processingStatus: "received" };
+    const existing = await db
+      .select({ processingStatus: scottyCallbackEvents.processingStatus })
+      .from(scottyCallbackEvents)
+      .where(
+        and(
+          eq(scottyCallbackEvents.provider, input.provider),
+          eq(scottyCallbackEvents.eventId, input.eventId),
+        ),
+      )
+      .limit(1);
+    if (!existing[0]) throw new Error("CALLBACK_CLAIM_LOST");
+    return { claimed: false, processingStatus: existing[0].processingStatus };
+  }
+
+  async completeCallbackEvent(
+    provider: AnalysisJob["provider"],
+    eventId: string,
+    status: Exclude<CallbackProcessingStatus, "received" | "failed">,
+  ): Promise<void> {
+    await getDb()
+      .update(scottyCallbackEvents)
+      .set({ processingStatus: status, processedAt: new Date() })
+      .where(
+        and(
+          eq(scottyCallbackEvents.provider, provider),
+          eq(scottyCallbackEvents.eventId, eventId),
+          eq(scottyCallbackEvents.processingStatus, "received"),
+        ),
+      );
+  }
+
+  async releaseCallbackEvent(provider: AnalysisJob["provider"], eventId: string): Promise<void> {
+    await getDb()
+      .update(scottyCallbackEvents)
+      .set({ processingStatus: "failed", safeErrorCode: "PROCESSING_RETRYABLE" })
+      .where(
+        and(
+          eq(scottyCallbackEvents.provider, provider),
+          eq(scottyCallbackEvents.eventId, eventId),
+          eq(scottyCallbackEvents.processingStatus, "received"),
+        ),
+      );
   }
 }
 

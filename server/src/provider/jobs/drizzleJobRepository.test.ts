@@ -243,20 +243,43 @@ describe("drizzle analysis job repository (postgres)", { skip: !runPg }, () => {
     const stored = await repo.getReportByApplicationRequestId(completed.applicationRequestId);
     assert.ok(stored?.contentChecksum);
 
-    const d1 = await repo.recordCallbackEvent({
+    const d1 = await repo.claimCallbackEvent({
       eventId: "cb-1",
       provider: "scotty",
       externalJobId: "x",
       sequenceNumber: 1,
     });
-    const d2 = await repo.recordCallbackEvent({
+    await repo.completeCallbackEvent("scotty", "cb-1", "processed");
+    const d2 = await repo.claimCallbackEvent({
       eventId: "cb-1",
       provider: "scotty",
       externalJobId: "x",
       sequenceNumber: 1,
     });
-    assert.equal(d1.inserted, true);
-    assert.equal(d2.inserted, false);
+    assert.equal(d1.claimed, true);
+    assert.equal(d2.claimed, false);
+
+    const concurrentInput = {
+      eventId: "cb-concurrent",
+      provider: "scotty" as const,
+      externalJobId: "x-concurrent",
+      sequenceNumber: 2,
+    };
+    const concurrent = await Promise.all([
+      repo.claimCallbackEvent(concurrentInput),
+      repo.claimCallbackEvent(concurrentInput),
+    ]);
+    assert.equal(concurrent.filter((result) => result.claimed).length, 1);
+
+    const retryInput = {
+      eventId: "cb-retry",
+      provider: "scotty" as const,
+      externalJobId: "x-retry",
+      sequenceNumber: 3,
+    };
+    assert.equal((await repo.claimCallbackEvent(retryInput)).claimed, true);
+    await repo.releaseCallbackEvent("scotty", retryInput.eventId);
+    assert.equal((await repo.claimCallbackEvent(retryInput)).claimed, true);
   });
 });
 

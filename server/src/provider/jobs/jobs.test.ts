@@ -349,20 +349,21 @@ describe("in-memory analysis job repository", () => {
 
   it("callback event dedupe is idempotent", async () => {
     const repo = getAnalysisJobRepository();
-    const r1 = await repo.recordCallbackEvent({
+    const r1 = await repo.claimCallbackEvent({
       eventId: "evt-1",
       provider: "scotty",
       externalJobId: "ext",
       sequenceNumber: 2,
     });
-    const r2 = await repo.recordCallbackEvent({
+    await repo.completeCallbackEvent("scotty", "evt-1", "processed");
+    const r2 = await repo.claimCallbackEvent({
       eventId: "evt-1",
       provider: "scotty",
       externalJobId: "ext",
       sequenceNumber: 2,
     });
-    assert.equal(r1.inserted, true);
-    assert.equal(r2.inserted, false);
+    assert.equal(r1.claimed, true);
+    assert.equal(r2.claimed, false);
   });
 });
 
