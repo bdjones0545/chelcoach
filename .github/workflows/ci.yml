@@ -71,6 +71,9 @@ jobs:
         working-directory: server
         run: npm ci
 
+      - name: Verify Vercel API bundle boot
+        run: npm run verify:vercel-api
+
       - name: Typecheck server
         working-directory: server
         run: npm run typecheck
