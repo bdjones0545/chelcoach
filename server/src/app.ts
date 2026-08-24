@@ -133,7 +133,7 @@ export function createApp() {
         const rawBody = Buffer.from(body);
         (req as Request & { rawBody?: Buffer }).rawBody = rawBody;
         if (
-          req.originalUrl === "/api/internal/scotty/callbacks" &&
+          (req as Request).originalUrl === "/api/internal/scotty/callbacks" &&
           config.transport.callbacksEnabled &&
           config.transport.callbackSigningConfigured &&
           !verifyScottyCallback({
