@@ -116,6 +116,38 @@ describe("canonical transitions + sequence", () => {
     assert.equal(isLegalStatusTransition("cancelled", "completed"), false);
   });
 
+  it("accepts forward provider jumps when polling misses intermediate phases", () => {
+    const job = {
+      ...({} as AnalysisJob),
+      canonicalStatus: "identifying_controlled_player" as const,
+      providerStatus: "identifying_controlled_player" as const,
+      statusSequenceNumber: 4,
+      providerSequenceNumber: 4,
+      reportAvailable: false,
+    };
+    const status = (status: "finalizing" | "completed", sequenceNumber: number, reportReady: boolean) => ({
+      contractVersion: "1.0.0" as const,
+      jobId: "j",
+      uploadId: "u",
+      provider: "simulator" as const,
+      status,
+      sequenceNumber,
+      reportReady,
+      updatedAt: new Date().toISOString(),
+    });
+
+    assert.equal(
+      evaluateProviderStatusUpdate({ currentJob: job, incoming: status("finalizing", 8, false) }).decision,
+      "advance",
+    );
+    assert.equal(
+      evaluateProviderStatusUpdate({ currentJob: job, incoming: status("completed", 9, true) }).decision,
+      "requires_report_fetch",
+    );
+    assert.equal(isLegalStatusTransition("finalizing", "identifying_controlled_player"), false);
+    assert.equal(isLegalStatusTransition("analyzing_gameplay", "awaiting_player_confirmation"), false);
+  });
+
   it("evaluates advance / idempotent / stale / conflict", () => {
     const job = {
       ...({} as AnalysisJob),
