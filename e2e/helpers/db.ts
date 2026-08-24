@@ -1,8 +1,51 @@
 import pg from "pg";
 
+/**
+ * The harness must read whatever the API just wrote.
+ *
+ * It previously always queried Postgres, while playwright.config.ts ran the API on in-memory
+ * repositories with a blanked DATABASE_URL. Every count therefore came back zero from a database
+ * the API had never touched, failing assertions on journeys that actually succeeded.
+ *
+ * playwright.config.ts now resolves one mode and publishes it here. In postgres mode we query the
+ * same migration-built database the API writes to; in memory mode we ask the API's own E2E control
+ * endpoint. We never silently fall back to querying an unrelated database.
+ */
+const PERSISTENCE = process.env.CHELCOACH_E2E_PERSISTENCE === "memory" ? "memory" : "postgres";
 const DATABASE_URL =
   process.env.DATABASE_URL ||
   "postgresql://chelcoach:chelcoach@127.0.0.1:5432/chelcoach_test";
+const API_URL = process.env.CHELCOACH_E2E_API_URL || "http://127.0.0.1:3011";
+const E2E_SECRET = process.env.CHELCOACH_E2E_SECRET || "e2e-secret";
+
+export function e2ePersistenceMode(): "memory" | "postgres" {
+  return PERSISTENCE;
+}
+
+/** Process-local totals from the API itself, used only when it runs on memory repositories. */
+async function memoryJobStats(): Promise<{ jobs: number; reports: number }> {
+  const res = await fetch(`${API_URL}/api/internal/e2e/job-stats`, {
+    headers: { "x-chelcoach-e2e-secret": E2E_SECRET },
+  });
+  if (!res.ok) {
+    throw new Error(
+      `[e2e-db] job-stats unavailable (${res.status}). The API and harness disagree about persistence.`,
+    );
+  }
+  return (await res.json()) as { jobs: number; reports: number };
+}
+
+/**
+ * Guard for assertions that only exist against a real database. Throwing beats returning 0, which
+ * is precisely the silent failure this change removes.
+ */
+function requirePostgres(what: string): void {
+  if (PERSISTENCE !== "postgres") {
+    throw new Error(
+      `[e2e-db] ${what} requires durable persistence. Set CHELCOACH_E2E_DATABASE_URL to a migrated database.`,
+    );
+  }
+}
 
 async function withClient<T>(fn: (client: pg.Client) => Promise<T>): Promise<T> {
   const client = new pg.Client({ connectionString: DATABASE_URL });
@@ -16,7 +59,7 @@ async function withClient<T>(fn: (client: pg.Client) => Promise<T>): Promise<T> 
 
 /** Truncate durable tables between E2E tests (worker isolation via serial workers). */
 export async function resetDurableState(): Promise<void> {
-  if (process.env.CHELCOACH_FORCE_MEMORY_REPOS === "1") return;
+  if (PERSISTENCE === "memory") return;
   await withClient(async (client) => {
     try {
       await client.query(`
@@ -44,6 +87,7 @@ export async function resetDurableState(): Promise<void> {
 }
 
 export async function countAnalysisJobs(): Promise<number> {
+  if (PERSISTENCE === "memory") return (await memoryJobStats()).jobs;
   return withClient(async (client) => {
     const res = await client.query(`SELECT COUNT(*)::int AS c FROM scotty_analysis_jobs`);
     return res.rows[0]?.c ?? 0;
@@ -51,6 +95,7 @@ export async function countAnalysisJobs(): Promise<number> {
 }
 
 export async function countSimulatorJobs(): Promise<number> {
+  requirePostgres("countSimulatorJobs");
   return withClient(async (client) => {
     const res = await client.query(`SELECT COUNT(*)::int AS c FROM scotty_simulator_jobs`);
     return res.rows[0]?.c ?? 0;
@@ -58,6 +103,7 @@ export async function countSimulatorJobs(): Promise<number> {
 }
 
 export async function countReports(): Promise<number> {
+  if (PERSISTENCE === "memory") return (await memoryJobStats()).reports;
   return withClient(async (client) => {
     const res = await client.query(`SELECT COUNT(*)::int AS c FROM scotty_analysis_reports`);
     return res.rows[0]?.c ?? 0;
@@ -65,6 +111,7 @@ export async function countReports(): Promise<number> {
 }
 
 export async function countActiveLeases(): Promise<number> {
+  requirePostgres("countActiveLeases");
   return withClient(async (client) => {
     const res = await client.query(
       `SELECT COUNT(*)::int AS c FROM processing_leases WHERE status = 'active' AND released_at IS NULL`,
@@ -81,6 +128,7 @@ export async function getJobByApplicationRequestId(applicationRequestId: string)
   owner_id: string;
   upload_id: string;
 } | null> {
+  requirePostgres("getJobByApplicationRequestId");
   return withClient(async (client) => {
     const res = await client.query(
       `SELECT application_request_id, canonical_status, status_sequence_number, report_available, owner_id, upload_id
@@ -97,6 +145,7 @@ export async function getUploadRow(uploadId: string): Promise<{
   media_classification: string | null;
   owner_id: string;
 } | null> {
+  requirePostgres("getUploadRow");
   return withClient(async (client) => {
     const res = await client.query(
       `SELECT upload_status, storage_object_key, media_classification, owner_id
@@ -108,6 +157,7 @@ export async function getUploadRow(uploadId: string): Promise<{
 }
 
 export async function getEventSequences(applicationRequestId: string): Promise<number[]> {
+  requirePostgres("getEventSequences");
   return withClient(async (client) => {
     const res = await client.query(
       `SELECT sequence_number FROM scotty_analysis_job_events
@@ -119,6 +169,7 @@ export async function getEventSequences(applicationRequestId: string): Promise<n
 }
 
 export async function assertNoSecretsInDb(applicationRequestId: string): Promise<void> {
+  requirePostgres("assertNoSecretsInDb");
   await withClient(async (client) => {
     const job = await client.query(
       `SELECT row_to_json(t)::text AS j FROM scotty_analysis_jobs t WHERE application_request_id = $1`,

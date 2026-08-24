@@ -11,6 +11,7 @@ import {
 } from "../identification/repository";
 import { FakeMediaInspector, setMediaInspectorForTests } from "../media/inspector";
 import { getScottyProvider } from "../provider/factory";
+import { getAnalysisJobRepository } from "../provider/jobs/jobRepository";
 import {
   isSimulatorScenario,
   setE2eSimulatorScenarioOverride,
@@ -318,6 +319,28 @@ export function createE2eRouter(): Router {
     }
     resetIdentificationRepositoryForTests();
     res.json({ ok: true, deleted: true, scope: "all" });
+  });
+
+  /**
+   * Process-local job statistics for the E2E harness when the API runs on in-memory repositories.
+   *
+   * Without this the harness had no way to observe what the API actually wrote: it queried Postgres
+   * while the API wrote to memory, so every count came back zero and journey assertions failed even
+   * though the journey succeeded. Read-only, and behind the same E2E secret as every other hook.
+   */
+  router.get("/internal/e2e/job-stats", async (req, res) => {
+    if (!requireE2eSecret(req, res)) return;
+    const repo = getAnalysisJobRepository();
+    if (!repo.countAllForE2e) {
+      // Durable adapters do not implement this — the harness should be reading Postgres directly.
+      res.status(409).json({
+        error: "durable_persistence_active",
+        message: "Analysis jobs are persisted durably; query the database instead.",
+      });
+      return;
+    }
+    const totals = await repo.countAllForE2e();
+    res.json({ persistence: "memory", ...totals });
   });
 
   router.post("/internal/e2e/reset-controls", (_req, res) => {

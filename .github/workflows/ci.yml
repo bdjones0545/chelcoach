@@ -118,11 +118,17 @@ jobs:
       - name: Install Playwright browsers (Chromium full + Firefox/WebKit smoke)
         run: npx playwright install --with-deps chromium firefox webkit
 
+      # Point Playwright at the SAME migration-built database the steps above proved. Previously
+      # the API was forced onto in-memory repositories with a blanked DATABASE_URL while the E2E
+      # helpers queried Postgres, so durable assertions read zero rows from a database the API had
+      # never written to. No drizzle-kit push, no second schema — this is the migrated database.
       - name: E2E browser verification (Chromium full + secondary smoke)
         run: npx playwright test
         env:
           CI: "1"
           DATABASE_URL: postgresql://chelcoach:chelcoach@localhost:5432/chelcoach_test
+          CHELCOACH_E2E_DATABASE_URL: postgresql://chelcoach:chelcoach@localhost:5432/chelcoach_test
+          CHELCOACH_FORCE_MEMORY_REPOS: "0"
           CHELCOACH_RECONCILE_SECRET: e2e-reconcile-secret
           CHELCOACH_E2E_SECRET: e2e-secret
 

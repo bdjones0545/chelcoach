@@ -5,6 +5,31 @@ const API_PORT = Number(process.env.E2E_API_PORT || 3001);
 const FRONTEND_URL = `http://127.0.0.1:${FRONTEND_PORT}`;
 const API_URL = `http://127.0.0.1:${API_PORT}`;
 
+/**
+ * Which persistence the API server runs on during E2E, resolved once so the server and the test
+ * helpers cannot disagree.
+ *
+ * They previously did: the server was forced onto in-memory repositories with a blanked
+ * DATABASE_URL while e2e/helpers/db.ts queried Postgres, so every durable assertion read zero rows
+ * from a database the API had never written to — the journey passed and the assertion failed.
+ *
+ * Durable whenever an explicit E2E database is named, or under CI where the workflow provisions the
+ * migration-built Postgres. A dev shell with an incidental DATABASE_URL (often a shared Supabase)
+ * still gets memory mode, so a local run cannot silently reach a remote database.
+ */
+const E2E_DATABASE_URL = (
+  process.env.CHELCOACH_E2E_DATABASE_URL ||
+  (process.env.CI ? process.env.DATABASE_URL : "") ||
+  ""
+).trim();
+const E2E_DURABLE =
+  E2E_DATABASE_URL.length > 0 && process.env.CHELCOACH_FORCE_MEMORY_REPOS !== "1";
+
+// The helpers run in this process, so publish the resolved mode for them to read.
+process.env.CHELCOACH_E2E_PERSISTENCE = E2E_DURABLE ? "postgres" : "memory";
+if (E2E_DURABLE) process.env.DATABASE_URL = E2E_DATABASE_URL;
+console.log(`[e2e] persistence=${E2E_DURABLE ? "postgres" : "memory"}`);
+
 const e2eEnv = {
   ...process.env,
   NODE_ENV: "development",
@@ -39,11 +64,10 @@ const e2eEnv = {
   SCOTTY_SIMULATOR_POLL_MS: "200",
   PORT: String(API_PORT),
   CORS_ORIGIN: FRONTEND_URL,
-  // Prefer memory repos for deterministic E2E unless explicitly overridden.
-  // Agent/dev shells often have DATABASE_URL pointing at shared Supabase — that must
-  // not silently change the Chromium upload journey to a remote durable path.
-  CHELCOACH_FORCE_MEMORY_REPOS: process.env.CHELCOACH_FORCE_MEMORY_REPOS || "1",
-  DATABASE_URL: process.env.CHELCOACH_E2E_DATABASE_URL || "",
+  // Persistence mode — see E2E_DATABASE_URL resolution above.
+  CHELCOACH_FORCE_MEMORY_REPOS: E2E_DURABLE ? "0" : "1",
+  DATABASE_URL: E2E_DURABLE ? E2E_DATABASE_URL : "",
+  CHELCOACH_E2E_PERSISTENCE: E2E_DURABLE ? "postgres" : "memory",
 };
 
 export default defineConfig({

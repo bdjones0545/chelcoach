@@ -63,6 +63,14 @@ export interface AnalysisJobRepository {
     status?: ScottyJobStatus;
   }): Promise<{ inserted: boolean; processingStatus: string }>;
   clear?(): void;
+  /**
+   * E2E-only: process-local totals for the in-memory adapter.
+   *
+   * Exists so the E2E harness can read the same source of truth the API just wrote to when it runs
+   * without a database. Optional on the interface and never called by application code — durable
+   * adapters deliberately leave it undefined so a production caller cannot reach it.
+   */
+  countAllForE2e?(): Promise<{ jobs: number; reports: number }>;
 }
 
 function nowIso(): string {
@@ -512,6 +520,11 @@ export class InMemoryAnalysisJobRepository implements AnalysisJobRepository {
   ): Promise<PersistedAnalysisReport | null> {
     const r = this.reports.get(applicationRequestId);
     return r ? structuredClone(r) : null;
+  }
+
+  /** E2E-only — see the interface note. Not production business logic. */
+  async countAllForE2e(): Promise<{ jobs: number; reports: number }> {
+    return { jobs: this.jobs.size, reports: this.reports.size };
   }
 
   async listEvents(applicationRequestId: string, limit = 50): Promise<AnalysisJobEvent[]> {
