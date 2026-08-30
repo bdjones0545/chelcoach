@@ -6,19 +6,23 @@ import Scorecard from "./screens/Scorecard";
 import FilmPreview from "./screens/FilmPreview";
 import Paywall from "./screens/Paywall";
 import FilmRoom from "./screens/FilmRoom";
+import WebMcpBridge from "./webmcp/WebMcpBridge";
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/" element={<Landing />} />
-      <Route path="/upload" element={<Upload />} />
-      <Route path="/processing" element={<Processing />} />
-      <Route path="/scorecard" element={<Scorecard />} />
-      <Route path="/film-preview" element={<FilmPreview />} />
-      <Route path="/paywall" element={<Paywall />} />
-      <Route path="/film-room" element={<FilmRoom />} />
-      {/* Fallback → landing */}
-      <Route path="*" element={<Landing />} />
-    </Routes>
+    <>
+      <WebMcpBridge />
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/upload" element={<Upload />} />
+        <Route path="/processing" element={<Processing />} />
+        <Route path="/scorecard" element={<Scorecard />} />
+        <Route path="/film-preview" element={<FilmPreview />} />
+        <Route path="/paywall" element={<Paywall />} />
+        <Route path="/film-room" element={<FilmRoom />} />
+        {/* Fallback → landing */}
+        <Route path="*" element={<Landing />} />
+      </Routes>
+    </>
   );
 }
