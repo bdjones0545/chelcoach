@@ -86,10 +86,21 @@ export function registerWebMcpTools(
       try {
         const modelContext = await resolveModelContext(config.polyfill);
         if (!modelContext || controller.signal.aborted) return;
-        for (const tool of tools) {
-          if (controller.signal.aborted) return;
-          await modelContext.registerTool(tool, { signal: controller.signal });
-        }
+
+        // Register concurrently and independently. Sequential awaits would let
+        // one slow tool delay every tool after it, and one rejection would drop
+        // the remainder of the set silently.
+        const results = await Promise.allSettled(
+          tools.map((tool) => modelContext.registerTool(tool, { signal: controller.signal })),
+        );
+        results.forEach((result, index) => {
+          if (result.status === "rejected") {
+            console.warn(
+              `[webmcp] tool "${tools[index]?.name}" failed to register`,
+              result.reason,
+            );
+          }
+        });
       } catch (error) {
         console.warn("[webmcp] tool registration failed", error);
       }
@@ -145,7 +156,9 @@ export function defineReadOnlyTool<TInput extends Record<string, unknown> = Reco
 ): WebMcpTool {
   return {
     name: spec.name,
-    title: spec.title,
+    // Spread rather than assign: under exactOptionalPropertyTypes an explicit
+    // `title: undefined` is not the same as an absent title.
+    ...(spec.title !== undefined && { title: spec.title }),
     description: spec.description,
     inputSchema: spec.inputSchema ?? { type: "object", properties: {} },
     annotations: {
