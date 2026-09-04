@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import AuthUnavailable from "../components/AuthUnavailable";
 import Button from "../components/Button";
 import { AuthActionError, useAuth } from "../state/AuthContext";
 
@@ -14,15 +15,11 @@ export default function Signup() {
 
   if (mode !== "supabase") {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center px-4">
-        <div className="max-w-md w-full glass-panel p-8 space-y-4">
-          <h1 className="font-headline text-2xl uppercase">Sign up</h1>
-          <p className="text-on-surface-variant text-sm">
-            Supabase Auth is not configured in this build.
-          </p>
-          <Button onClick={() => navigate("/upload")}>Continue</Button>
-        </div>
-      </div>
+      <AuthUnavailable
+        title="Sign up"
+        allowDevContinue
+        onDevContinue={() => navigate("/upload")}
+      />
     );
   }
 
@@ -80,8 +77,16 @@ export default function Signup() {
               className="w-full rounded-lg bg-surface-container border border-white/10 px-3 py-2 text-on-surface"
             />
           </label>
-          {error ? <p className="text-error text-sm">{error}</p> : null}
-          {info ? <p className="text-tertiary text-sm">{info}</p> : null}
+          {error ? (
+            <p className="text-error text-sm" role="alert" aria-live="assertive">
+              {error}
+            </p>
+          ) : null}
+          {info ? (
+            <p className="text-tertiary text-sm" role="status" aria-live="polite">
+              {info}
+            </p>
+          ) : null}
           <Button type="submit" disabled={submitting} className="w-full">
             {submitting ? "Creating…" : "Sign up"}
           </Button>

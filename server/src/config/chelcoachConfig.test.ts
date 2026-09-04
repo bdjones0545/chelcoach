@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  assertBootConfig,
   loadChelCoachConfig,
   resetChelCoachConfigCacheForTests,
   validateChelCoachConfig,
@@ -93,6 +94,28 @@ describe("chelcoach central config (Step 10)", () => {
     const result = validateChelCoachConfig(config);
     assert.ok(result.issues.some((i) => i.code === "SUPABASE_URL_MISSING"));
     assert.ok(result.issues.some((i) => i.code === "SUPABASE_ANON_KEY_MISSING"));
+  });
+
+  it("assertBootConfig fails closed for production supabase_auth without server vars", () => {
+    resetChelCoachConfigCacheForTests();
+    assert.throws(
+      () =>
+        assertBootConfig({
+          NODE_ENV: "production",
+          CHELCOACH_AUTH_MODE: "supabase_auth",
+          CHELCOACH_PRODUCTION_AUTH_READY: "true",
+          CORS_ORIGIN: "https://app.example.com",
+          CHELCOACH_LEGACY_UPLOAD_ENABLED: "false",
+          CHELCOACH_ANALYSIS_SUBMISSION_ENABLED: "false",
+          CHELCOACH_SCOTTIE_ENABLED: "false",
+          CHELCOACH_PRODUCTION_MEDIA_STORAGE_READY: "false",
+        }),
+      (err: unknown) =>
+        err instanceof Error &&
+        (/CONFIG_INVALID/.test(err.message) ||
+          /SUPABASE_URL_MISSING/.test(err.message) ||
+          /SUPABASE_ANON_KEY_MISSING/.test(err.message)),
+    );
   });
 
   it("rejects scotty disabled / missing signing", () => {

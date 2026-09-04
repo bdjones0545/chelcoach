@@ -13,8 +13,10 @@ import {
 } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import {
+  AUTH_UNAVAILABLE_USER_MESSAGE,
   getSupabaseBrowserClient,
-  isSupabaseBrowserConfigured,
+  getSupabaseBrowserConfigStatus,
+  type SupabaseClientStatus,
 } from "../lib/supabaseClient";
 import { clearDevOwnerToken } from "../lib/authToken";
 
@@ -39,6 +41,8 @@ export class AuthActionError extends Error {
 
 type AuthContextValue = {
   mode: AuthMode;
+  /** Frontend-safe browser Supabase config status (no secrets). */
+  supabaseStatus: SupabaseClientStatus;
   user: User | null;
   session: Session | null;
   loading: boolean;
@@ -62,6 +66,17 @@ function mapSignInError(message: string): AuthActionError {
   if (lower.includes("invalid login") || lower.includes("invalid credentials")) {
     return new AuthActionError("INVALID_CREDENTIALS", "Invalid email or password.");
   }
+  if (
+    lower.includes("failed to fetch") ||
+    lower.includes("network") ||
+    lower.includes("fetch") ||
+    lower.includes("timeout")
+  ) {
+    return new AuthActionError(
+      "AUTH_PROVIDER_UNAVAILABLE",
+      "Sign-in is temporarily unavailable. Try again in a moment.",
+    );
+  }
   return new AuthActionError("UNKNOWN", "Unable to sign in. Try again.");
 }
 
@@ -83,8 +98,13 @@ function safeRedirectTo(path: string): string {
   return path;
 }
 
+function providerUnavailableError(): AuthActionError {
+  return new AuthActionError("AUTH_PROVIDER_UNAVAILABLE", AUTH_UNAVAILABLE_USER_MESSAGE);
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const supabaseConfigured = isSupabaseBrowserConfigured();
+  const supabaseStatus = getSupabaseBrowserConfigStatus();
+  const supabaseConfigured = supabaseStatus.configured;
   const mode: AuthMode = supabaseConfigured ? "supabase" : "development_session";
 
   const [user, setUser] = useState<User | null>(null);
@@ -103,12 +123,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     let active = true;
-    void supabase.auth.getSession().then(({ data }) => {
-      if (!active) return;
-      setSession(data.session);
-      setUser(data.session?.user ?? null);
-      setLoading(false);
-    });
+    void supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (!active) return;
+        setSession(data.session);
+        setUser(data.session?.user ?? null);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!active) return;
+        setLoading(false);
+      });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
       setSession(next);
@@ -125,7 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(async (email: string, password: string) => {
     const supabase = getSupabaseBrowserClient();
     if (!supabase) {
-      throw new AuthActionError("AUTH_PROVIDER_UNAVAILABLE", "Authentication is not configured.");
+      throw providerUnavailableError();
     }
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw mapSignInError(error.message);
@@ -134,7 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = useCallback(async (email: string, password: string) => {
     const supabase = getSupabaseBrowserClient();
     if (!supabase) {
-      throw new AuthActionError("AUTH_PROVIDER_UNAVAILABLE", "Authentication is not configured.");
+      throw providerUnavailableError();
     }
     const emailRedirectTo =
       typeof window !== "undefined"
@@ -163,7 +189,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const requestPasswordReset = useCallback(async (email: string) => {
     const supabase = getSupabaseBrowserClient();
     if (!supabase) {
-      throw new AuthActionError("AUTH_PROVIDER_UNAVAILABLE", "Authentication is not configured.");
+      throw providerUnavailableError();
     }
     const redirectTo =
       typeof window !== "undefined"
@@ -178,6 +204,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthContextValue>(
     () => ({
       mode,
+      supabaseStatus,
       user,
       session,
       loading,
@@ -187,7 +214,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signOut,
       requestPasswordReset,
     }),
-    [mode, user, session, loading, signIn, signUp, signOut, requestPasswordReset],
+    [
+      mode,
+      supabaseStatus,
+      user,
+      session,
+      loading,
+      signIn,
+      signUp,
+      signOut,
+      requestPasswordReset,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

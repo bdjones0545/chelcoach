@@ -55,6 +55,13 @@ Do **not** rely on a dashboard-only install override. Keep `installCommand` in `
 
 SPA rewrites must not swallow `/api/*` (see `vercel.json` rewrites).
 
+## Auth environment
+
+Browser Auth requires `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` at **build** time.
+Server Auth requires `SUPABASE_URL` / `SUPABASE_ANON_KEY` (and related) at **runtime**.
+
+See `docs/vercel-auth-environment.md` for the full inventory, Supabase redirect URLs, and redeploy steps.
+
 ## Local clean-build simulation (Vercel-like)
 
 ```bash
