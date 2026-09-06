@@ -62,16 +62,19 @@ acting on the user's behalf with no human in the loop, so no such tool exists.
 
 `defineReadOnlyTool` is the only tool constructor, and it hard-codes
 `readOnlyHint: true`. A mutating tool cannot be expressed through it. Adding
-write tools is a deliberate change to `runtime.ts`, not something reachable by
-accident from `tools.ts`.
+write tools is a deliberate change to the shared `@bdjones/webmcp-kit` package,
+not something reachable by accident from `tools.ts`.
 
 ## Files
 
+The app-agnostic half — feature detection, lazy polyfill, registration,
+`defineReadOnlyTool`, and the `useWebMcpTools` hook — lives in
+[`@bdjones/webmcp-kit`](https://github.com/bdjones0545/webmcp-kit), shared with
+the other apps in this series. What stays here is what is specific to ChelCoach.
+
 | File | Role |
 | --- | --- |
-| `runtime.ts` | Feature detection, lazy polyfill, registration, `defineReadOnlyTool`. App-agnostic. |
-| `config.ts` | Reads the two environment flags. |
-| `useWebMcp.ts` | React hook; registers once, reads live data through a ref. |
+| `config.ts` | Reads the two environment flags. Stays local because Vite substitutes `import.meta.env` at build time. |
 | `tools.ts` | This app's tool definitions. |
 | `WebMcpBridge.tsx` | Renders nothing; wires the app's contexts into the hook. |
 

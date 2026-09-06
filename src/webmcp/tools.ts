@@ -11,7 +11,7 @@
  * shut.
  */
 import type { CoachingMoment, GameReport } from "../data/mockData";
-import { defineReadOnlyTool, type WebMcpTool } from "./runtime";
+import { defineReadOnlyTool, type WebMcpTool } from "@bdjones/webmcp-kit";
 
 export type ChelCoachSnapshot = {
   report: GameReport;
