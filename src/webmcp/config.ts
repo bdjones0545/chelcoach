@@ -8,7 +8,7 @@
  *   VITE_WEBMCP_POLYFILL=true   also serve them to browsers without native
  *                               WebMCP, at the cost of a lazily-loaded chunk
  */
-import type { WebMcpRuntimeConfig } from "./runtime";
+import type { WebMcpRuntimeConfig } from "@bdjones/webmcp-kit";
 
 function flag(value: unknown): boolean {
   return value === "true" || value === true;
