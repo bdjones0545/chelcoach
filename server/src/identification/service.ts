@@ -23,11 +23,19 @@ import {
 } from "../retention/policy";
 import { getUploadRepository, type MediaUploadRecord } from "../uploads/repository";
 import { getProfileRepository } from "../profile/repository";
-import { getConfirmationFrameExtractor } from "./extractor";
+import { planSampleTimestamps } from "../media/frameSampler";
+import { getConfirmationFrameExtractor, type ExtractedConfirmationFrame } from "./extractor";
 import {
   getControlledPlayerIdentifier,
   type FixtureScenario,
 } from "./fixtureIdentifier";
+
+/** Providers whose output may be recorded as identification. Fixtures are dev/CI stand-ins. */
+const ALLOWED_IDENTIFICATION_PROVIDERS: ReadonlySet<string> = new Set([
+  "fixture",
+  "local_simulator",
+  "claude_vision",
+]);
 import {
   deleteFrameObject,
   frameObjectKey,
@@ -217,18 +225,61 @@ async function withLease<T>(uploadId: string, purpose: string, fn: () => Promise
   }
 }
 
-async function persistCandidatesAndFrames(
-  upload: MediaUploadRecord,
-  identification: PlayerIdentificationRecord,
-  result: Awaited<ReturnType<ReturnType<typeof getControlledPlayerIdentifier>["identify"]>>,
-): Promise<{ frames: ConfirmationFrameRecord[]; candidates: PlayerCandidateRecord[] }> {
-  const repo = getIdentificationRepository();
-  const timestamps = [...new Set(result.evidenceTimestampsSec)].slice(0, MAX_CONFIRMATION_FRAMES);
-  const extracted = await getConfirmationFrameExtractor().extract({
+/**
+ * Evidence frames for identifiers that look at pixels: extracted before identification so every
+ * candidate box refers to a frame the user will see. Three frames spread across the clip.
+ */
+async function extractEvidenceFrames(upload: MediaUploadRecord): Promise<ExtractedConfirmationFrame[]> {
+  const durationSec = upload.trustedMedia?.durationSec ?? 1;
+  const timestamps = planSampleTimestamps(durationSec, {
+    minFrames: MAX_CONFIRMATION_FRAMES,
+    maxFrames: MAX_CONFIRMATION_FRAMES,
+  });
+  return getConfirmationFrameExtractor().extract({
     uploadId: upload.uploadId,
     objectKey: upload.storageObjectKey,
     requestedTimestamps: timestamps.length ? timestamps : [1],
   });
+}
+
+/** Run the configured identifier, extracting frames first when it needs them. */
+async function runIdentifier(
+  upload: MediaUploadRecord,
+  ownerId: string,
+  input: { playerContext: MediaUploadRecord["context"]["playerContext"]; fixtureScenario?: FixtureScenario },
+): Promise<{
+  result: Awaited<ReturnType<ReturnType<typeof getControlledPlayerIdentifier>["identify"]>>;
+  frames?: ExtractedConfirmationFrame[];
+}> {
+  const identifier = getControlledPlayerIdentifier();
+  const frames = identifier.requiresFrames ? await extractEvidenceFrames(upload) : undefined;
+  const result = await identifier.identify({
+    uploadId: upload.uploadId,
+    ownerId,
+    gameContext: upload.context.gameContext,
+    playerContext: input.playerContext,
+    mediaMetadata: upload.trustedMedia!,
+    fixtureScenario: input.fixtureScenario,
+    frames,
+  });
+  return { result, frames };
+}
+
+async function persistCandidatesAndFrames(
+  upload: MediaUploadRecord,
+  identification: PlayerIdentificationRecord,
+  result: Awaited<ReturnType<ReturnType<typeof getControlledPlayerIdentifier>["identify"]>>,
+  preExtracted?: ExtractedConfirmationFrame[],
+): Promise<{ frames: ConfirmationFrameRecord[]; candidates: PlayerCandidateRecord[] }> {
+  const repo = getIdentificationRepository();
+  const timestamps = [...new Set(result.evidenceTimestampsSec)].slice(0, MAX_CONFIRMATION_FRAMES);
+  const extracted =
+    preExtracted ??
+    (await getConfirmationFrameExtractor().extract({
+      uploadId: upload.uploadId,
+      objectKey: upload.storageObjectKey,
+      requestedTimestamps: timestamps.length ? timestamps : [1],
+    }));
 
   const frames: ConfirmationFrameRecord[] = [];
   for (const frame of extracted) {
@@ -380,17 +431,12 @@ export async function startOrGetIdentification(
         throw new IdentificationServiceError(410, "UPLOAD_EXPIRED", "This upload has expired.");
       }
 
-      const result = await getControlledPlayerIdentifier().identify({
-        uploadId,
-        ownerId,
-        gameContext: upload.context.gameContext,
+      const { result, frames: evidenceFrames } = await runIdentifier(upload, ownerId, {
         playerContext: upload.context.playerContext,
-        mediaMetadata: upload.trustedMedia!,
         fixtureScenario,
       });
 
-      // Never call paid / live Scotty in this phase — fixture only.
-      if (result.provider !== "fixture" && result.provider !== "local_simulator") {
+      if (!ALLOWED_IDENTIFICATION_PROVIDERS.has(result.provider)) {
         throw new IdentificationServiceError(500, "PLAYER_IDENTIFICATION_FAILED", "Invalid provider.");
       }
 
@@ -461,7 +507,7 @@ export async function startOrGetIdentification(
       }
 
       assertIdentificationTransition("checking", "confirmation_required");
-      const { frames, candidates } = await persistCandidatesAndFrames(upload, rec, result);
+      const { frames, candidates } = await persistCandidatesAndFrames(upload, rec, result, evidenceFrames);
       rec = await repo.updateIdentification(identificationId, {
         ...basePatch,
         status: "confirmation_required",
@@ -669,15 +715,11 @@ export async function correctIdentification(
 
   return withLease(uploadId, "correct", async () => {
     assertIdentificationTransition("identified", "confirmation_required");
-    const result = await getControlledPlayerIdentifier().identify({
-      uploadId,
-      ownerId,
-      gameContext: upload.context.gameContext,
+    const { result, frames: evidenceFrames } = await runIdentifier(upload, ownerId, {
       playerContext: upload.context.playerContext,
-      mediaMetadata: upload.trustedMedia!,
       fixtureScenario: "low_confidence_multiple_players",
     });
-    const { frames, candidates } = await persistCandidatesAndFrames(upload, rec, result);
+    const { frames, candidates } = await persistCandidatesAndFrames(upload, rec, result, evidenceFrames);
     const updated = await repo.updateIdentification(rec.identificationId, {
       status: "confirmation_required",
       uncertainties: ["User reported: that is not my player", ...result.uncertainties],
@@ -734,15 +776,11 @@ export async function noneOfTheAbove(
     }
 
     if (parsed.data.requestAdditionalExtraction && rec.additionalExtractionAttempts < 1) {
-      const result = await getControlledPlayerIdentifier().identify({
-        uploadId,
-        ownerId,
-        gameContext: upload.context.gameContext,
+      const { result, frames: evidenceFrames } = await runIdentifier(upload, ownerId, {
         playerContext: {
           ...upload.context.playerContext,
           ...parsed.data.hints,
         },
-        mediaMetadata: upload.trustedMedia!,
         fixtureScenario: "jersey_number_conflict",
       });
       // Clear prior frames.
@@ -750,7 +788,7 @@ export async function noneOfTheAbove(
         await deleteFrameObject(f.storageObjectKey).catch(() => undefined);
         await repo.markFrameDeleted(f.frameId);
       }
-      const { frames, candidates } = await persistCandidatesAndFrames(upload, next, result);
+      const { frames, candidates } = await persistCandidatesAndFrames(upload, next, result, evidenceFrames);
       next = await repo.updateIdentification(rec.identificationId, {
         additionalExtractionAttempts: rec.additionalExtractionAttempts + 1,
         uncertainties: result.uncertainties,

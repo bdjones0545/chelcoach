@@ -22,6 +22,11 @@ import {
   InMemoryProfileRepository,
   setProfileRepositoryForTests,
 } from "./profile/repository";
+import { DrizzleScottyWorkerJobRepository } from "./provider/scottyWorker/drizzleRepository";
+import {
+  InMemoryScottyWorkerJobRepository,
+  setScottyWorkerJobRepositoryForTests,
+} from "./provider/scottyWorker/repository";
 import { DrizzleSimulatorJobRepository } from "./provider/simulator/drizzleRepository";
 import {
   InMemorySimulatorJobRepository,
@@ -67,12 +72,13 @@ export function wirePersistence(): void {
   setProfileRepositoryForTests(new DrizzleProfileRepository());
   setAnalysisJobRepositoryForTests(new DrizzleAnalysisJobRepository());
   setSimulatorJobRepositoryForTests(new DrizzleSimulatorJobRepository());
+  setScottyWorkerJobRepositoryForTests(new DrizzleScottyWorkerJobRepository());
   setIdentificationRepositoryForTests(new DrizzleIdentificationRepository());
   setRetentionRepositoryForTests(new DrizzleRetentionRepository());
   setInspectionJobRepositoryForTests(new DrizzleInspectionJobRepository());
   backend = "drizzle";
   console.log(
-    "[chelcoach] persistence=drizzle (profiles + uploads + identification + retention + analysis_jobs + simulator_jobs + inspection_jobs)",
+    "[chelcoach] persistence=drizzle (profiles + uploads + identification + retention + analysis_jobs + simulator_jobs + worker_jobs + inspection_jobs)",
   );
 
   // Fail closed: configured DATABASE_URL must be reachable. Do not silently use memory.
@@ -95,6 +101,7 @@ export function resetPersistenceForTests(): void {
   setProfileRepositoryForTests(new InMemoryProfileRepository());
   setAnalysisJobRepositoryForTests(new InMemoryAnalysisJobRepository());
   setSimulatorJobRepositoryForTests(new InMemorySimulatorJobRepository());
+  setScottyWorkerJobRepositoryForTests(new InMemoryScottyWorkerJobRepository());
   setIdentificationRepositoryForTests(new InMemoryIdentificationRepository());
   setRetentionRepositoryForTests(new InMemoryRetentionRepository());
   setInspectionJobRepositoryForTests(new InMemoryInspectionJobRepository());

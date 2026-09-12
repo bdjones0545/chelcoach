@@ -7,6 +7,7 @@ import {
   confidenceLabelFromScore,
   type PlayerIdentificationProvider,
 } from "../scottyContract";
+import type { ExtractedConfirmationFrame } from "./extractor";
 
 export type FixtureScenario =
   | "high_confidence_center"
@@ -48,6 +49,11 @@ export interface ControlledPlayerIdentificationResult {
 }
 
 export interface ControlledPlayerIdentifier {
+  /**
+   * When true the service extracts the evidence frames first and passes them in, so candidate
+   * bounding boxes always refer to frames the user will see. Fixtures invent timestamps instead.
+   */
+  readonly requiresFrames?: boolean;
   identify(input: {
     uploadId: string;
     ownerId: string;
@@ -55,6 +61,7 @@ export interface ControlledPlayerIdentifier {
     playerContext: PlayerContext;
     mediaMetadata: TrustedMediaMetadata;
     fixtureScenario?: FixtureScenario;
+    frames?: ExtractedConfirmationFrame[];
   }): Promise<ControlledPlayerIdentificationResult>;
 }
 

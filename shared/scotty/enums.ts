@@ -54,6 +54,8 @@ export const analysisProviderSchema = z.enum([
   "simulator",
   "direct_anthropic",
   "scotty",
+  /** In-process worker: ffmpeg frame sampling + vision model, jobs durable in Postgres. */
+  "scotty_worker",
 ]);
 export type AnalysisProvider = z.infer<typeof analysisProviderSchema>;
 
@@ -129,6 +131,14 @@ export const playerIdentificationStatusSchema = z.enum([
 ]);
 export type PlayerIdentificationStatus = z.infer<typeof playerIdentificationStatusSchema>;
 
-/** Step-3 local providers only — never claim fixture output is Scotty. */
-export const playerIdentificationProviderSchema = z.enum(["fixture", "local_simulator"]);
+/**
+ * Identification providers. `fixture` and `local_simulator` are dev/CI stand-ins and are never
+ * labelled as real output; `claude_vision` is the production identifier (vision model over
+ * sampled frames).
+ */
+export const playerIdentificationProviderSchema = z.enum([
+  "fixture",
+  "local_simulator",
+  "claude_vision",
+]);
 export type PlayerIdentificationProvider = z.infer<typeof playerIdentificationProviderSchema>;

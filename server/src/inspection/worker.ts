@@ -29,6 +29,8 @@ import {
   type ScottyErrorCode,
 } from "../scottyContract";
 import { getMediaObjectStorage } from "../mediaStorage";
+import { resolveMediaBinary } from "../media/ffmpegBinaries";
+import { describeMediaSource, resolveMediaSource, storageSupportsRemoteRead } from "../media/mediaSource";
 import { getMediaRetentionPolicy, getMaxUploadBytes } from "../retention/policy";
 import { getUploadRepository } from "../uploads/repository";
 import { assertUploadTransition } from "../uploads/transitions";
@@ -84,13 +86,16 @@ async function availableDiskBytes(dir: string): Promise<number> {
 }
 
 async function runFfprobeJson(filePath: string, timeoutMs = FFPROBE_TIMEOUT_MS): Promise<unknown> {
-  const ffprobe = process.env.FFPROBE_PATH?.trim() || "ffprobe";
+  const ffprobe = resolveMediaBinary("ffprobe") ?? "ffprobe";
   return new Promise((resolve, reject) => {
     const child = spawn(
       ffprobe,
       [
         "-v",
         "error",
+        // Bound network reads when the target is a signed URL (microseconds).
+        "-rw_timeout",
+        String(Math.min(timeoutMs, 55_000) * 1000),
         "-show_entries",
         "stream=codec_type,codec_name,width,height,avg_frame_rate,side_data:format=format_name,duration,size",
         "-of",
@@ -318,18 +323,33 @@ export function createMediaInspectionWorker(opts?: {
 
         const maxBytes = getMaxUploadBytes();
         const expected = before.byteSize || job.trustedByteSize || 0;
-        const materialized = await streamObjectToTemp({
-          objectKey: job.objectKey,
-          maxBytes,
-          expectedBytes: expected,
-        });
-        cleanup = materialized.cleanup;
+        if (expected > maxBytes) {
+          throw Object.assign(new Error("VIDEO_FILE_TOO_LARGE"), { code: "VIDEO_FILE_TOO_LARGE" });
+        }
+        // Remote-readable storage (Supabase) is probed in place over a short-lived signed URL —
+        // ffprobe only reads the container headers, so nothing is downloaded. Disk storage is
+        // probed at its path; only adapters with neither capability are materialized to temp.
+        let probeTarget: string;
+        if (storageSupportsRemoteRead(media)) {
+          const source = await resolveMediaSource(job.objectKey, { media });
+          probeTarget = source.value;
+          cleanup = source.kind === "path" ? (source.cleanup ?? null) : null;
+          logEvent("probe_source_resolved", { jobId: job.id, source: describeMediaSource(source) });
+        } else {
+          const materialized = await streamObjectToTemp({
+            objectKey: job.objectKey,
+            maxBytes,
+            expectedBytes: expected,
+          });
+          probeTarget = materialized.localPath;
+          cleanup = materialized.cleanup;
+        }
 
         await this.heartbeat({ workerId: input.workerId, jobId: job.id });
         await repo.update(job.id, { status: "inspecting" });
         logEvent("inspection_started", { jobId: job.id, uploadId: job.uploadId });
 
-        const parsed = (await runFfprobeJson(materialized.localPath)) as {
+        const parsed = (await runFfprobeJson(probeTarget)) as {
           streams?: Array<{
             codec_type?: string;
             codec_name?: string;

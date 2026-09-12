@@ -2,16 +2,12 @@
  * Confirmation frame extraction — ffmpeg when available; fake extractor for CI.
  * Never loads the full source video into RAM.
  */
-import { spawn } from "node:child_process";
-import { promises as fs } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { randomUUID } from "node:crypto";
 import {
   getConfirmationFrameMaxBytes,
   getConfirmationFrameMaxEdge,
 } from "../retention/policy";
 import { getMediaObjectStorage } from "../mediaStorage";
+import { getFrameSampler } from "../media/frameSampler";
 
 export interface ExtractedConfirmationFrame {
   timestampSec: number;
@@ -92,90 +88,30 @@ export class FakeConfirmationFrameExtractor implements ConfirmationFrameExtracto
   }
 }
 
+/**
+ * Real frames via ffmpeg, from a signed URL (Supabase Storage) or a local path (disk storage).
+ * Never falls back to fake frames: a source that cannot be read is an extraction failure.
+ */
 export class FfmpegConfirmationFrameExtractor implements ConfirmationFrameExtractor {
   async extract(input: {
     uploadId: string;
     objectKey: string;
     requestedTimestamps: number[];
   }): Promise<ExtractedConfirmationFrame[]> {
-    const media = getMediaObjectStorage();
-    const localPath = media.resolveLocalPath
-      ? await media.resolveLocalPath(input.objectKey)
-      : null;
-    if (!localPath) {
-      // Fall back to fake when no local path (e.g. pure remote without temp).
-      return new FakeConfirmationFrameExtractor().extract(input);
-    }
-
-    const edge = getConfirmationFrameMaxEdge();
-    const maxBytes = getConfirmationFrameMaxBytes();
-    const out: ExtractedConfirmationFrame[] = [];
-    const tmpFiles: string[] = [];
-
-    try {
-      for (const ts of input.requestedTimestamps.slice(0, 3)) {
-        const tmp = join(tmpdir(), `chelcoach-frame-${randomUUID()}.jpg`);
-        tmpFiles.push(tmp);
-        await runFfmpeg(localPath, ts, tmp, edge);
-        const bytes = await fs.readFile(tmp);
-        if (bytes.length > maxBytes) {
-          throw Object.assign(new Error("FRAME_EXTRACTION_FAILED"), {
-            code: "FRAME_EXTRACTION_FAILED",
-          });
-        }
-        out.push({
-          timestampSec: ts,
-          mimeType: "image/jpeg",
-          width: edge,
-          height: Math.round((edge * 9) / 16),
-          bytes,
-        });
-      }
-      return out;
-    } finally {
-      await Promise.all(tmpFiles.map((f) => fs.rm(f, { force: true })));
-    }
+    const frames = await getFrameSampler().sample({
+      objectKey: input.objectKey,
+      timestampsSec: input.requestedTimestamps.slice(0, 3),
+      maxEdge: getConfirmationFrameMaxEdge(),
+      maxBytes: getConfirmationFrameMaxBytes(),
+    });
+    return frames.map((f) => ({
+      timestampSec: f.timestampSec,
+      mimeType: "image/jpeg" as const,
+      width: f.width,
+      height: f.height,
+      bytes: f.bytes,
+    }));
   }
-}
-
-function runFfmpeg(inputPath: string, timestampSec: number, outPath: string, maxEdge: number): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const args = [
-      "-hide_banner",
-      "-loglevel",
-      "error",
-      "-ss",
-      String(timestampSec),
-      "-i",
-      inputPath,
-      "-frames:v",
-      "1",
-      "-vf",
-      `scale='min(${maxEdge},iw)':'-2'`,
-      "-q:v",
-      "3",
-      "-y",
-      outPath,
-    ];
-    const child = spawn("ffmpeg", args, { stdio: ["ignore", "ignore", "pipe"] });
-    let err = "";
-    child.stderr.on("data", (d) => {
-      err += String(d);
-    });
-    child.on("error", () =>
-      reject(Object.assign(new Error("FRAME_EXTRACTION_FAILED"), { code: "FRAME_EXTRACTION_FAILED" })),
-    );
-    child.on("close", (code) => {
-      if (code === 0) resolve();
-      else
-        reject(
-          Object.assign(new Error("FRAME_EXTRACTION_FAILED"), {
-            code: "FRAME_EXTRACTION_FAILED",
-            detail: err.slice(0, 200),
-          }),
-        );
-    });
-  });
 }
 
 let extractor: ConfirmationFrameExtractor = new FakeConfirmationFrameExtractor();
@@ -190,11 +126,13 @@ export function setConfirmationFrameExtractorForTests(
   extractor = next ?? new FakeConfirmationFrameExtractor();
 }
 
-/** Prefer ffmpeg outside CI when CHELCOACH_USE_FFMPEG_FRAMES=1. */
-export function configureDefaultFrameExtractor(): void {
-  if (process.env.CHELCOACH_USE_FFMPEG_FRAMES === "1") {
-    extractor = new FfmpegConfirmationFrameExtractor();
-  } else {
-    extractor = new FakeConfirmationFrameExtractor();
-  }
+/**
+ * ffmpeg when CHELCOACH_USE_FFMPEG_FRAMES=1, and always in production unless explicitly set to
+ * 0 — fake frames carry no gameplay pixels, so serving them in production would be fabrication.
+ */
+export function configureDefaultFrameExtractor(env: NodeJS.ProcessEnv = process.env): "ffmpeg" | "fake" {
+  const flag = (env.CHELCOACH_USE_FFMPEG_FRAMES ?? "").trim();
+  const useFfmpeg = flag === "1" || (env.NODE_ENV === "production" && flag !== "0");
+  extractor = useFfmpeg ? new FfmpegConfirmationFrameExtractor() : new FakeConfirmationFrameExtractor();
+  return useFfmpeg ? "ffmpeg" : "fake";
 }

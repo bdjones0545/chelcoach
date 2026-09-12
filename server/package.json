@@ -9,7 +9,7 @@
     "start": "tsx src/index.ts",
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/retention/*.test.ts src/uploads/*.test.ts src/identification/*.test.ts src/provider/*.test.ts src/provider/jobs/*.test.ts src/routes/*.test.ts src/config/*.test.ts src/security/*.test.ts src/auth/*.test.ts src/db/*.test.ts src/storage/*.test.ts src/inspection/*.test.ts",
+    "test": "tsx --test src/retention/*.test.ts src/uploads/*.test.ts src/identification/*.test.ts src/provider/*.test.ts src/provider/jobs/*.test.ts src/provider/scottyWorker/*.test.ts src/ai/*.test.ts src/media/*.test.ts src/routes/*.test.ts src/config/*.test.ts src/security/*.test.ts src/auth/*.test.ts src/db/*.test.ts src/storage/*.test.ts src/inspection/*.test.ts",
     "test:pg": "CHELCOACH_RUN_PG_TESTS=1 tsx --test --test-concurrency=1 src/provider/jobs/drizzleJobRepository.test.ts src/identification/drizzleRepository.test.ts src/retention/drizzleRepository.test.ts",
     "cleanup:media": "node ../scripts/cleanup-media.mjs",
     "smoke": "tsx src/smoke.ts",
@@ -27,6 +27,9 @@
     "test:migration-parity": "node scripts/verify-migration-parity.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.125.0",
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@ffprobe-installer/ffprobe": "^2.1.2",
     "@replit/object-storage": "^1.0.0",
     "@supabase/supabase-js": "^2.111.0",
     "cors": "^2.8.5",

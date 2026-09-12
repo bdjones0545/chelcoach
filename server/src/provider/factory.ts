@@ -12,6 +12,7 @@ import {
 import { DirectAnthropicProvider } from "./directAnthropicProvider";
 import { FakeScottyProvider } from "./fakeProvider";
 import { HttpScottyProvider } from "./httpScottyProvider";
+import { ScottyWorkerProvider } from "./scottyWorker/provider";
 import { SimulatorScottyProvider } from "./simulator/simulatorProvider";
 import { NoopScottyRequestSigner, UnconfiguredHmacScottyRequestSigner } from "./signer";
 import type { ScottyProvider } from "./types";
@@ -29,6 +30,8 @@ function buildProvider(cfg: ScottyProviderConfig): ScottyProvider {
       });
     case "direct_anthropic":
       return new DirectAnthropicProvider();
+    case "scotty_worker":
+      return new ScottyWorkerProvider();
     case "scotty":
       return new HttpScottyProvider(
         cfg,

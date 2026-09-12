@@ -4,6 +4,13 @@
   "installCommand": "bash scripts/install-all.sh",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "functions": {
+    "api/index.ts": {
+      "maxDuration": 300,
+      "memory": 2048,
+      "includeFiles": "server/node_modules/@ff*-installer/**"
+    }
+  },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
@@ -33,6 +40,10 @@
     },
     {
       "path": "/api/internal/analysis/reconcile",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/internal/analysis/worker",
       "schedule": "* * * * *"
     }
   ]
