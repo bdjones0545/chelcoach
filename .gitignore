@@ -34,3 +34,6 @@ server/src/config/vercelApp.bundle.mjs
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# Vercel CLI project link
+.vercel

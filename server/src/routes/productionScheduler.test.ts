@@ -315,6 +315,41 @@ describe("production scheduler contract", () => {
     });
   });
 
+  it("accepts the platform CRON_SECRET on every scheduled GET route, and only there", async () => {
+    // Vercel Cron sends one shared bearer for all cron paths. Per-route secrets are unchanged and
+    // still must be distinct; the platform secret is an additional GET-only contract.
+    const cronSecret = "platform-cron-secret-with-entropy-9876";
+    process.env.CRON_SECRET = cronSecret;
+    process.env.CHELCOACH_CLEANUP_SECRET = "scheduler-test-cleanup-secret";
+    resetChelCoachConfigCacheForTests();
+    try {
+      await withServer(async (baseUrl) => {
+        const paths = [
+          "/api/internal/media/cleanup",
+          "/api/internal/media/storage-reconcile",
+          "/api/internal/media/inspection-worker",
+          "/api/internal/analysis/reconcile",
+        ];
+        for (const path of paths) {
+          const res = await cronRequest(baseUrl, path, cronSecret);
+          assert.equal(res.status, 200, `${path} must accept the platform cron bearer`);
+        }
+        for (const path of paths) {
+          const res = await fetch(`${baseUrl}${path}`, {
+            method: "POST",
+            headers: { authorization: `Bearer ${cronSecret}`, "content-type": "application/json" },
+            body: "{}",
+          });
+          assert.equal(res.status, 404, `${path} POST must not accept the platform cron bearer`);
+        }
+      });
+    } finally {
+      delete process.env.CRON_SECRET;
+      delete process.env.CHELCOACH_CLEANUP_SECRET;
+      resetChelCoachConfigCacheForTests();
+    }
+  });
+
   it("schedules every background job that needs one, at the intended cadence", () => {
     const cfg = JSON.parse(
       readFileSync(resolve(import.meta.dirname, "../../../vercel.json"), "utf8"),

@@ -7,7 +7,7 @@ import { csrfProtection } from "./csrf";
 import { contentSecurityPolicy, securityHeadersMiddleware } from "./headers";
 import { publicErrorMessage, redactValue, safeLogFields } from "./logging";
 import { limits, resetRateLimitForTests } from "./rateLimit";
-import { requireInternalSecret, safeEqualString } from "./secrets";
+import { platformCronSecretAccepted, requireInternalSecret, safeEqualString } from "./secrets";
 import { assertE2eNotEnabledInProduction, isE2eMode } from "../e2e/hooks";
 
 describe("security helpers (Step 10)", () => {
@@ -41,6 +41,36 @@ describe("security helpers (Step 10)", () => {
     assert.equal(requireInternalSecret("x", ""), false);
     assert.equal(requireInternalSecret("secret", "secret"), false); // placeholder
     assert.equal(requireInternalSecret("real-secret-value", "real-secret-value"), true);
+  });
+
+  it("platform cron secret is GET-only, needs real entropy, and never matches when unset", () => {
+    const secret = "vercel-cron-secret-with-entropy-1234";
+    const env = { CRON_SECRET: secret } as NodeJS.ProcessEnv;
+    const bearer = `Bearer ${secret}`;
+    assert.equal(platformCronSecretAccepted({ method: "GET", authorizationHeader: bearer }, env), true);
+    assert.equal(
+      platformCronSecretAccepted({ method: "POST", authorizationHeader: bearer }, env),
+      false,
+      "the shared scheduler secret must never drive the POST operator forms",
+    );
+    assert.equal(
+      platformCronSecretAccepted({ method: "GET", authorizationHeader: `Bearer ${secret}x` }, env),
+      false,
+    );
+    assert.equal(platformCronSecretAccepted({ method: "GET", authorizationHeader: undefined }, env), false);
+    assert.equal(
+      platformCronSecretAccepted({ method: "GET", authorizationHeader: bearer }, {} as NodeJS.ProcessEnv),
+      false,
+      "no CRON_SECRET configured means nothing is accepted",
+    );
+    assert.equal(
+      platformCronSecretAccepted(
+        { method: "GET", authorizationHeader: "Bearer short" },
+        { CRON_SECRET: "short" } as NodeJS.ProcessEnv,
+      ),
+      false,
+      "a short secret is rejected even when it matches",
+    );
   });
 
   it("E2E mode impossible in production", () => {

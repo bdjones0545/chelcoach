@@ -15,10 +15,10 @@ import {
   type GameReport,
 } from "../data/mockData";
 
-export const USE_BACKEND_REPORTS = import.meta.env.VITE_USE_BACKEND_REPORTS === "true";
+import { API_BASE_URL, USE_BACKEND_REPORTS } from "./apiBase";
 
-export const API_BASE_URL =
-  (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "http://localhost:3001";
+// One definition of the API base for every client — see apiBase.ts for the same-origin rule.
+export { API_BASE_URL, USE_BACKEND_REPORTS };
 
 /** Deterministic demo clip id used when no real upload has happened (flag on). */
 const DEMO_CLIP_ID = "static-demo-clip";
