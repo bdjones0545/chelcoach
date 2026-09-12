@@ -25,6 +25,7 @@ import { getScottyProvider } from "../provider/factory";
 import { getAnalysisJobRepository } from "../provider/jobs/jobRepository";
 import { getAnalysisReconciliationService } from "../provider/jobs/reconciliationService";
 import { evaluateProviderStatusUpdate } from "../provider/jobs/sequence";
+import { runScottyWorkerBatch } from "../provider/scottyWorker/worker";
 import { scottyCallbackEventSchema } from "../scottyContract";
 import { limits } from "../security/rateLimit";
 import { platformCronSecretAccepted, requireInternalSecret } from "../security/secrets";
@@ -273,6 +274,57 @@ async function runAnalysisReconcile(
 analysisRouter.post("/internal/analysis/reconcile", limits.internal, runAnalysisReconcile);
 /** Vercel Cron uses GET + Authorization Bearer <secret>. */
 analysisRouter.get("/internal/analysis/reconcile", limits.internal, runAnalysisReconcile);
+
+/**
+ * Scotty worker tick — claims and runs durable analysis jobs for the `scotty_worker` provider.
+ * Scheduled once per minute; each tick is time-budgeted below the platform function limit.
+ * Same credentials as reconciliation (operator header or platform cron bearer).
+ */
+async function runScottyWorkerTick(
+  req: import("express").Request,
+  res: import("express").Response,
+) {
+  const config = getChelCoachConfig();
+  const expected = config.secrets.reconcileSecret;
+  const headerSecret = req.header("x-chelcoach-reconcile-secret");
+  const authorizationHeader = req.header("authorization");
+  const bearer = (authorizationHeader ?? "").replace(/^Bearer\s+/i, "").trim();
+  if (
+    !requireInternalSecret(headerSecret, expected) &&
+    !requireInternalSecret(bearer, expected) &&
+    !platformCronSecretAccepted({ method: req.method, authorizationHeader })
+  ) {
+    res.status(404).json({ error: "not_found", message: "No such endpoint." });
+    return;
+  }
+  if (config.provider.provider !== "scotty_worker") {
+    res.json({ mode: "inactive", provider: config.provider.provider, claimed: 0 });
+    return;
+  }
+  const limitRaw = Number((req.body as { limit?: number } | undefined)?.limit);
+  const result = await runScottyWorkerBatch({
+    limit: Number.isFinite(limitRaw) ? limitRaw : 2,
+    budgetMs: config.provider.workerBudgetMs,
+  });
+  res.json({
+    mode: "worker",
+    claimed: result.claimed,
+    completed: result.completed,
+    failed: result.failed,
+    retried: result.retried,
+    skipped: result.skipped,
+    jobs: result.results.map((r) => ({
+      applicationRequestId: r.applicationRequestId,
+      status: r.status,
+      ok: r.ok,
+      errorCode: r.errorCode,
+      elapsedMs: r.elapsedMs,
+    })),
+  });
+}
+
+analysisRouter.post("/internal/analysis/worker", limits.internal, runScottyWorkerTick);
+analysisRouter.get("/internal/analysis/worker", limits.internal, runScottyWorkerTick);
 
 /**
  * Authenticated callback receiver — feature-flagged OFF by default.

@@ -47,6 +47,8 @@ export interface ChelCoachConfig {
     scottyEnabled: boolean;
     scottyBaseUrl: string;
     signingSecretConfigured: boolean;
+    /** ANTHROPIC_API_KEY present — required by the scotty_worker provider and vision identifier. */
+    modelKeyConfigured: boolean;
     contractVersion: string;
     requestTimeoutMs: number;
     statusTimeoutMs: number;
@@ -61,6 +63,8 @@ export interface ChelCoachConfig {
      * terminalize healthy in-flight submissions (too small).
      */
     submissionAcceptanceTimeoutMs: number;
+    /** Time budget for one scheduler tick of the in-process worker (below the function limit). */
+    workerBudgetMs: number;
   };
 
   transport: {
@@ -356,6 +360,7 @@ export function loadChelCoachConfig(env: NodeJS.ProcessEnv = process.env): ChelC
       scottyEnabled,
       scottyBaseUrl,
       signingSecretConfigured: Boolean(signingSecret) && !isPlaceholderSecret(signingSecret),
+      modelKeyConfigured: (env.ANTHROPIC_API_KEY ?? "").trim().length > 20,
       contractVersion: (env.SCOTTY_CONTRACT_VERSION ?? "1.0.0").trim(),
       requestTimeoutMs: intEnv(env, "SCOTTY_REQUEST_TIMEOUT_MS", 30_000, 1_000, 300_000),
       statusTimeoutMs: intEnv(env, "SCOTTY_STATUS_TIMEOUT_MS", 10_000, 500, 120_000),
@@ -371,6 +376,7 @@ export function loadChelCoachConfig(env: NodeJS.ProcessEnv = process.env): ChelC
         24 * 60 * 60 * 1000,
       ),
       fakeScenario: env.CHELCOACH_FAKE_PROVIDER_SCENARIO,
+      workerBudgetMs: intEnv(env, "CHELCOACH_WORKER_BUDGET_MS", 240_000, 10_000, 780_000),
     },
     transport: {
       remoteTransportEnabled,
@@ -516,6 +522,13 @@ export function validateChelCoachConfig(config: ChelCoachConfig): ConfigValidati
     issues.push({
       code: "SCOTTY_SIGNING_MISSING",
       message: "provider=scotty requires a non-placeholder SCOTTY_SIGNING_SECRET.",
+      severity: "critical",
+    });
+  }
+  if (p === "scotty_worker" && config.isProduction && !config.provider.modelKeyConfigured) {
+    issues.push({
+      code: "SCOTTY_WORKER_MODEL_KEY_MISSING",
+      message: "provider=scotty_worker requires ANTHROPIC_API_KEY in production.",
       severity: "critical",
     });
   }

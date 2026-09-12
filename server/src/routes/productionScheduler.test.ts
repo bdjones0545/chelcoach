@@ -329,6 +329,7 @@ describe("production scheduler contract", () => {
           "/api/internal/media/storage-reconcile",
           "/api/internal/media/inspection-worker",
           "/api/internal/analysis/reconcile",
+          "/api/internal/analysis/worker",
         ];
         for (const path of paths) {
           const res = await cronRequest(baseUrl, path, cronSecret);
@@ -361,7 +362,9 @@ describe("production scheduler contract", () => {
     assert.equal(scheduled.get("/api/internal/media/inspection-worker"), "* * * * *");
     // The addition: without this entry the P1 recovery only ran while someone was polling.
     assert.equal(scheduled.get("/api/internal/analysis/reconcile"), "* * * * *");
-    assert.equal(cfg.crons.length, 4, "no stray schedules");
+    // The in-process Scotty worker only runs when something ticks it.
+    assert.equal(scheduled.get("/api/internal/analysis/worker"), "* * * * *");
+    assert.equal(cfg.crons.length, 5, "no stray schedules");
   });
 
   it("terminalizes an expired acceptance-unknown job through the cron-reached path", async () => {

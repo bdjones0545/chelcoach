@@ -3,6 +3,7 @@ import express from "express";
 import type { NextFunction, Request, Response } from "express";
 import { wirePersistence } from "./persistence";
 import { configureDefaultFrameExtractor } from "./identification/extractor";
+import { configureDefaultControlledPlayerIdentifier } from "./identification/claudeVisionIdentifier";
 import {
   assertE2eNotEnabledInProduction,
   createE2eRouter,
@@ -67,7 +68,11 @@ export function createApp() {
 
   // Prefer Drizzle when DATABASE_URL is present; otherwise in-memory repos (CI/local).
   wirePersistence();
-  configureDefaultFrameExtractor();
+  const frameExtractorMode = configureDefaultFrameExtractor();
+  const identifierMode = configureDefaultControlledPlayerIdentifier();
+  console.log(
+    `[chelcoach] identification frames=${frameExtractorMode} identifier=${identifierMode}`,
+  );
   if (isE2eMode()) {
     installE2eMediaInspector();
   }

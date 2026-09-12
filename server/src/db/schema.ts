@@ -84,6 +84,7 @@ export const leaseStatusDbEnum = pgEnum("lease_status", [
 ]);
 
 export const analysisProviderDbEnum = pgEnum("analysis_provider", [
+  "scotty_worker",
   "fake",
   "simulator",
   "direct_anthropic",
@@ -434,6 +435,51 @@ export const scottySimulatorJobs = pgTable(
   (t) => ({
     idempotencyUnique: uniqueIndex("scotty_sim_jobs_idempotency_uidx").on(t.idempotencyKey),
     requestIdx: index("scotty_sim_jobs_request_idx").on(t.applicationRequestId),
+  }),
+);
+
+/**
+ * Durable state for the in-process Scotty worker (provider `scotty_worker`).
+ * The provider's side of the boundary: claimed with a lease, advanced through job statuses, and
+ * the validated report stored on the row. No media bytes or signed URLs are ever stored here.
+ */
+export const scottyWorkerJobs = pgTable(
+  "scotty_worker_jobs",
+  {
+    externalJobId: text("external_job_id").primaryKey(),
+    applicationRequestId: text("application_request_id").notNull(),
+    uploadId: text("upload_id").notNull(),
+    ownerReference: text("owner_reference").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    requestFingerprint: text("request_fingerprint").notNull(),
+    contractVersion: text("contract_version").notNull(),
+    submission: jsonb("submission").notNull(),
+    status: scottyJobStatusDbEnum("status").notNull().default("queued"),
+    sequenceNumber: integer("sequence_number").notNull().default(1),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    maxAttempts: integer("max_attempts").notNull().default(3),
+    workerId: text("worker_id"),
+    claimExpiresAt: timestamp("claim_expires_at", { withTimezone: true }),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }).notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    failedAt: timestamp("failed_at", { withTimezone: true }),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    cancelReason: text("cancel_reason"),
+    errorCode: text("error_code"),
+    errorMessage: text("error_message"),
+    retryable: boolean("retryable").notNull().default(false),
+    report: jsonb("report").$type<ScottyReport>(),
+    frameCount: integer("frame_count"),
+    modelUsage: jsonb("model_usage"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    idempotencyUnique: uniqueIndex("scotty_worker_jobs_idempotency_uidx").on(t.idempotencyKey),
+    requestIdx: index("scotty_worker_jobs_request_idx").on(t.applicationRequestId),
+    claimIdx: index("scotty_worker_jobs_claim_idx").on(t.status, t.claimExpiresAt, t.nextAttemptAt),
   }),
 );
 

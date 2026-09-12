@@ -38,9 +38,12 @@ read them.
 | `CHELCOACH_PRODUCTION_MEDIA_STORAGE_READY` | `false` → `true` | Flip together with the mode above. |
 | `SUPABASE_GAMEPLAY_BUCKET` | `chelcoach-gameplay` | Private bucket; exists, RLS policies applied. |
 | `SUPABASE_DERIVED_MEDIA_BUCKET` | `chelcoach-derived-media` | Private bucket; exists, RLS policies applied. |
-| `CHELCOACH_ANALYSIS_PROVIDER` | `simulator` (interim) | Boots, but declares `canServeProductionTraffic=false`, so submission stays disabled. Replaced by the real provider. |
-| `CHELCOACH_SCOTTY_SIMULATOR_ENABLED` | `true` | Required by the interim provider. |
-| `CHELCOACH_SCOTTY_SIMULATOR_ALLOW_IN_PRODUCTION` | `true` | Interim only. |
+| `CHELCOACH_ANALYSIS_PROVIDER` | `scotty_worker` | The real provider: ffmpeg frame sampling over a signed URL + Claude vision, jobs durable in `scotty_worker_jobs`, driven by the per-minute `/api/internal/analysis/worker` cron. Boot fails in production without `ANTHROPIC_API_KEY`. |
+| `CHELCOACH_ANALYSIS_MODEL` | (unset → `claude-opus-5`) | Optional model override for identification and analysis. |
+| `CHELCOACH_WORKER_BUDGET_MS` | (unset → `240000`) | Per-tick time budget; keep below the function `maxDuration` (300 s). |
+| `CHELCOACH_INSPECTION_WORKER_INLINE` | `1` | Media inspection runs inside the per-minute cron: ffprobe reads the object over a signed URL (headers only, no download). |
+| `CHELCOACH_PLAYER_IDENTIFIER` | (unset → `claude_vision` in production) | Controlled-player identification provider. Fixtures are never the production default. |
+| `CHELCOACH_USE_FFMPEG_FRAMES` | (unset → ffmpeg in production) | Confirmation frames come from ffmpeg; `0` would force fake frames and is never valid in production. |
 | `CHELCOACH_ANALYSIS_SUBMISSION_ENABLED` | `false` → `1` | The explicit production enable. Only set to `1` once every readiness reason is clear. |
 | `CHELCOACH_SCOTTIE_ENABLED` | `false` | The remote HTTP Scotty transport is not used. |
 | `CHELCOACH_DB_SSL_MODE` | `require` | Supabase pooler TLS; CA chain is committed in `server/certs`. |

@@ -73,6 +73,7 @@ for ENV in production preview; do
   set_var SUPABASE_DERIVED_MEDIA_BUCKET chelcoach-derived-media "$ENV"
   set_var CHELCOACH_ANALYSIS_PROVIDER "${ANALYSIS_PROVIDER:-scotty_worker}" "$ENV"
   set_var CHELCOACH_ANALYSIS_SUBMISSION_ENABLED "${ANALYSIS_SUBMISSION_ENABLED:-false}" "$ENV"
+  set_var CHELCOACH_INSPECTION_WORKER_INLINE 1 "$ENV"
   set_var CHELCOACH_SCOTTIE_ENABLED false "$ENV"
   set_var CHELCOACH_DB_SSL_MODE require "$ENV"
   set_var CRON_SECRET "$CRON_SECRET_VALUE" "$ENV"

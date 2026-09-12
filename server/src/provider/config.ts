@@ -113,6 +113,12 @@ export function loadScottyProviderConfig(
       "CHELCOACH_ANALYSIS_PROVIDER=scotty requires SCOTTY_SIGNING_SECRET.",
     );
   }
+  if (provider === "scotty_worker" && nodeEnv === "production" && (env.ANTHROPIC_API_KEY ?? "").trim().length <= 20) {
+    throw new ProviderConfigError(
+      "PROVIDER_MISCONFIGURED",
+      "CHELCOACH_ANALYSIS_PROVIDER=scotty_worker requires ANTHROPIC_API_KEY in production.",
+    );
+  }
   if (provider === "fake" && nodeEnv === "production") {
     throw new ProviderConfigError(
       "PROVIDER_MISCONFIGURED",

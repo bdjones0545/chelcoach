@@ -81,6 +81,7 @@ export function computeReadiness(config: ChelCoachConfig = getChelCoachConfig())
       "SIMULATOR_IN_PRODUCTION",
       "SIMULATOR_DISABLED",
       "UNSUPPORTED_PROVIDER",
+      "SCOTTY_WORKER_MODEL_KEY_MISSING",
     ].includes(i.code),
   );
   // Configuration validation can only tell us the provider is *configured*. It cannot see that an

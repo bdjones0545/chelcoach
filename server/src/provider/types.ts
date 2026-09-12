@@ -15,7 +15,7 @@ import type {
 } from "../scottyContract";
 
 export interface ScottyProvider {
-  readonly mode: "fake" | "simulator" | "direct_anthropic" | "scotty";
+  readonly mode: "fake" | "simulator" | "direct_anthropic" | "scotty" | "scotty_worker";
 
   /**
    * Whether this implementation can actually serve real production analysis traffic.

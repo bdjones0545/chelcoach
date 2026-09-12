@@ -9,6 +9,7 @@ import { createMediaRetentionService } from "../retention/cleanup";
 import { getRetentionRepository } from "../retention/repository";
 import { reconcileExpiredPending } from "../storage/storageReconciliation";
 import { getMediaInspectionWorker } from "../inspection/worker";
+import { storageSupportsRemoteRead } from "../media/mediaSource";
 import type { ObjectStorage } from "../storage";
 import { limits } from "../security/rateLimit";
 import { platformCronSecretAccepted, requireInternalSecret } from "../security/secrets";
@@ -173,8 +174,12 @@ async function runInspectionWorker(
       return;
     }
 
-    if (config.isProduction || config.storage.mode === "supabase_storage") {
-      // Fail closed: never inline-inspect supabase media inside the API process.
+    if (
+      (config.isProduction || config.storage.mode === "supabase_storage") &&
+      !storageSupportsRemoteRead()
+    ) {
+      // Fail closed: inline inspection may only run where the object is probed in place over a
+      // signed URL. A storage adapter that would force a download stays with the dedicated worker.
       res.status(409).json({
         error: "WORKER_UNAVAILABLE",
         message: "Inline inspection is disabled for this deployment. Run the dedicated worker.",
@@ -183,7 +188,7 @@ async function runInspectionWorker(
     }
 
     const limitRaw = Number((req.body as { limit?: number } | undefined)?.limit);
-    const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 5) : 1;
+    const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 5) : 3;
     const workerId = `inline-${randomUUID().slice(0, 8)}`;
     const batch = await getMediaInspectionWorker().runBatch({ workerId, limit });
     logSafe("chelcoach-inspection", "inline_batch_completed", {
