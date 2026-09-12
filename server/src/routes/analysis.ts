@@ -27,7 +27,7 @@ import { getAnalysisReconciliationService } from "../provider/jobs/reconciliatio
 import { evaluateProviderStatusUpdate } from "../provider/jobs/sequence";
 import { scottyCallbackEventSchema } from "../scottyContract";
 import { limits } from "../security/rateLimit";
-import { requireInternalSecret } from "../security/secrets";
+import { platformCronSecretAccepted, requireInternalSecret } from "../security/secrets";
 import {
   SCOTTY_CALLBACK_SIGNATURE_HEADER,
   SCOTTY_CALLBACK_TIMESTAMP_HEADER,
@@ -245,10 +245,12 @@ async function runAnalysisReconcile(
   // Platform cron issues GET + Authorization Bearer; operators use the custom header. Both compare
   // timing-safely against the same secret via requireInternalSecret.
   const headerSecret = req.header("x-chelcoach-reconcile-secret");
-  const bearer = (req.header("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+  const authorizationHeader = req.header("authorization");
+  const bearer = (authorizationHeader ?? "").replace(/^Bearer\s+/i, "").trim();
   if (
     !requireInternalSecret(headerSecret, expected) &&
-    !requireInternalSecret(bearer, expected)
+    !requireInternalSecret(bearer, expected) &&
+    !platformCronSecretAccepted({ method: req.method, authorizationHeader })
   ) {
     res.status(404).json({ error: "not_found", message: "No such endpoint." });
     return;

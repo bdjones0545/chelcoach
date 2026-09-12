@@ -11,7 +11,7 @@ import { reconcileExpiredPending } from "../storage/storageReconciliation";
 import { getMediaInspectionWorker } from "../inspection/worker";
 import type { ObjectStorage } from "../storage";
 import { limits } from "../security/rateLimit";
-import { requireInternalSecret } from "../security/secrets";
+import { platformCronSecretAccepted, requireInternalSecret } from "../security/secrets";
 import { logSafe } from "../security/logging";
 import { randomUUID } from "node:crypto";
 
@@ -47,9 +47,12 @@ function internalSecretAccepted(
   expected: string,
 ): boolean {
   const headerSecret = req.header(headerName);
-  const bearer = (req.header("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+  const authorizationHeader = req.header("authorization");
+  const bearer = (authorizationHeader ?? "").replace(/^Bearer\s+/i, "").trim();
   return (
-    requireInternalSecret(headerSecret, expected) || requireInternalSecret(bearer, expected)
+    requireInternalSecret(headerSecret, expected) ||
+    requireInternalSecret(bearer, expected) ||
+    platformCronSecretAccepted({ method: req.method, authorizationHeader })
   );
 }
 
@@ -60,14 +63,8 @@ function denyInternal(res: import("express").Response): void {
 
 async function runCleanup(req: import("express").Request, res: import("express").Response) {
   const config = getChelCoachConfig();
-  const expected = config.secrets.cleanupSecret;
-  const headerSecret = req.header("x-chelcoach-cleanup-secret");
-  const bearer = (req.header("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
-  if (
-    !requireInternalSecret(headerSecret, expected) &&
-    !requireInternalSecret(bearer, expected)
-  ) {
-    res.status(404).json({ error: "not_found", message: "No such endpoint." });
+  if (!internalSecretAccepted(req, "x-chelcoach-cleanup-secret", config.secrets.cleanupSecret)) {
+    denyInternal(res);
     return;
   }
 

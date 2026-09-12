@@ -22,6 +22,13 @@
       "when": 1785620000000,
       "tag": "0002_media_inspection_jobs",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789254000000,
+      "tag": "0003_lock_app_tables",
+      "breakpoints": true
     }
   ]
 }
