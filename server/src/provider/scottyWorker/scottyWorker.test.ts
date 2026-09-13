@@ -14,7 +14,7 @@ import type {
 import { setVisionModelClientForTests } from "../../ai/modelClient";
 import { createApp } from "../../app";
 import { createOwnerSession, resetSessionsForTests } from "../../auth/session";
-import { loadChelCoachConfig, resetChelCoachConfigCacheForTests } from "../../config/chelcoachConfig";
+import { assertBootConfig, loadChelCoachConfig, resetChelCoachConfigCacheForTests } from "../../config/chelcoachConfig";
 import { computeReadiness } from "../../config/readiness";
 import {
   FakeConfirmationFrameExtractor,
@@ -279,6 +279,9 @@ describe("scotty worker provider boundary", () => {
     const r1 = computeReadiness(without);
     assert.ok(r1.reasons.includes("SCOTTY_WORKER_MODEL_KEY_MISSING"));
     assert.equal(r1.providerReady, false);
+    assert.equal(r1.analysisSubmissionEnabled, false);
+    // A missing key blocks analysis, never the boot: auth and uploads must still come up.
+    assert.doesNotThrow(() => assertBootConfig({ ...base, CHELCOACH_ANALYSIS_SUBMISSION_ENABLED: "false" }));
 
     setScottyProviderForTests(new ScottyWorkerProvider({ repo, modelConfigured: true }));
     const withKey = loadChelCoachConfig({ ...base, ANTHROPIC_API_KEY: "sk-ant-test-key-with-enough-length-0000" });

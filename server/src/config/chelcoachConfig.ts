@@ -526,10 +526,13 @@ export function validateChelCoachConfig(config: ChelCoachConfig): ConfigValidati
     });
   }
   if (p === "scotty_worker" && config.isProduction && !config.provider.modelKeyConfigured) {
+    // Not a boot failure: the API (auth, uploads, identification gates) must come up so the
+    // deployment can be verified before the model key exists. Readiness blocks analysis
+    // submission on this code, and the provider declares itself unable to serve traffic.
     issues.push({
       code: "SCOTTY_WORKER_MODEL_KEY_MISSING",
-      message: "provider=scotty_worker requires ANTHROPIC_API_KEY in production.",
-      severity: "critical",
+      message: "provider=scotty_worker requires ANTHROPIC_API_KEY before analysis can be enabled.",
+      severity: "high",
     });
   }
   if (p === "direct_anthropic" && config.isProduction) {

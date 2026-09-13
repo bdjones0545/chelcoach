@@ -35,11 +35,16 @@ vercel_cli() { npx -y vercel@latest "$@"; }
 
 set_var() { # name value env [branch]
   local name="$1" value="$2" env="$3" branch="${4:-}"
+  # VITE_ values are baked into the public bundle, so they must be stored as plain config; the
+  # CLI refuses a credential-looking VITE_ value unless the type is explicit (the anon key is
+  # public by design). Everything else stays a Secret. --yes skips interactive confirmations.
+  local type_flag="--type secret"
+  case "$name" in VITE_*) type_flag="--type config" ;; esac
   if [ -n "$branch" ]; then
-    printf '%s' "$value" | vercel_cli env add "$name" "$env" "$branch" --force >/dev/null
+    printf '%s' "$value" | vercel_cli env add "$name" "$env" "$branch" --force --yes $type_flag >/dev/null
     echo "  set $name ($env, branch $branch)"
   else
-    printf '%s' "$value" | vercel_cli env add "$name" "$env" --force >/dev/null
+    printf '%s' "$value" | vercel_cli env add "$name" "$env" --force --yes $type_flag >/dev/null
     echo "  set $name ($env)"
   fi
 }
