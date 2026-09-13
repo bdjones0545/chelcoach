@@ -115,12 +115,34 @@ function classifyUrl(url: string): {
   };
 }
 
+/**
+ * The Supabase↔Vercel integration writes `POSTGRES_URL` (transaction pooler, port 6543) rather
+ * than `DATABASE_URL`. node-postgres + Drizzle prefer session mode, which lives on the same
+ * pooler host, same credentials, port 5432 — so derive it. An explicit `DATABASE_URL` always
+ * wins. Never logged.
+ */
+export function sessionPoolerUrlFromIntegration(env: NodeJS.ProcessEnv): string | null {
+  const raw = (env.POSTGRES_URL ?? "").trim();
+  if (!raw) return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== "postgres:" && parsed.protocol !== "postgresql:") return null;
+  if (parsed.hostname.toLowerCase().includes("pooler.supabase.com") && parsed.port === "6543") {
+    parsed.port = "5432";
+  }
+  return parsed.toString();
+}
+
 /** Load database config from env. Does not open a connection. */
 export function loadDatabaseConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): DatabaseConfig {
   const isProduction = (env.NODE_ENV ?? "development") === "production";
-  const url = (env.DATABASE_URL ?? "").trim() || null;
+  const url = (env.DATABASE_URL ?? "").trim() || sessionPoolerUrlFromIntegration(env) || null;
   const migrateUrl =
     (env.DATABASE_URL_MIGRATE ?? env.DATABASE_URL_DIRECT ?? "").trim() || url;
   const sslMode = parseSslMode(env.CHELCOACH_DB_SSL_MODE, isProduction);

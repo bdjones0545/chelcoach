@@ -25,6 +25,7 @@ import { getScottyProvider } from "../provider/factory";
 import { getAnalysisJobRepository } from "../provider/jobs/jobRepository";
 import { getAnalysisReconciliationService } from "../provider/jobs/reconciliationService";
 import { evaluateProviderStatusUpdate } from "../provider/jobs/sequence";
+import { runRemoteScottyBatch } from "../provider/scottyRemote/worker";
 import { runScottyWorkerBatch } from "../provider/scottyWorker/worker";
 import { scottyCallbackEventSchema } from "../scottyContract";
 import { limits } from "../security/rateLimit";
@@ -297,17 +298,24 @@ async function runScottyWorkerTick(
     res.status(404).json({ error: "not_found", message: "No such endpoint." });
     return;
   }
-  if (config.provider.provider !== "scotty_worker") {
-    res.json({ mode: "inactive", provider: config.provider.provider, claimed: 0 });
+  const mode = config.provider.provider;
+  if (mode !== "scotty_worker" && mode !== "scotty") {
+    res.json({ mode: "inactive", provider: mode, claimed: 0 });
     return;
   }
   const limitRaw = Number((req.body as { limit?: number } | undefined)?.limit);
-  const result = await runScottyWorkerBatch({
-    limit: Number.isFinite(limitRaw) ? limitRaw : 2,
-    budgetMs: config.provider.workerBudgetMs,
-  });
+  const result =
+    mode === "scotty"
+      ? await runRemoteScottyBatch({
+          limit: Number.isFinite(limitRaw) ? limitRaw : 10,
+          budgetMs: config.provider.workerBudgetMs,
+        })
+      : await runScottyWorkerBatch({
+          limit: Number.isFinite(limitRaw) ? limitRaw : 2,
+          budgetMs: config.provider.workerBudgetMs,
+        });
   res.json({
-    mode: "worker",
+    mode: mode === "scotty" ? "remote" : "worker",
     claimed: result.claimed,
     completed: result.completed,
     failed: result.failed,

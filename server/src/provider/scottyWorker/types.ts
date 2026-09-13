@@ -49,17 +49,37 @@ export interface ScottyWorkerJob {
   report?: ScottyReport;
   frameCount?: number;
   modelUsage?: ScottyWorkerModelUsage;
+  /** Present once the job has been dispatched to a remote gateway (provider mode `scotty`). */
+  remote?: ScottyRemoteDispatch;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ScottyRemoteDispatch {
+  jobId: string;
+  dispatchedAt: string;
+  frameTimestampsSec: number[];
+  remoteStatus?: string;
+  lastPolledAt?: string;
+  /** Set once ChelCoach's confirmed identity has been forwarded to the gateway. */
+  autoConfirmedAt?: string;
 }
 
 export type ScottyWorkerJobPatch = Partial<
   Omit<ScottyWorkerJob, "externalJobId" | "idempotencyKey" | "applicationRequestId" | "createdAt">
 >;
 
+/**
+ * Every non-terminal status is claimable: a local job in one of these states has a stale lease
+ * and must be re-run, and a remote job must be polled whatever stage the gateway reports.
+ */
 export const RUNNABLE_STATUSES: ReadonlySet<ScottyJobStatus> = new Set([
   "queued",
+  "inspecting_input",
   "extracting_frames",
+  "identifying_controlled_player",
+  "awaiting_player_confirmation",
+  "validating_player_identity",
   "analyzing_gameplay",
   "validating_report",
   "finalizing",

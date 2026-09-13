@@ -12,7 +12,7 @@ import type {
   ScottyReport,
 } from "../../scottyContract";
 import type { ScottyWorkerJobRepository } from "./repository";
-import { ACTIVE_STATUSES, type ScottyWorkerJob, type ScottyWorkerJobPatch, type ScottyWorkerModelUsage } from "./types";
+import { ACTIVE_STATUSES, type ScottyRemoteDispatch, type ScottyWorkerJob, type ScottyWorkerJobPatch, type ScottyWorkerModelUsage } from "./types";
 
 type Row = typeof scottyWorkerJobs.$inferSelect;
 
@@ -49,6 +49,7 @@ function rowToJob(row: Row): ScottyWorkerJob {
     report: (row.report as ScottyReport | null) ?? undefined,
     frameCount: row.frameCount ?? undefined,
     modelUsage: (row.modelUsage as ScottyWorkerModelUsage | null) ?? undefined,
+    remote: (row.remote as ScottyRemoteDispatch | null) ?? undefined,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -78,6 +79,7 @@ function patchToSet(patch: ScottyWorkerJobPatch): Partial<typeof scottyWorkerJob
   if ("report" in patch) set.report = patch.report ?? null;
   if ("frameCount" in patch) set.frameCount = patch.frameCount ?? null;
   if ("modelUsage" in patch) set.modelUsage = patch.modelUsage ?? null;
+  if ("remote" in patch) set.remote = patch.remote ?? null;
   return set;
 }
 
@@ -148,7 +150,7 @@ export class DrizzleScottyWorkerJobRepository implements ScottyWorkerJobReposito
     return db.transaction(async (tx) => {
       const locked = await tx.execute(sql`
         SELECT external_job_id FROM scotty_worker_jobs
-        WHERE status IN ('queued', 'extracting_frames', 'analyzing_gameplay', 'validating_report', 'finalizing')
+        WHERE status IN ('queued', 'inspecting_input', 'extracting_frames', 'identifying_controlled_player', 'awaiting_player_confirmation', 'validating_player_identity', 'analyzing_gameplay', 'validating_report', 'finalizing')
           AND cancelled_at IS NULL
           AND (next_attempt_at IS NULL OR next_attempt_at <= ${input.now})
           AND (claim_expires_at IS NULL OR claim_expires_at <= ${input.now})

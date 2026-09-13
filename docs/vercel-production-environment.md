@@ -38,14 +38,17 @@ read them.
 | `CHELCOACH_PRODUCTION_MEDIA_STORAGE_READY` | `false` → `true` | Flip together with the mode above. |
 | `SUPABASE_GAMEPLAY_BUCKET` | `chelcoach-gameplay` | Private bucket; exists, RLS policies applied. |
 | `SUPABASE_DERIVED_MEDIA_BUCKET` | `chelcoach-derived-media` | Private bucket; exists, RLS policies applied. |
-| `CHELCOACH_ANALYSIS_PROVIDER` | `scotty_worker` | The real provider: ffmpeg frame sampling over a signed URL + Claude vision, jobs durable in `scotty_worker_jobs`, driven by the per-minute `/api/internal/analysis/worker` cron. Boot fails in production without `ANTHROPIC_API_KEY`. |
+| `CHELCOACH_ANALYSIS_PROVIDER` | `scotty` | Analysis runs on the Scottie gateway on orgo-desktop: ChelCoach samples ≤12 JPEG frames with ffmpeg over a signed URL, POSTs them to `/v1/analyze`, and the per-minute `/api/internal/analysis/worker` cron polls `/v1/jobs/{id}` until the report arrives. Jobs stay durable in `scotty_worker_jobs`. (`scotty_worker` keeps the in-process Claude-vision path and needs `ANTHROPIC_API_KEY`.) |
+| `CHELCOACH_SCOTTIE_ENABLED` | `true` | Required for provider `scotty`. |
+| `SCOTTY_BASE_URL` | `https://scottie.chelcoach.io` | The gateway's public hostname (Cloudflare tunnel → `127.0.0.1:2340` on orgo-desktop). Must be https. |
+| `SCOTTY_API_KEY` | minted | Bearer the gateway checks on every call; ≥24 chars; the same value is installed on the VM by `ops/orgo-desktop/scottie/apply.sh`. |
+| `SCOTTY_SIGNING_SECRET` | minted | HMAC secret for `X-ChelCoach-Signature`; ≥24 chars; never reused for another secret; installed on both sides. |
 | `CHELCOACH_ANALYSIS_MODEL` | (unset → `claude-opus-5`) | Optional model override for identification and analysis. |
 | `CHELCOACH_WORKER_BUDGET_MS` | (unset → `240000`) | Per-tick time budget; keep below the function `maxDuration` (300 s). |
 | `CHELCOACH_INSPECTION_WORKER_INLINE` | `1` | Media inspection runs inside the per-minute cron: ffprobe reads the object over a signed URL (headers only, no download). |
 | `CHELCOACH_PLAYER_IDENTIFIER` | (unset → `claude_vision` in production) | Controlled-player identification provider. Fixtures are never the production default. |
 | `CHELCOACH_USE_FFMPEG_FRAMES` | (unset → ffmpeg in production) | Confirmation frames come from ffmpeg; `0` would force fake frames and is never valid in production. |
 | `CHELCOACH_ANALYSIS_SUBMISSION_ENABLED` | `false` → `1` | The explicit production enable. Only set to `1` once every readiness reason is clear. |
-| `CHELCOACH_SCOTTIE_ENABLED` | `false` | The remote HTTP Scotty transport is not used. |
 | `CHELCOACH_DB_SSL_MODE` | `require` | Supabase pooler TLS; CA chain is committed in `server/certs`. |
 | `CRON_SECRET` | generated | Vercel sends `Authorization: Bearer <CRON_SECRET>` on every cron `GET`. Must be ≥16 chars. |
 | `CHELCOACH_RECONCILE_SECRET` | generated | Distinct per-route operator secret. |
@@ -59,7 +62,7 @@ read them.
 ## Status 2026-09-13
 
 Already applied to the live project: every non-secret variable above (production + preview), the
-four generated internal secrets, migrations 0003 (table lockdown) and 0004 (`scotty_worker_jobs`)
+four generated internal secrets, migrations 0003 (table lockdown), 0004 (`scotty_worker_jobs`) and 0005 (remote dispatch column)
 on the production database, and the Storage RLS policies. What remains is exactly the
 owner-supplied secrets below plus the Supabase Auth URL settings.
 
