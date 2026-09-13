@@ -113,10 +113,11 @@ export function loadScottyProviderConfig(
       "CHELCOACH_ANALYSIS_PROVIDER=scotty requires SCOTTY_SIGNING_SECRET.",
     );
   }
-  if (provider === "scotty_worker" && nodeEnv === "production" && (env.ANTHROPIC_API_KEY ?? "").trim().length <= 20) {
-    throw new ProviderConfigError(
-      "PROVIDER_MISCONFIGURED",
-      "CHELCOACH_ANALYSIS_PROVIDER=scotty_worker requires ANTHROPIC_API_KEY in production.",
+  if (provider === "scotty_worker" && (env.ANTHROPIC_API_KEY ?? "").trim().length <= 20) {
+    // The provider boots but declares canServeProductionTraffic=false; readiness keeps analysis
+    // submission disabled (SCOTTY_WORKER_MODEL_KEY_MISSING) until the key is configured.
+    console.warn(
+      "[chelcoach-provider] WARNING: CHELCOACH_ANALYSIS_PROVIDER=scotty_worker without ANTHROPIC_API_KEY — analysis stays disabled.",
     );
   }
   if (provider === "fake" && nodeEnv === "production") {

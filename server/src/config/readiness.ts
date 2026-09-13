@@ -95,6 +95,9 @@ export function computeReadiness(config: ChelCoachConfig = getChelCoachConfig())
     reasons.push("PROVIDER_NOT_IMPLEMENTED");
   }
 
+  // Surface the specific provider issue codes (not only the critical ones) so an operator reading
+  // readiness sees *why* the provider is blocked — e.g. SCOTTY_WORKER_MODEL_KEY_MISSING.
+  for (const issue of providerBlocking) reasons.push(issue.code);
   const providerReady = providerBlocking.length === 0 && providerCapable;
   if (!providerReady) {
     reasons.push("PROVIDER_NOT_READY");
