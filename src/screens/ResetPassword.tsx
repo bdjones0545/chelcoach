@@ -60,7 +60,11 @@ export default function ResetPassword() {
               className="w-full rounded-lg bg-surface-container border border-white/10 px-3 py-2 text-on-surface"
             />
           </label>
-          {error ? <p className="text-error text-sm">{error}</p> : null}
+          {error ? (
+            <p className="text-error text-sm" role="alert" aria-live="assertive">
+              {error}
+            </p>
+          ) : null}
           <Button type="submit" disabled={submitting} className="w-full">
             Update password
           </Button>
