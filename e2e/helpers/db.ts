@@ -1,4 +1,5 @@
 import pg from "pg";
+import { API_BASE } from "./env";
 
 /**
  * The harness must read whatever the API just wrote.
@@ -15,7 +16,10 @@ const PERSISTENCE = process.env.CHELCOACH_E2E_PERSISTENCE === "memory" ? "memory
 const DATABASE_URL =
   process.env.DATABASE_URL ||
   "postgresql://chelcoach:chelcoach@127.0.0.1:5432/chelcoach_test";
-const API_URL = process.env.CHELCOACH_E2E_API_URL || "http://127.0.0.1:3011";
+// Same API the config boots and the other helpers use. This defaulted to port 3011 while the
+// server ran on 3001, so every memory-mode run (the local default) failed on the first stats
+// call; CI never noticed because it runs in postgres mode and never takes this path.
+const API_URL = process.env.CHELCOACH_E2E_API_URL || API_BASE;
 const E2E_SECRET = process.env.CHELCOACH_E2E_SECRET || "e2e-secret";
 
 export function e2ePersistenceMode(): "memory" | "postgres" {
