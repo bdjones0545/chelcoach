@@ -11,10 +11,9 @@ import {
 } from "./config";
 import { DirectAnthropicProvider } from "./directAnthropicProvider";
 import { FakeScottyProvider } from "./fakeProvider";
-import { HttpScottyProvider } from "./httpScottyProvider";
+import { ScottyRemoteProvider } from "./scottyRemote/provider";
 import { ScottyWorkerProvider } from "./scottyWorker/provider";
 import { SimulatorScottyProvider } from "./simulator/simulatorProvider";
-import { NoopScottyRequestSigner, UnconfiguredHmacScottyRequestSigner } from "./signer";
 import type { ScottyProvider } from "./types";
 
 let cached: ScottyProvider | null = null;
@@ -33,12 +32,9 @@ function buildProvider(cfg: ScottyProviderConfig): ScottyProvider {
     case "scotty_worker":
       return new ScottyWorkerProvider();
     case "scotty":
-      return new HttpScottyProvider(
-        cfg,
-        cfg.signingSecretConfigured
-          ? new UnconfiguredHmacScottyRequestSigner(true)
-          : new NoopScottyRequestSigner(),
-      );
+      // The real transport to the Scottie gateway on orgo-desktop. The Step 4 HttpScottyProvider
+      // skeleton is retained only as a reference for the old contract.
+      return new ScottyRemoteProvider();
     default: {
       const _exhaustive: never = cfg.provider;
       throw new Error(`Unsupported provider: ${_exhaustive}`);

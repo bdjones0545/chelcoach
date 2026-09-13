@@ -76,6 +76,8 @@ export function computeReadiness(config: ChelCoachConfig = getChelCoachConfig())
       "SCOTTY_DISABLED",
       "SCOTTY_BASE_URL_MISSING",
       "SCOTTY_SIGNING_MISSING",
+      "SCOTTY_API_KEY_MISSING",
+      "SCOTTY_BASE_URL_INSECURE",
       "ANTHROPIC_IN_PRODUCTION",
       "FAKE_IN_PRODUCTION",
       "SIMULATOR_IN_PRODUCTION",

@@ -47,6 +47,8 @@ export interface ChelCoachConfig {
     scottyEnabled: boolean;
     scottyBaseUrl: string;
     signingSecretConfigured: boolean;
+    /** Bearer credential for the Scottie gateway (SCOTTY_API_KEY). */
+    scottyApiKeyConfigured: boolean;
     /** ANTHROPIC_API_KEY present — required by the scotty_worker provider and vision identifier. */
     modelKeyConfigured: boolean;
     contractVersion: string;
@@ -274,6 +276,7 @@ export function loadChelCoachConfig(env: NodeJS.ProcessEnv = process.env): ChelC
   const scottyEnabled = boolEnv(env, "CHELCOACH_SCOTTIE_ENABLED", false);
   const scottyBaseUrl = (env.SCOTTY_BASE_URL ?? "").trim();
   const signingSecret = (env.SCOTTY_SIGNING_SECRET ?? "").trim();
+  const scottyApiKey = (env.SCOTTY_API_KEY ?? "").trim();
   const simulatorEnabled = boolEnv(env, "CHELCOACH_SCOTTY_SIMULATOR_ENABLED", !isProduction);
   const simulatorAllowInProduction = boolEnv(
     env,
@@ -360,6 +363,7 @@ export function loadChelCoachConfig(env: NodeJS.ProcessEnv = process.env): ChelC
       scottyEnabled,
       scottyBaseUrl,
       signingSecretConfigured: Boolean(signingSecret) && !isPlaceholderSecret(signingSecret),
+      scottyApiKeyConfigured: scottyApiKey.length >= 24 && !isPlaceholderSecret(scottyApiKey),
       modelKeyConfigured: (env.ANTHROPIC_API_KEY ?? "").trim().length > 20,
       contractVersion: (env.SCOTTY_CONTRACT_VERSION ?? "1.0.0").trim(),
       requestTimeoutMs: intEnv(env, "SCOTTY_REQUEST_TIMEOUT_MS", 30_000, 1_000, 300_000),
@@ -522,6 +526,20 @@ export function validateChelCoachConfig(config: ChelCoachConfig): ConfigValidati
     issues.push({
       code: "SCOTTY_SIGNING_MISSING",
       message: "provider=scotty requires a non-placeholder SCOTTY_SIGNING_SECRET.",
+      severity: "critical",
+    });
+  }
+  if (p === "scotty" && !config.provider.scottyApiKeyConfigured) {
+    issues.push({
+      code: "SCOTTY_API_KEY_MISSING",
+      message: "provider=scotty requires SCOTTY_API_KEY (the gateway bearer, ≥24 chars).",
+      severity: "critical",
+    });
+  }
+  if (p === "scotty" && config.provider.scottyBaseUrl && !/^https:\/\//.test(config.provider.scottyBaseUrl)) {
+    issues.push({
+      code: "SCOTTY_BASE_URL_INSECURE",
+      message: "SCOTTY_BASE_URL must be https.",
       severity: "critical",
     });
   }

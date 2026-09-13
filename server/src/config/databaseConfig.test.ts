@@ -95,3 +95,33 @@ describe("database config (Step 10.1A)", () => {
     assert.match(uuid, /^[0-9a-f-]{36}$/i);
   });
 });
+
+describe("Supabase↔Vercel integration variables", () => {
+  it("derives the session-mode pooler URL from POSTGRES_URL when DATABASE_URL is absent", () => {
+    const config = loadDatabaseConfig({
+      NODE_ENV: "production",
+      POSTGRES_URL:
+        "postgres://postgres.abc:secret@aws-0-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require",
+    });
+    assert.equal(config.enabled, true);
+    assert.equal(config.provider, "supabase");
+    assert.equal(config.connectionMode, "pooler");
+    assert.equal(config.transactionPooler, false, "port swapped to session mode");
+    assert.ok(config.url?.includes(":5432/"));
+    assert.ok(config.url?.includes("secret"), "credentials preserved");
+    assert.equal(config.migrateUrl, config.url);
+  });
+
+  it("an explicit DATABASE_URL always wins over POSTGRES_URL", () => {
+    const config = loadDatabaseConfig({
+      DATABASE_URL: "postgresql://chelcoach:chelcoach@127.0.0.1:5432/chelcoach_test",
+      POSTGRES_URL: "postgres://postgres.abc:secret@aws-0-us-west-2.pooler.supabase.com:6543/postgres",
+    });
+    assert.equal(config.provider, "local");
+  });
+
+  it("ignores a malformed POSTGRES_URL instead of failing boot", () => {
+    const config = loadDatabaseConfig({ POSTGRES_URL: "not a url" });
+    assert.equal(config.enabled, false);
+  });
+});

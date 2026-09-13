@@ -59,6 +59,7 @@ const PRODUCTION_ENV = {
   CHELCOACH_SCOTTIE_ENABLED: "true",
   SCOTTY_BASE_URL: "https://scotty.example",
   SCOTTY_SIGNING_SECRET: "a-real-signing-secret-value",
+  SCOTTY_API_KEY: "a-real-gateway-bearer-credential",
 } as const;
 
 function productionConfig(overrides: Record<string, string> = {}) {

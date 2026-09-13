@@ -473,6 +473,8 @@ export const scottyWorkerJobs = pgTable(
     report: jsonb("report").$type<ScottyReport>(),
     frameCount: integer("frame_count"),
     modelUsage: jsonb("model_usage"),
+    /** Remote dispatch state when the analysis runs on the Scottie gateway. */
+    remote: jsonb("remote"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },

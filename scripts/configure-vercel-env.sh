@@ -63,6 +63,12 @@ if [ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
   STORAGE_READY="true"
 fi
 
+PROVIDER="${ANALYSIS_PROVIDER:-scotty}"
+if [ "$PROVIDER" = "scotty" ]; then
+  : "${SCOTTY_API_KEY:?SCOTTY_API_KEY is required for provider=scotty (>=24 chars, same value installed on the gateway)}"
+  : "${SCOTTY_SIGNING_SECRET:?SCOTTY_SIGNING_SECRET is required for provider=scotty (>=24 chars, same value installed on the gateway)}"
+fi
+
 for ENV in production preview; do
   echo "[$ENV]"
   set_var CHELCOACH_AUTH_MODE supabase_auth "$ENV"
@@ -76,10 +82,19 @@ for ENV in production preview; do
   set_var CHELCOACH_PRODUCTION_MEDIA_STORAGE_READY "$STORAGE_READY" "$ENV"
   set_var SUPABASE_GAMEPLAY_BUCKET chelcoach-gameplay "$ENV"
   set_var SUPABASE_DERIVED_MEDIA_BUCKET chelcoach-derived-media "$ENV"
-  set_var CHELCOACH_ANALYSIS_PROVIDER "${ANALYSIS_PROVIDER:-scotty_worker}" "$ENV"
+  set_var CHELCOACH_ANALYSIS_PROVIDER "$PROVIDER" "$ENV"
   set_var CHELCOACH_ANALYSIS_SUBMISSION_ENABLED "${ANALYSIS_SUBMISSION_ENABLED:-false}" "$ENV"
   set_var CHELCOACH_INSPECTION_WORKER_INLINE 1 "$ENV"
-  set_var CHELCOACH_SCOTTIE_ENABLED false "$ENV"
+  if [ "$PROVIDER" = "scotty" ]; then
+    # Remote Scottie gateway (orgo-desktop). The bearer + signing secret are minted by the operator
+    # and installed on both sides; see ops/orgo-desktop/scottie/apply.sh.
+    set_var CHELCOACH_SCOTTIE_ENABLED true "$ENV"
+    set_var SCOTTY_BASE_URL "${SCOTTY_BASE_URL:-https://scottie.chelcoach.io}" "$ENV"
+    set_var SCOTTY_API_KEY "$SCOTTY_API_KEY" "$ENV"
+    set_var SCOTTY_SIGNING_SECRET "$SCOTTY_SIGNING_SECRET" "$ENV"
+  else
+    set_var CHELCOACH_SCOTTIE_ENABLED false "$ENV"
+  fi
   set_var CHELCOACH_DB_SSL_MODE require "$ENV"
   set_var CRON_SECRET "$CRON_SECRET_VALUE" "$ENV"
   set_var CHELCOACH_RECONCILE_SECRET "$RECONCILE_SECRET_VALUE" "$ENV"
