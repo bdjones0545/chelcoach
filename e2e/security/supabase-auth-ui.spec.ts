@@ -13,8 +13,10 @@ test.describe("Supabase Auth UI scaffolding", () => {
     await expect(page.getByRole("heading", { name: /create account|sign up/i })).toBeVisible();
   });
 
-  test("forgot-password route is public", async ({ page }) => {
+  test("forgot-password route is public and shows the unavailable state when unconfigured", async ({ page }) => {
     await page.goto("/forgot-password");
-    await expect(page.locator("body")).toContainText(/password reset|supabase auth/i);
+    await expect(page.getByRole("heading", { name: /reset password/i })).toBeVisible();
+    await expect(page.getByTestId("auth-unavailable")).toBeVisible();
+    await expect(page.getByRole("button", { name: /sign in unavailable/i })).toBeDisabled();
   });
 });
