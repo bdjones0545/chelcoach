@@ -56,6 +56,13 @@ read them.
 | `SUPABASE_SERVICE_ROLE_KEY` | **OWNER** | Required for `supabase_storage` (stat, signed URLs, derived-frame writes, cleanup). Never in `VITE_*`. |
 | `ANTHROPIC_API_KEY` | **OWNER** | Required by the real analysis provider. |
 
+## Status 2026-09-13
+
+Already applied to the live project: every non-secret variable above (production + preview), the
+four generated internal secrets, migrations 0003 (table lockdown) and 0004 (`scotty_worker_jobs`)
+on the production database, and the Storage RLS policies. What remains is exactly the
+owner-supplied secrets below plus the Supabase Auth URL settings.
+
 ## Owner-supplied secrets — the exact steps
 
 1. Supabase dashboard → Project Settings → API → copy the **service_role** key.
