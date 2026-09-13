@@ -29,7 +29,11 @@ export default function Landing() {
 
       <header className="fixed top-0 z-50 flex h-16 w-full items-center justify-between border-b border-white/10 bg-surface-container/80 px-margin-mobile backdrop-blur-xl md:px-gutter">
         <Logo />
-        <button className="font-label-md text-label-md text-on-surface-variant transition-colors hover:text-primary">
+        <button
+          type="button"
+          className="font-label-md text-label-md text-on-surface-variant transition-colors hover:text-primary"
+          onClick={() => navigate("/login")}
+        >
           Sign In
         </button>
       </header>
@@ -69,7 +73,7 @@ export default function Landing() {
               </Button>
             </div>
             <p className="font-label-sm text-label-sm text-on-surface-variant">
-              Free to start · No sign-up · Your first Chel Rating in under a minute
+              Free to start · Sign up in seconds · Your first Chel Rating in minutes
             </p>
           </div>
 

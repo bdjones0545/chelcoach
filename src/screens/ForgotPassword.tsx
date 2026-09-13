@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
+import AuthUnavailable from "../components/AuthUnavailable";
 import Button from "../components/Button";
 import { AuthActionError, useAuth } from "../state/AuthContext";
 
@@ -11,16 +12,7 @@ export default function ForgotPassword() {
   const [submitting, setSubmitting] = useState(false);
 
   if (mode !== "supabase") {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center px-4">
-        <div className="max-w-md w-full glass-panel p-8">
-          <p className="text-on-surface-variant text-sm">Password reset requires Supabase Auth.</p>
-          <Link to="/" className="text-primary text-sm mt-4 inline-block">
-            Home
-          </Link>
-        </div>
-      </div>
-    );
+    return <AuthUnavailable title="Reset password" />;
   }
 
   async function onSubmit(e: FormEvent) {
@@ -57,7 +49,11 @@ export default function ForgotPassword() {
               className="w-full rounded-lg bg-surface-container border border-white/10 px-3 py-2 text-on-surface"
             />
           </label>
-          {error ? <p className="text-error text-sm">{error}</p> : null}
+          {error ? (
+            <p className="text-error text-sm" role="alert" aria-live="assertive">
+              {error}
+            </p>
+          ) : null}
           {info ? <p className="text-tertiary text-sm">{info}</p> : null}
           <Button type="submit" disabled={submitting} className="w-full">
             Send reset link
