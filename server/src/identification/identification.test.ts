@@ -251,6 +251,57 @@ describe("player identification API", () => {
     });
   });
 
+  it("user_hints identifier (production without a vision key): one candidate on a real frame, confirmable end to end", async () => {
+    // createApp() selects the identifier from the environment at boot, exactly as production does.
+    process.env.CHELCOACH_PLAYER_IDENTIFIER = "user_hints";
+    try {
+      await withServer(async (base, token) => {
+        const uploadId = await readyUpload(base, token);
+        const res = await fetch(`${base}/api/uploads/${uploadId}/player-identification`, {
+          method: "POST",
+          headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+          body: "{}",
+        });
+        assert.equal(res.status, 200);
+        const body = (await res.json()) as {
+          status: string;
+          provider?: string;
+          confidence: number;
+          detected: boolean;
+          uncertainties: string[];
+          candidates: { candidateId: string; representativeFrameId: string; position?: string; displayLabel: string; evidenceSummary: string }[];
+          frames: { frameId: string; timestampSec: number }[];
+        };
+        assert.equal(body.status, "confirmation_required", "hints never auto-accept");
+        assert.equal(body.detected, false);
+        assert.equal(body.candidates.length, 1);
+        assert.ok(body.frames.length >= 1 && body.frames.length <= 3, "the evidence frames the user will see");
+        assert.ok(body.frames.some((f) => f.frameId === body.candidates[0]!.representativeFrameId), "the candidate sits on one of them");
+        assert.match(body.candidates[0]!.evidenceSummary, /From your upload settings/);
+        assert.ok(body.uncertainties.some((u) => /No visual identification was run/.test(u)));
+
+        const cand = body.candidates[0]!;
+        const c = await fetch(`${base}/api/uploads/${uploadId}/player-confirmation`, {
+          method: "POST",
+          headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+          body: JSON.stringify({
+            uploadId,
+            selectedCandidateId: cand.candidateId,
+            representativeFrame: { frameId: cand.representativeFrameId, uploadId },
+            confirmedPosition: cand.position ?? "C",
+            confirmedAt: new Date().toISOString(),
+          }),
+        });
+        assert.equal(c.status, 200);
+        const confirmed = (await c.json()) as { status: string; userConfirmed: boolean };
+        assert.equal(confirmed.status, "confirmed");
+        assert.equal(confirmed.userConfirmed, true);
+      });
+    } finally {
+      delete process.env.CHELCOACH_PLAYER_IDENTIFIER;
+    }
+  });
+
   it("confirmation persists, is idempotent, and preserves original prediction", async () => {
     await withServer(async (base, token) => {
       const uploadId = await readyUpload(base, token);
