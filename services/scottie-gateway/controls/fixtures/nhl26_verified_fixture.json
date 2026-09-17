@@ -1,0 +1,1069 @@
+{
+  "description": "TEST-only simulated official mappings for CI. NOT real EA layouts. Never load in production unless SCOTTIE_CONTROLS_USE_FIXTURES=1.",
+  "mappings": [
+    {
+      "controlId": "nhl26-xbox-tc-protect-puck",
+      "gameTitle": "NHL 26",
+      "platform": "xbox_series",
+      "controlScheme": "total_control",
+      "gameMode": "eashl",
+      "playerRole": "skater",
+      "mechanic": "protect_puck",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "LB",
+            "behavior": "hold"
+          }
+        ],
+        "leftStick": "directional movement"
+      },
+      "timing": "before or during body contact",
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-ps5-tc-protect-puck",
+      "gameTitle": "NHL 26",
+      "platform": "playstation_5",
+      "controlScheme": "total_control",
+      "gameMode": "eashl",
+      "playerRole": "skater",
+      "mechanic": "protect_puck",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "L1",
+            "behavior": "hold"
+          }
+        ],
+        "leftStick": "directional movement"
+      },
+      "timing": "before or during body contact",
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-xbox-ss-protect-puck",
+      "gameTitle": "NHL 26",
+      "platform": "xbox_series",
+      "controlScheme": "skill_stick",
+      "gameMode": "eashl",
+      "playerRole": "skater",
+      "mechanic": "protect_puck",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "LT",
+            "behavior": "hold"
+          }
+        ]
+      },
+      "timing": "before contact",
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-ps5-ss-protect-puck",
+      "gameTitle": "NHL 26",
+      "platform": "playstation_5",
+      "controlScheme": "skill_stick",
+      "gameMode": "eashl",
+      "playerRole": "skater",
+      "mechanic": "protect_puck",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "L2",
+            "behavior": "hold"
+          }
+        ]
+      },
+      "timing": "before contact",
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-xbox-tc-hustle",
+      "gameTitle": "NHL 26",
+      "platform": "xbox_series",
+      "controlScheme": "total_control",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "hustle",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "RT",
+            "behavior": "hold"
+          }
+        ]
+      },
+      "timing": "on stride initiation",
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-ps5-tc-hustle",
+      "gameTitle": "NHL 26",
+      "platform": "playstation_5",
+      "controlScheme": "total_control",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "hustle",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "R2",
+            "behavior": "hold"
+          }
+        ]
+      },
+      "timing": "on stride initiation",
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-xbox-tc-poke",
+      "gameTitle": "NHL 26",
+      "platform": "xbox_series",
+      "controlScheme": "total_control",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "poke_check",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "RB",
+            "behavior": "tap"
+          }
+        ]
+      },
+      "timing": "when carrier commits",
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-ps5-tc-poke",
+      "gameTitle": "NHL 26",
+      "platform": "playstation_5",
+      "controlScheme": "total_control",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "poke_check",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "R1",
+            "behavior": "tap"
+          }
+        ]
+      },
+      "timing": "when carrier commits",
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-xbox-tc-pass",
+      "gameTitle": "NHL 26",
+      "platform": "xbox_series",
+      "controlScheme": "total_control",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "pass",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "A",
+            "behavior": "tap"
+          }
+        ]
+      },
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-ps5-tc-pass",
+      "gameTitle": "NHL 26",
+      "platform": "playstation_5",
+      "controlScheme": "total_control",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "pass",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "Cross",
+            "behavior": "tap"
+          }
+        ]
+      },
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-xbox-tc-deke-seq",
+      "gameTitle": "NHL 26",
+      "platform": "xbox_series",
+      "controlScheme": "total_control",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "deke",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "RS",
+            "behavior": "modifier"
+          },
+          {
+            "order": 2,
+            "input": "RS_LEFT_TO_RIGHT",
+            "behavior": "motion"
+          }
+        ]
+      },
+      "timing": "after entry with space",
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-ps5-tc-deke-seq",
+      "gameTitle": "NHL 26",
+      "platform": "playstation_5",
+      "controlScheme": "total_control",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "deke",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "R3",
+            "behavior": "modifier"
+          },
+          {
+            "order": 2,
+            "input": "RS_LEFT_TO_RIGHT",
+            "behavior": "motion"
+          }
+        ]
+      },
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-xbox-tc-cutback",
+      "gameTitle": "NHL 26",
+      "platform": "xbox_series",
+      "controlScheme": "total_control",
+      "gameMode": "eashl",
+      "playerRole": "skater",
+      "mechanic": "cutback",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "LB",
+            "behavior": "hold"
+          },
+          {
+            "order": 2,
+            "input": "LS_TO_INSIDE",
+            "behavior": "motion"
+          }
+        ]
+      },
+      "timing": "after defender overcommits",
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-ps5-tc-cutback",
+      "gameTitle": "NHL 26",
+      "platform": "playstation_5",
+      "controlScheme": "total_control",
+      "gameMode": "eashl",
+      "playerRole": "skater",
+      "mechanic": "cutback",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "L1",
+            "behavior": "hold"
+          },
+          {
+            "order": 2,
+            "input": "LS_TO_INSIDE",
+            "behavior": "motion"
+          }
+        ]
+      },
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl25-xbox-tc-protect-legacy",
+      "gameTitle": "NHL 25",
+      "platform": "xbox_series",
+      "controlScheme": "total_control",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "protect_puck",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "LB",
+            "behavior": "hold"
+          }
+        ]
+      },
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-legacy",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-xbox-tc-protect-unverified-community",
+      "gameTitle": "NHL 26",
+      "platform": "xbox_one",
+      "controlScheme": "total_control",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "body_check",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "Y",
+            "behavior": "tap"
+          }
+        ]
+      },
+      "sourceType": "community",
+      "sourceRef": "reddit-example",
+      "confidence": "unverified",
+      "status": "unverified"
+    },
+    {
+      "controlId": "nhl26-xbox-tc-hustle-deprecated",
+      "gameTitle": "NHL 26",
+      "platform": "xbox_series",
+      "controlScheme": "hybrid",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "hustle",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "A",
+            "behavior": "hold"
+          }
+        ]
+      },
+      "status": "deprecated",
+      "confidence": "deprecated",
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture"
+    },
+    {
+      "controlId": "nhl26-xbox-tc-faceoff_draw",
+      "gameTitle": "NHL 26",
+      "platform": "xbox_series",
+      "controlScheme": "total_control",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "faceoff_draw",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "RS",
+            "behavior": "tap"
+          }
+        ]
+      },
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-faceoff-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-ps5-tc-faceoff_draw",
+      "gameTitle": "NHL 26",
+      "platform": "playstation_5",
+      "controlScheme": "total_control",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "faceoff_draw",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "R3",
+            "behavior": "tap"
+          }
+        ]
+      },
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-faceoff-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-xbox-tc-faceoff_timing",
+      "gameTitle": "NHL 26",
+      "platform": "xbox_series",
+      "controlScheme": "total_control",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "faceoff_timing",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "RS",
+            "behavior": "press"
+          }
+        ]
+      },
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-faceoff-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-ps5-tc-faceoff_timing",
+      "gameTitle": "NHL 26",
+      "platform": "playstation_5",
+      "controlScheme": "total_control",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "faceoff_timing",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "R3",
+            "behavior": "press"
+          }
+        ]
+      },
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-faceoff-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-xbox-tc-faceoff_tie_up",
+      "gameTitle": "NHL 26",
+      "platform": "xbox_series",
+      "controlScheme": "total_control",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "faceoff_tie_up",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "RS",
+            "behavior": "hold"
+          }
+        ]
+      },
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-faceoff-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-ps5-tc-faceoff_tie_up",
+      "gameTitle": "NHL 26",
+      "platform": "playstation_5",
+      "controlScheme": "total_control",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "faceoff_tie_up",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "R3",
+            "behavior": "hold"
+          }
+        ]
+      },
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-faceoff-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-xbox-tc-faceoff_win_strong_side",
+      "gameTitle": "NHL 26",
+      "platform": "xbox_series",
+      "controlScheme": "total_control",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "faceoff_win_strong_side",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "RS",
+            "behavior": "motion"
+          }
+        ]
+      },
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-faceoff-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-ps5-tc-faceoff_win_strong_side",
+      "gameTitle": "NHL 26",
+      "platform": "playstation_5",
+      "controlScheme": "total_control",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "faceoff_win_strong_side",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "R3",
+            "behavior": "motion"
+          }
+        ]
+      },
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-faceoff-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-xbox-tc-faceoff_counter",
+      "gameTitle": "NHL 26",
+      "platform": "xbox_series",
+      "controlScheme": "total_control",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "faceoff_counter",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "RS",
+            "behavior": "press"
+          }
+        ]
+      },
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-faceoff-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-ps5-tc-faceoff_counter",
+      "gameTitle": "NHL 26",
+      "platform": "playstation_5",
+      "controlScheme": "total_control",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "faceoff_counter",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "R3",
+            "behavior": "press"
+          }
+        ]
+      },
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-faceoff-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-xbox-tc-faceoff_oz_set",
+      "gameTitle": "NHL 26",
+      "platform": "xbox_series",
+      "controlScheme": "total_control",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "faceoff_oz_set",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "RS",
+            "behavior": "tap"
+          }
+        ]
+      },
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-faceoff-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-ps5-tc-faceoff_oz_set",
+      "gameTitle": "NHL 26",
+      "platform": "playstation_5",
+      "controlScheme": "total_control",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "faceoff_oz_set",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "R3",
+            "behavior": "tap"
+          }
+        ]
+      },
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-faceoff-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-xbox-tc-faceoff_dz_escape",
+      "gameTitle": "NHL 26",
+      "platform": "xbox_series",
+      "controlScheme": "total_control",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "faceoff_dz_escape",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "RS",
+            "behavior": "tap"
+          }
+        ]
+      },
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-faceoff-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-ps5-tc-faceoff_dz_escape",
+      "gameTitle": "NHL 26",
+      "platform": "playstation_5",
+      "controlScheme": "total_control",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "faceoff_dz_escape",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "R3",
+            "behavior": "tap"
+          }
+        ]
+      },
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-faceoff-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-xbox-tc-faceoff_nz_transition",
+      "gameTitle": "NHL 26",
+      "platform": "xbox_series",
+      "controlScheme": "total_control",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "faceoff_nz_transition",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "RS",
+            "behavior": "tap"
+          }
+        ]
+      },
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-faceoff-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-ps5-tc-faceoff_nz_transition",
+      "gameTitle": "NHL 26",
+      "platform": "playstation_5",
+      "controlScheme": "total_control",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "faceoff_nz_transition",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "R3",
+            "behavior": "tap"
+          }
+        ]
+      },
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-faceoff-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-xbox-tc-faceoff_pp_setup",
+      "gameTitle": "NHL 26",
+      "platform": "xbox_series",
+      "controlScheme": "total_control",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "faceoff_pp_setup",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "RS",
+            "behavior": "tap"
+          }
+        ]
+      },
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-faceoff-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-ps5-tc-faceoff_pp_setup",
+      "gameTitle": "NHL 26",
+      "platform": "playstation_5",
+      "controlScheme": "total_control",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "faceoff_pp_setup",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "R3",
+            "behavior": "tap"
+          }
+        ]
+      },
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-faceoff-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-xbox-tc-faceoff_pk_pressure",
+      "gameTitle": "NHL 26",
+      "platform": "xbox_series",
+      "controlScheme": "total_control",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "faceoff_pk_pressure",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "RS",
+            "behavior": "press"
+          }
+        ]
+      },
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-faceoff-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-ps5-tc-faceoff_pk_pressure",
+      "gameTitle": "NHL 26",
+      "platform": "playstation_5",
+      "controlScheme": "total_control",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "faceoff_pk_pressure",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "R3",
+            "behavior": "press"
+          }
+        ]
+      },
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-faceoff-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-xbox-tc-faceoff_post_win_possession",
+      "gameTitle": "NHL 26",
+      "platform": "xbox_series",
+      "controlScheme": "total_control",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "faceoff_post_win_possession",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "RS",
+            "behavior": "tap"
+          }
+        ]
+      },
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-faceoff-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-ps5-tc-faceoff_post_win_possession",
+      "gameTitle": "NHL 26",
+      "platform": "playstation_5",
+      "controlScheme": "total_control",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "faceoff_post_win_possession",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "R3",
+            "behavior": "tap"
+          }
+        ]
+      },
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-faceoff-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-xbox-ss-faceoff_draw",
+      "gameTitle": "NHL 26",
+      "platform": "xbox_series",
+      "controlScheme": "skill_stick",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "faceoff_draw",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "RS",
+            "behavior": "press"
+          }
+        ]
+      },
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-faceoff-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-ps5-ss-faceoff_draw",
+      "gameTitle": "NHL 26",
+      "platform": "playstation_5",
+      "controlScheme": "skill_stick",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "faceoff_draw",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "R3",
+            "behavior": "press"
+          }
+        ]
+      },
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-faceoff-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-xbox-ss-faceoff_tie_up",
+      "gameTitle": "NHL 26",
+      "platform": "xbox_series",
+      "controlScheme": "skill_stick",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "faceoff_tie_up",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "RS",
+            "behavior": "press"
+          }
+        ]
+      },
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-faceoff-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-ps5-ss-faceoff_tie_up",
+      "gameTitle": "NHL 26",
+      "platform": "playstation_5",
+      "controlScheme": "skill_stick",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "faceoff_tie_up",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "R3",
+            "behavior": "press"
+          }
+        ]
+      },
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-faceoff-not-ea",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl25-xbox-tc-faceoff_draw",
+      "gameTitle": "NHL 25",
+      "platform": "xbox_series",
+      "controlScheme": "total_control",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "faceoff_draw",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "RS",
+            "behavior": "press"
+          }
+        ]
+      },
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-legacy",
+      "verifiedAt": "2026-07-31T00:00:00Z",
+      "confidence": "official",
+      "status": "official"
+    },
+    {
+      "controlId": "nhl26-xbox-hybrid-faceoff_draw-deprecated",
+      "gameTitle": "NHL 26",
+      "platform": "xbox_series",
+      "controlScheme": "hybrid",
+      "gameMode": "all",
+      "playerRole": "skater",
+      "mechanic": "faceoff_draw",
+      "input": {
+        "steps": [
+          {
+            "order": 1,
+            "input": "A",
+            "behavior": "tap"
+          }
+        ]
+      },
+      "status": "deprecated",
+      "confidence": "deprecated",
+      "sourceType": "fixture",
+      "sourceRef": "ci-fixture-patch"
+    }
+  ]
+}
