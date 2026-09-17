@@ -81,6 +81,38 @@ class RepairProvenance(unittest.TestCase):
         values = {m["value"] for m in v2.report["scorecard"]["metrics"]}
         self.assertEqual(values, {55})
 
+    def test_model_cannot_assert_control_execution(self) -> None:
+        """`execution` (and its `verified` flag) is attached only by the controls registry after
+        validation. ChelCoach's mapper trusts `execution.verified`; this is what makes that safe."""
+        ts = [4.0, 20.0, 36.0]
+        raw = {
+            **self._empty_model_output(),
+            "metrics": {k: 70 for k in ("offensive_positioning", "defensive_positioning", "decision_making", "puck_movement", "spacing", "transition_play")},
+            "coachingMoments": [
+                {
+                    "id": "moment-1",
+                    "type": "missed",
+                    "title": "Late slot arrival",
+                    "timestamp": 20.0,
+                    "period": "P1",
+                    "teaser": "The weak-side lane opened a beat before the arrival.",
+                    "fullBreakdown": (
+                        "On the frame near 0:20 the controlled skater is still below the dots while the "
+                        "weak-side lane is open; arriving one stride earlier keeps the shooting option alive."
+                    ),
+                    "evidence": "directly_observable",
+                    # a model trying to smuggle a "verified" button mapping through
+                    "execution": {"executionAvailable": True, "verified": True, "mechanic": "saucer_pass", "inputs": [{"input": "X", "behavior": "tap"}]},
+                }
+            ],
+        }
+        v = validate_report(raw, frame_timestamps=ts, clip_id="clip", allow_repair=True)
+        self.assertTrue(v.ok, v.errors)
+        assert v.report is not None
+        for m in v.report["coachingMoments"]:
+            self.assertNotIn("execution", m)
+        self.assertNotIn("controlContext", v.report)
+
     def test_unrepaired_report_carries_no_repair_block(self) -> None:
         ts = [4.0, 20.0, 36.0]
         raw = {

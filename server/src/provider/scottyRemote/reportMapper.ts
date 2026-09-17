@@ -303,6 +303,10 @@ export function mapScottieReport(input: MapScottieReportInput): { report: Scotty
       issues.push(`control guidance for ${mechanic} was for platform ${p}, not the user's ${platform}`);
       return;
     }
+    // `execution` never comes from the model: the gateway's validator rebuilds every moment with
+    // a fixed field set (services/scottie-gateway/gateway/validator.py), and `execution` is attached
+    // afterwards from its controls registry — the designed source of verified mappings. Pinned by
+    // tests/test_gateway.py::test_model_cannot_assert_control_execution.
     const verified = ex.verified === true;
     guidance.push({
       gameTitle: str(ex.gameTitle, 120) || gameTitle,
