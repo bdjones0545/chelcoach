@@ -55,6 +55,7 @@ function sendError(res: import("express").Response, err: unknown): void {
       message: err.message,
       retryable:
         err.code === "RATE_LIMITED" ||
+        err.code === "ANALYSIS_CAPACITY_REACHED" ||
         err.code === "PROVIDER_UNAVAILABLE" ||
         err.code === "ANALYSIS_TIMEOUT" ||
         err.code === "REPORT_NOT_READY",

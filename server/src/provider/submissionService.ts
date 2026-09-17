@@ -47,7 +47,7 @@ const ACTIVE_JOB_STATUSES = new Set([
 export class AnalysisSubmissionError extends Error {
   constructor(
     public httpStatus: number,
-    public code: ScottyErrorCode | "INVALID_REQUEST",
+    public code: ScottyErrorCode | "INVALID_REQUEST" | "ANALYSIS_CAPACITY_REACHED",
     message: string,
   ) {
     super(message);
@@ -197,7 +197,22 @@ export async function submitAnalysis(input: {
     );
   }
 
+  // Global ceiling: every accepted submission is a paid model call, and sign-up is free. A
+  // re-submission of an already-accepted job is served from the idempotency path below and
+  // does not count against capacity, so check that first.
   const existing = await jobs.getByIdempotencyKey(idempotencyKey);
+  if (!existing) {
+    const sinceIso = new Date(dayAgo).toISOString();
+    const globalToday = await jobs.countCreatedSince(sinceIso);
+    if (globalToday >= quotas.maxDailySubmissionsGlobal) {
+      logEvent("submission_rejected", { uploadId: input.uploadId, errorCode: "ANALYSIS_CAPACITY_REACHED", globalToday });
+      throw new AnalysisSubmissionError(
+        503,
+        "ANALYSIS_CAPACITY_REACHED",
+        "ChelCoach has reached today's analysis capacity. Your upload is saved — try again later.",
+      );
+    }
+  }
   if (existing) {
     if (existing.requestFingerprint !== fingerprint) {
       logEvent("submission_rejected", {

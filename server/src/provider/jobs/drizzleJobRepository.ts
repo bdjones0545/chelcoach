@@ -670,6 +670,15 @@ export class DrizzleAnalysisJobRepository implements AnalysisJobRepository {
     return rows.map(rowToJob);
   }
 
+  async countCreatedSince(sinceIso: string): Promise<number> {
+    const db = getDb();
+    const rows = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(scottyAnalysisJobs)
+      .where(sql`${scottyAnalysisJobs.createdAt} >= ${new Date(sinceIso)}`);
+    return rows[0]?.n ?? 0;
+  }
+
   async listByOwner(ownerId: string, limit = 100): Promise<AnalysisJob[]> {
     const db = getDb();
     const rows = await db

@@ -57,6 +57,8 @@ export interface AnalysisJobRepository {
   listReconciliationCandidates(input: ReconciliationQuery): Promise<AnalysisJob[]>;
   /** Owner-scoped listing for abuse quotas (bounded). */
   listByOwner(ownerId: string, limit?: number): Promise<AnalysisJob[]>;
+  /** Submissions across ALL owners since `sinceIso` — the global spend ceiling reads this. */
+  countCreatedSince(sinceIso: string): Promise<number>;
   getReportByApplicationRequestId(
     applicationRequestId: string,
   ): Promise<PersistedAnalysisReport | null>;
@@ -518,6 +520,13 @@ export class InMemoryAnalysisJobRepository implements AnalysisJobRepository {
       .sort((a, b) => a.updatedAt.localeCompare(b.updatedAt))
       .slice(0, input.limit)
       .map((j) => structuredClone(j));
+  }
+
+  async countCreatedSince(sinceIso: string): Promise<number> {
+    const since = new Date(sinceIso).getTime();
+    let n = 0;
+    for (const j of this.jobs.values()) if (new Date(j.createdAt).getTime() >= since) n += 1;
+    return n;
   }
 
   async listByOwner(ownerId: string, limit = 100): Promise<AnalysisJob[]> {
