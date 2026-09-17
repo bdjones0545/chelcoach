@@ -9,6 +9,7 @@ import { getVisionModelClient, type IdentificationModelOutput, type VisionModelC
 import { ProviderError } from "../provider/errors";
 import { confidenceLabelFromScore, type GameContext, type PlayerContext, type TrustedMediaMetadata } from "../scottyContract";
 import type { ExtractedConfirmationFrame } from "./extractor";
+import { UserHintsControlledPlayerIdentifier } from "./userHintsIdentifier";
 import {
   FixtureControlledPlayerIdentifier,
   setControlledPlayerIdentifierForTests,
@@ -172,20 +173,50 @@ export class ClaudeVisionControlledPlayerIdentifier implements ControlledPlayerI
   }
 }
 
-export type IdentifierMode = "claude_vision" | "fixture";
+export type IdentifierMode = "claude_vision" | "fixture" | "user_hints";
 
+export function hasVisionModelKey(env: NodeJS.ProcessEnv = process.env): boolean {
+  return (env.ANTHROPIC_API_KEY ?? "").trim().length > 20;
+}
+
+/**
+ * Which identifier runs. An explicit CHELCOACH_PLAYER_IDENTIFIER always wins. Otherwise:
+ * production uses the vision model when it has a key and the user's hints when it does not —
+ * the gateway re-identifies visually during analysis either way. Fixtures are deterministic
+ * stand-ins and are never a production default.
+ */
 export function resolveIdentifierMode(env: NodeJS.ProcessEnv = process.env): IdentifierMode {
   const raw = (env.CHELCOACH_PLAYER_IDENTIFIER ?? "").trim();
-  if (raw === "claude_vision" || raw === "fixture") return raw;
-  // Fixtures are deterministic stand-ins; production must never serve them as identification.
-  return env.NODE_ENV === "production" ? "claude_vision" : "fixture";
+  if (raw === "claude_vision" || raw === "fixture" || raw === "user_hints") return raw;
+  if (env.NODE_ENV !== "production") return "fixture";
+  return hasVisionModelKey(env) ? "claude_vision" : "user_hints";
+}
+
+/**
+ * Can the selected identifier actually run? Readiness asks this so a vision identifier
+ * without its key — or a fixture in production — closes analysis instead of failing every
+ * upload at the confirmation step.
+ */
+export function identifierReadiness(env: NodeJS.ProcessEnv = process.env): { mode: IdentifierMode; ready: boolean; reason?: string } {
+  const mode = resolveIdentifierMode(env);
+  if (mode === "claude_vision" && !hasVisionModelKey(env)) {
+    return { mode, ready: false, reason: "IDENTIFIER_MODEL_KEY_MISSING" };
+  }
+  if (mode === "fixture" && env.NODE_ENV === "production") {
+    return { mode, ready: false, reason: "IDENTIFIER_FIXTURE_IN_PRODUCTION" };
+  }
+  return { mode, ready: true };
 }
 
 /** Boot-time selection, mirroring the frame extractor's. */
 export function configureDefaultControlledPlayerIdentifier(env: NodeJS.ProcessEnv = process.env): IdentifierMode {
   const mode = resolveIdentifierMode(env);
   setControlledPlayerIdentifierForTests(
-    mode === "claude_vision" ? new ClaudeVisionControlledPlayerIdentifier() : new FixtureControlledPlayerIdentifier(),
+    mode === "claude_vision"
+      ? new ClaudeVisionControlledPlayerIdentifier()
+      : mode === "user_hints"
+        ? new UserHintsControlledPlayerIdentifier()
+        : new FixtureControlledPlayerIdentifier(),
   );
   return mode;
 }

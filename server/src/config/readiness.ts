@@ -6,6 +6,7 @@
 import type { ChelCoachConfig } from "./chelcoachConfig";
 import { getChelCoachConfig, validateChelCoachConfig } from "./chelcoachConfig";
 import { providerCanServeProductionTraffic } from "../provider/factory";
+import { identifierReadiness } from "../identification/claudeVisionIdentifier";
 
 export type ChelCoachReadiness = {
   authReady: boolean;
@@ -20,7 +21,10 @@ export type ChelCoachReadiness = {
   reasons: string[];
 };
 
-export function computeReadiness(config: ChelCoachConfig = getChelCoachConfig()): ChelCoachReadiness {
+export function computeReadiness(
+  config: ChelCoachConfig = getChelCoachConfig(),
+  env: NodeJS.ProcessEnv = process.env,
+): ChelCoachReadiness {
   const reasons: string[] = [];
   const validation = validateChelCoachConfig(config);
   for (const issue of validation.issues.filter((i) => i.severity === "critical")) {
@@ -60,6 +64,13 @@ export function computeReadiness(config: ChelCoachConfig = getChelCoachConfig())
   const retentionReady = durableStorageReady;
   if (!retentionReady) {
     reasons.push("RETENTION_NOT_DURABLE");
+  }
+
+  // The identification step runs before the provider and has its own dependency (a vision key,
+  // or none for user_hints). It is the one gate the provider checks cannot see.
+  const identifier = identifierReadiness(env);
+  if (!identifier.ready && identifier.reason) {
+    reasons.push(identifier.reason);
   }
 
   const mediaStorageReady = config.isProduction
@@ -136,9 +147,10 @@ export function computeReadiness(config: ChelCoachConfig = getChelCoachConfig())
       providerReady &&
       callbackReady &&
       securityControlsReady &&
+      identifier.ready &&
       explicitEnable &&
       validation.ok
-    : authReady && providerReady && callbackReady;
+    : authReady && providerReady && callbackReady && identifier.ready;
 
   return {
     authReady,

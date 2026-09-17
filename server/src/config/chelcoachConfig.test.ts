@@ -238,6 +238,37 @@ describe("chelcoach central config (Step 10)", () => {
     assert.ok(forced.reasons.includes("DURABLE_DATABASE_REQUIRED"));
   });
 
+  it("readiness includes the identification step: user_hints needs nothing, a vision identifier needs its key", () => {
+    const base = {
+      NODE_ENV: "production",
+      CHELCOACH_AUTH_MODE: "supabase_auth",
+      CHELCOACH_PRODUCTION_AUTH_READY: "true",
+      SUPABASE_URL: "https://abcdefghijklmnop.supabase.co",
+      SUPABASE_ANON_KEY: "anon-key-value-long-enough",
+      CORS_ORIGIN: "https://app.example.com",
+      CHELCOACH_LEGACY_UPLOAD_ENABLED: "false",
+      CHELCOACH_ANALYSIS_PROVIDER: "scotty",
+      CHELCOACH_SCOTTIE_ENABLED: "true",
+      SCOTTY_BASE_URL: "https://scotty.example",
+      SCOTTY_SIGNING_SECRET: "a-real-signing-secret-value",
+      POSTGRES_URL: "postgres://postgres.abcdefghijklmnop:pw@aws-0-us-west-2.pooler.supabase.com:6543/postgres",
+    } as const;
+    // No Anthropic key at all: the default identifier is user_hints and it is ready.
+    const hints = computeReadiness(loadChelCoachConfig({ ...base }), { ...base });
+    assert.ok(!hints.reasons.some((r) => r.startsWith("IDENTIFIER_")), hints.reasons.join(","));
+
+    // Forcing the vision identifier without a key is exactly what failed every upload before.
+    const vision = computeReadiness(
+      loadChelCoachConfig({ ...base }),
+      { ...base, CHELCOACH_PLAYER_IDENTIFIER: "claude_vision" },
+    );
+    assert.ok(vision.reasons.includes("IDENTIFIER_MODEL_KEY_MISSING"));
+    assert.equal(vision.analysisSubmissionEnabled, false);
+
+    const fixture = computeReadiness(loadChelCoachConfig({ ...base }), { ...base, CHELCOACH_PLAYER_IDENTIFIER: "fixture" });
+    assert.ok(fixture.reasons.includes("IDENTIFIER_FIXTURE_IN_PRODUCTION"));
+  });
+
   it("development allows analysis with session auth", () => {
     const config = loadChelCoachConfig({
       NODE_ENV: "development",

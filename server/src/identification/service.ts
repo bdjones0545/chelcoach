@@ -35,6 +35,7 @@ const ALLOWED_IDENTIFICATION_PROVIDERS: ReadonlySet<string> = new Set([
   "fixture",
   "local_simulator",
   "claude_vision",
+  "user_hints",
 ]);
 import {
   deleteFrameObject,

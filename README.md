@@ -55,6 +55,16 @@ is withheld rather than shown.
 
 Authorization is enforced by the API. Client-side route guards (`RequireAuth`) are UX only.
 
+### Player identification
+
+Before analysis the API asks the player to confirm which skater they controlled.
+`CHELCOACH_PLAYER_IDENTIFIER` selects how candidates are produced: `claude_vision` (a vision
+model over sampled frames; needs `ANTHROPIC_API_KEY`), `user_hints` (the upload-screen hints as
+one candidate on a real frame, always confirmed by the player; no model call — the Scottie
+gateway re-identifies visually during analysis), or `fixture` (deterministic, dev/CI only).
+Production defaults to `claude_vision` when the key is present and `user_hints` when it is not;
+readiness refuses a vision identifier without its key and a fixture in production.
+
 ## Running locally
 
 Node 22, npm.

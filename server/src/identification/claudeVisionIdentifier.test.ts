@@ -155,8 +155,12 @@ describe("vision identifier", () => {
     assert.equal(withKey.requiresFrames, true);
   });
 
-  it("defaults to claude_vision in production and fixtures elsewhere, with an explicit override", () => {
-    assert.equal(resolveIdentifierMode({ NODE_ENV: "production" } as NodeJS.ProcessEnv), "claude_vision");
+  it("defaults to claude_vision in production only with a key, user_hints without one, fixtures elsewhere, with an explicit override", () => {
+    assert.equal(resolveIdentifierMode({ NODE_ENV: "production" } as NodeJS.ProcessEnv), "user_hints", "no key: the vision identifier could only fail");
+    assert.equal(
+      resolveIdentifierMode({ NODE_ENV: "production", ANTHROPIC_API_KEY: "sk-ant-" + "k".repeat(30) } as NodeJS.ProcessEnv),
+      "claude_vision",
+    );
     assert.equal(resolveIdentifierMode({ NODE_ENV: "development" } as NodeJS.ProcessEnv), "fixture");
     assert.equal(resolveIdentifierMode({ NODE_ENV: "test" } as NodeJS.ProcessEnv), "fixture");
     assert.equal(

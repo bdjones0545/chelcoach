@@ -140,5 +140,7 @@ export const playerIdentificationProviderSchema = z.enum([
   "fixture",
   "local_simulator",
   "claude_vision",
+  /** The user's own upload-screen hints as the candidate; no model call, always confirmed by the user. */
+  "user_hints",
 ]);
 export type PlayerIdentificationProvider = z.infer<typeof playerIdentificationProviderSchema>;
