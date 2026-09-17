@@ -111,3 +111,13 @@ CI (`.github/workflows/ci.yml`) runs all of the above against a Postgres service
 
 `docs/` holds the step-by-step build records (`scotty-*.md`, `supabase-*.md`,
 `vercel-*.md`). `docs/phase-status.md` is the historical build log.
+
+### Spend ceilings
+
+Every accepted analysis is a paid model call and sign-up is free, so submissions are capped
+in the database (not per instance): per user, `CHELCOACH_MAX_ACTIVE_JOBS_PER_USER` (5) and
+`CHELCOACH_MAX_DAILY_SUBMISSIONS_PER_USER` (20); across all users,
+`CHELCOACH_MAX_DAILY_SUBMISSIONS_GLOBAL` (200 per rolling 24h). Over the global ceiling the
+API answers `503 ANALYSIS_CAPACITY_REACHED` (retryable); the upload stays saved. Re-submitting
+an already-accepted job is served from the idempotency path and does not count.
+

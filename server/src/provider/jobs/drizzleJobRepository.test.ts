@@ -156,6 +156,11 @@ describe("drizzle analysis job repository (postgres)", { skip: !runPg }, () => {
         canonicalStatus: "queued",
       }),
     );
+ 
+    // Global spend ceiling reads a cross-owner count: both jobs today, none from the far past.
+    const before = await repo.countCreatedSince(new Date(Date.now() - 60_000).toISOString());
+    assert.equal(before, 2);
+    assert.equal(await repo.countCreatedSince(new Date(Date.now() + 60_000).toISOString()), 0);
   });
 
   it("persists report transactionally and supports callback dedupe", async () => {

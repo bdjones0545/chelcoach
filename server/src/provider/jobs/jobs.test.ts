@@ -6,6 +6,7 @@ import { beforeEach, describe, it } from "node:test";
 import { createHash, randomUUID } from "node:crypto";
 import type { AddressInfo } from "node:net";
 import { createApp } from "../../app";
+import { resetChelCoachConfigCacheForTests } from "../../config/chelcoachConfig";
 import { createOwnerSession, resetSessionsForTests } from "../../auth/session";
 import { FakeMediaInspector, setMediaInspectorForTests } from "../../media/inspector";
 import { resetMediaObjectStorageForTests } from "../../mediaStorage";
@@ -556,6 +557,58 @@ describe("public status omits sensitive fields via API", () => {
       setMediaInspectorForTests(undefined);
     }
   }
+
+  it("global daily ceiling: the Nth+1 submission across all users is refused, retryable, and not a paid call", async () => {
+    process.env.CHELCOACH_ALLOW_IDENTITY_FIXTURES = "1";
+    process.env.CHELCOACH_MAX_DAILY_SUBMISSIONS_GLOBAL = "2";
+    resetChelCoachConfigCacheForTests();
+    try {
+      await withServer(async (base, token) => {
+        const submitOne = async (ownerToken: string) => {
+          const created = (await (
+            await fetch(`${base}/api/uploads`, {
+              method: "POST",
+              headers: { authorization: `Bearer ${ownerToken}`, "content-type": "application/json" },
+              body: JSON.stringify({ filename: "g.mp4", contentType: "video/mp4", sizeBytes: 2048, context: baseCreate().uploadContext }),
+            })
+          ).json()) as { uploadId: string; uploadUrl: string };
+          await fetch(`${base}${created.uploadUrl}`, {
+            method: "PUT",
+            headers: { authorization: `Bearer ${ownerToken}`, "content-type": "video/mp4" },
+            body: Buffer.alloc(2048, 1),
+          });
+          await fetch(`${base}/api/uploads/${created.uploadId}/player-identification`, {
+            method: "POST",
+            headers: { authorization: `Bearer ${ownerToken}`, "content-type": "application/json" },
+            body: JSON.stringify({ fixtureScenario: "high_confidence_center" }),
+          });
+          return fetch(`${base}/api/uploads/${created.uploadId}/analysis`, {
+            method: "POST",
+            headers: { authorization: `Bearer ${ownerToken}`, "content-type": "application/json" },
+            body: "{}",
+          });
+        };
+
+        // Two different users fill the global budget of 2; a third user is refused.
+        const a = createOwnerSession().token;
+        const b = createOwnerSession().token;
+        const c = createOwnerSession().token;
+        assert.equal((await submitOne(a)).status, 202);
+        assert.equal((await submitOne(b)).status, 202);
+        const refused = await submitOne(c);
+        assert.equal(refused.status, 503);
+        const body = (await refused.json()) as { error: string; retryable: boolean; message: string };
+        assert.equal(body.error, "ANALYSIS_CAPACITY_REACHED");
+        assert.equal(body.retryable, true);
+        assert.match(body.message, /capacity/i);
+        assert.equal(await getAnalysisJobRepository().countCreatedSince(new Date(Date.now() - 86_400_000).toISOString()), 2, "the refused request created no job");
+        void token;
+      });
+    } finally {
+      delete process.env.CHELCOACH_MAX_DAILY_SUBMISSIONS_GLOBAL;
+      resetChelCoachConfigCacheForTests();
+    }
+  });
 
   it("authenticated status route returns safe public payload", async () => {
     process.env.CHELCOACH_ALLOW_IDENTITY_FIXTURES = "1";
