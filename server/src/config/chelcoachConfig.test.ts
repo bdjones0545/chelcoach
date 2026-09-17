@@ -202,6 +202,42 @@ describe("chelcoach central config (Step 10)", () => {
     assert.ok(readiness.reasons.includes("ANALYSIS_SUBMISSION_NOT_EXPLICITLY_ENABLED"));
   });
 
+  it("treats the Supabase↔Vercel integration's POSTGRES_URL as a durable database, like loadDatabaseConfig does", () => {
+    const base = {
+      NODE_ENV: "production",
+      CHELCOACH_AUTH_MODE: "supabase_auth",
+      CHELCOACH_PRODUCTION_AUTH_READY: "true",
+      SUPABASE_URL: "https://abcdefghijklmnop.supabase.co",
+      SUPABASE_ANON_KEY: "anon-key-value-long-enough",
+      CORS_ORIGIN: "https://app.example.com",
+      CHELCOACH_LEGACY_UPLOAD_ENABLED: "false",
+      CHELCOACH_ANALYSIS_PROVIDER: "scotty",
+      CHELCOACH_SCOTTIE_ENABLED: "true",
+      SCOTTY_BASE_URL: "https://scotty.example",
+      SCOTTY_SIGNING_SECRET: "a-real-signing-secret-value",
+    };
+    const withoutDb = computeReadiness(loadChelCoachConfig({ ...base }));
+    assert.ok(withoutDb.reasons.includes("DURABLE_DATABASE_REQUIRED"));
+
+    const viaIntegration = computeReadiness(
+      loadChelCoachConfig({
+        ...base,
+        POSTGRES_URL: "postgres://postgres.abcdefghijklmnop:pw@aws-0-us-west-2.pooler.supabase.com:6543/postgres",
+      }),
+    );
+    assert.equal(viaIntegration.durableStorageReady, true);
+    assert.ok(!viaIntegration.reasons.includes("DURABLE_DATABASE_REQUIRED"));
+    assert.ok(!viaIntegration.reasons.includes("IDENTIFICATION_MEMORY_ONLY"));
+    assert.ok(!viaIntegration.reasons.includes("RETENTION_NOT_DURABLE"));
+    assert.equal(viaIntegration.retentionReady, true);
+
+    // an explicit DATABASE_URL still counts, and forcing memory repos still wins
+    const forced = computeReadiness(
+      loadChelCoachConfig({ ...base, DATABASE_URL: "postgresql://u:p@localhost/db", CHELCOACH_FORCE_MEMORY_REPOS: "1" }),
+    );
+    assert.ok(forced.reasons.includes("DURABLE_DATABASE_REQUIRED"));
+  });
+
   it("development allows analysis with session auth", () => {
     const config = loadChelCoachConfig({
       NODE_ENV: "development",
