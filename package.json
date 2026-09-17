@@ -36,9 +36,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@bdjones/webmcp-kit": "github:bdjones0545/webmcp-kit#0b1c45e422a554264dcd7266239363f2955bb605",
     "@fontsource/inter": "^5.2.8",
     "@fontsource/jetbrains-mono": "^5.2.8",
     "@fontsource/oswald": "^5.2.8",
+    "@mcp-b/global": "5.0.1",
     "@supabase/supabase-js": "^2.111.0",
     "material-symbols": "^0.45.5",
     "react": "^19.2.7",
@@ -49,6 +51,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
+    "@mcp-b/webmcp-types": "5.0.1",
     "@playwright/test": "^1.62.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
