@@ -159,7 +159,7 @@ def lookup_execution(
     pc = parse_player_context(player_context)
     platform = pc.get("platform")
     scheme = pc.get("control_scheme") or "unknown"
-    title = game_title or pc.get("game_title") or "NHL 26"
+    title = game_title or pc.get("game_title") or "unspecified"
 
     if not platform or platform not in PLATFORMS:
         return ExecutionBlock(

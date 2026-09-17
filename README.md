@@ -50,7 +50,7 @@ is withheld rather than shown.
 | Auth | Supabase Auth, verified server-side (`server/src/auth/`) | App tables have RLS on with no policies; the API uses its own role |
 | Storage | Supabase Storage (TUS uploads) | `CHELCOACH_MEDIA_STORAGE_MODE` |
 | Database | Postgres via Drizzle (`server/drizzle/`) | Migrations 0000–0005 on main (0006 in PR #36) |
-| Analysis | Provider `scotty` → Scottie gateway on orgo-desktop | `docs/scotty-remote-provider.md` |
+| Analysis | Provider `scotty` → Scottie gateway on orgo-desktop | source `services/scottie-gateway/`, deploy `ops/orgo-desktop/scottie/deploy.sh` |
 | Scheduling | Vercel crons in `vercel.json` | media cleanup, storage reconcile, inspection worker, analysis worker |
 
 Authorization is enforced by the API. Client-side route guards (`RequireAuth`) are UX only.
@@ -94,7 +94,8 @@ CI (`.github/workflows/ci.yml`) runs all of the above against a Postgres service
 - Health: `GET /api/health` (liveness). Capability: `GET /api/health/readiness` — analysis
   submission is only enabled when auth, durable storage, media storage, the provider, and
   `CHELCOACH_ANALYSIS_SUBMISSION_ENABLED=1` are all in place.
-- Gateway: `ops/orgo-desktop/scottie/apply.sh` configures the Scottie gateway on the VM.
+- Gateway: `ops/orgo-desktop/scottie/apply.sh` installs keys/provider config on the VM;
+  `ops/orgo-desktop/scottie/deploy.sh` ships `services/scottie-gateway/` and restarts it.
 
 ## Docs
 

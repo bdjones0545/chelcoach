@@ -23,6 +23,21 @@ from .validator import attempt_repair, validate_report
 log = logging.getLogger("scottie.analysis")
 
 
+UNSPECIFIED_GAME_TITLE = "unspecified"
+
+
+def _resolve_game_title(job_id: str, *sources: dict[str, Any] | None) -> str:
+    """The EA title comes from the request (ChelCoach always sends one). There is no default
+    title: guessing a year would key the registries to a game the user may not be playing."""
+    for src in sources:
+        if isinstance(src, dict):
+            t = src.get("gameTitle") or src.get("game_title")
+            if isinstance(t, str) and t.strip():
+                return t.strip()
+    log.warning("game_title_missing job=%s — registries will find no mappings", job_id)
+    return UNSPECIFIED_GAME_TITLE
+
+
 class AnalysisService:
     def __init__(
         self,
@@ -219,6 +234,18 @@ class AnalysisService:
                 self._record_learning(job_id, "validation_failure", "; ".join(v2.errors[:8]))
                 return
             final_report = v2.report
+            synthesized = list(((final_report or {}).get("repair") or {}).get("synthesized") or [])
+            log.warning("report_repaired job=%s synthesized=%s", job_id, ",".join(synthesized) or "-")
+            if "coachingMoments" in synthesized:
+                # A placeholder moment is not an observation. Never ship one as coaching.
+                self._fail(
+                    job_id,
+                    "invalid_report",
+                    "Model returned no frame-cited coaching moments; refusing to synthesize them.",
+                    keep_jpeg=False,
+                )
+                self._record_learning(job_id, "validation_failure", "no coaching moments from model")
+                return
             self.store.update(job_id, retry_count=(job.get("retry_count") or 0) + 1)
         else:
             final_report = v.report
@@ -253,8 +280,7 @@ class AnalysisService:
             final_report = attr_report
 
         self.store.set_stage(job_id, "finalizing", 92)
-        if final_report and "_repaired" in final_report:
-            final_report = {k: v for k, v in final_report.items() if not k.startswith("_")}
+        # `repair` (if present) stays in the report on purpose — see validator.attempt_repair.
 
         # Ensure playerAttribution present
         if isinstance(final_report, dict):
@@ -279,12 +305,7 @@ class AnalysisService:
                 # clip-level override wins
                 if isinstance(job.get("gameplay_context"), dict) and job["gameplay_context"].get("playerContext"):
                     player_ctx = {**player_ctx, **job["gameplay_context"]["playerContext"]}
-                game_title = str(
-                    player_ctx.get("gameTitle")
-                    or metadata.get("gameTitle")
-                    or gameplay_ctx.get("gameTitle")
-                    or "NHL 26"
-                )
+                game_title = _resolve_game_title(job_id, player_ctx, metadata, gameplay_ctx)
                 reg = load_registry(
                     vault_dir=Path(self.vault_dir) / "controls" if self.vault_dir else None
                 )
@@ -344,12 +365,7 @@ class AnalysisService:
                     from faceoffs.engine import attach_faceoff_section
 
                     player_ctx = {**(gameplay_ctx or {}), **(metadata or {})}
-                    game_title = str(
-                        player_ctx.get("gameTitle")
-                        or metadata.get("gameTitle")
-                        or gameplay_ctx.get("gameTitle")
-                        or "NHL 26"
-                    )
+                    game_title = _resolve_game_title(job_id, player_ctx, metadata, gameplay_ctx)
                     final_report = attach_faceoff_section(
                         final_report,
                         gameplay_context=gameplay_ctx,

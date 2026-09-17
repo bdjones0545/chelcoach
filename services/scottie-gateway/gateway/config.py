@@ -108,6 +108,7 @@ def load_config(*, allow_missing_secrets: bool = False) -> dict[str, Any]:
         "contract_version": "chelcoach-analysis-v1",
         "rubric_version": "chelcoach-rubric-v1",
         "prompt_version": "scottie-prompt-v1",
-        "hostname_public": (os.environ.get("SCOTTIE_PUBLIC_HOSTNAME") or "scottie.chelcoach.com").strip(),
+        # chelcoach.com is not ours (parked); the published route is on chelcoach.io.
+        "hostname_public": (os.environ.get("SCOTTIE_PUBLIC_HOSTNAME") or "scottie.chelcoach.io").strip(),
         "test_mode": test_mode,
     }

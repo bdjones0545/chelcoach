@@ -470,6 +470,15 @@ def validate_report(
         },
     }
 
+    # Repair provenance from attempt_repair() — sanitized, never invented here.
+    rep = report.get("repair")
+    if isinstance(rep, dict) and rep.get("applied") is True:
+        built["repair"] = {
+            "applied": True,
+            "synthesized": [str(x)[:40] for x in (rep.get("synthesized") or []) if isinstance(x, str)][:12],
+            "notes": [str(x)[:200] for x in (rep.get("notes") or []) if isinstance(x, str)][:12],
+        }
+
     # Final structural check
     if len(built["scorecard"]["metrics"]) != len(METRIC_KEYS):
         result.errors.append("normalized metrics incomplete")
@@ -524,14 +533,19 @@ def attempt_repair(
         return obj
 
     fixed = walk(fixed)
+    # Everything this function invents is recorded here and travels with the report as
+    # `repair.synthesized`, so a consumer can tell placeholder content from model output.
+    synthesized: list[str] = []
 
     # Ensure metrics dict present
     if "metrics" not in fixed and not (
         isinstance(fixed.get("scorecard"), dict) and fixed["scorecard"].get("metrics")
     ):
         fixed["metrics"] = {k: 55 for k in METRIC_KEYS}
+        synthesized.append("metrics")
 
     if not fixed.get("coachingMoments"):
+        synthesized.append("coachingMoments")
         ts0 = frame_timestamps[0] if frame_timestamps else 0.0
         fixed["coachingMoments"] = [
             {
@@ -552,6 +566,7 @@ def attempt_repair(
 
     fr = fixed.get("filmRoom") if isinstance(fixed.get("filmRoom"), dict) else {}
     if len(str(fr.get("commentary") or fixed.get("commentary") or "")) < 40:
+        synthesized.append("commentary")
         fr["commentary"] = (
             "Across the sampled frames, structure and puck decisions show a mix of solid support "
             "habits and recoverable positioning errors. Prioritize middle-ice awareness on the next "
@@ -559,18 +574,25 @@ def attempt_repair(
         )
         fixed["filmRoom"] = fr
     if not fr.get("strengths") and not fixed.get("strengths"):
+        synthesized.append("strengths")
         fr["strengths"] = ["Maintains active stick in several defensive frames"]
         fixed["filmRoom"] = fr
     if not fr.get("mistakes") and not fixed.get("mistakes"):
+        synthesized.append("mistakes")
         fr["mistakes"] = ["Occasional over-commitment toward the strong side"]
         fixed["filmRoom"] = fr
     if not fr.get("nextGameFocus") and not fixed.get("nextGameFocus"):
+        synthesized.append("nextGameFocus")
         fr["nextGameFocus"] = "Hold middle ice for one extra second before chasing strong-side pressure."
         fixed["filmRoom"] = fr
 
-    # Mark repair
-    fixed["_repaired"] = True
-    fixed["_repair_notes"] = validation.errors[:12]
+    # Mark repair. Not an underscore key: validate_report() carries `repair` into the built
+    # report and analysis.py leaves it in place, so it reaches ChelCoach.
+    fixed["repair"] = {
+        "applied": True,
+        "synthesized": synthesized,
+        "notes": [str(e)[:200] for e in validation.errors[:12]],
+    }
     return fixed
 
 

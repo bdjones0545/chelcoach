@@ -53,6 +53,10 @@ jobs:
         working-directory: shared
         run: npm test
 
+      - name: Test Scottie gateway (stdlib Python, no model calls)
+        working-directory: services/scottie-gateway
+        run: python3 -m unittest -v
+
       # Frontend: install + type-check + production build.
       - name: Install frontend
         run: npm ci

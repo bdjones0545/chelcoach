@@ -6,8 +6,9 @@ loopback `127.0.0.1:2340`, published as `https://scottie.chelcoach.io` through t
 Cloudflare tunnel on that host). The model call itself happens on the VM under
 `SCOTTIE_PROVIDER=xai`; ChelCoach never holds a model key in this mode.
 
-The gateway's source is snapshotted in [`services/scottie-gateway/`](../services/scottie-gateway/README.md)
-(byte-for-byte from the VM, with a SHA-256 manifest). The VM remains the deployment.
+The gateway's source lives in [`services/scottie-gateway/`](../services/scottie-gateway/README.md)
+and ships with `ops/orgo-desktop/scottie/deploy.sh` (tests → tar over ssh → manifest verify →
+restart → `/ready`). `deploy.sh --check` reports drift between the VM and the repo.
 
 ## Wire contract (`chelcoach-analysis-v1`)
 
