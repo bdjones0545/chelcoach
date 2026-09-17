@@ -41,14 +41,20 @@ echo "[1/4] gateway unit tests"
 (cd "$SRC" && python3 -m unittest 2>&1 | tail -1)
 
 echo "[2/4] shipping tree to $HOST"
-tar -C "$SRC" -czf - --exclude='__pycache__' --exclude='*.pyc' --exclude='tests' \
+# Two ssh calls on purpose: the tarball goes over stdin first, then the remote script runs from a
+# heredoc (which also needs stdin). Mixing them in one call feeds the heredoc to tar.
+# COPYFILE_DISABLE keeps macOS tar from adding AppleDouble ._* files to the archive.
+COPYFILE_DISABLE=1 tar -C "$SRC" -czf - --exclude='__pycache__' --exclude='*.pyc' --exclude='tests' --exclude='._*' \
   gateway controls strategies faceoffs research scripts MANIFEST.sha256 \
-  | ssh -o BatchMode=yes "$HOST" 'bash -s' <<'REMOTE'
+  | ssh -o BatchMode=yes "$HOST" 'cat > /tmp/scottie-deploy.tgz'
+ssh -o BatchMode=yes "$HOST" 'bash -s' <<'REMOTE'
 set -euo pipefail
 P=/root/.hermes/profiles/scottie
 TS="$(date -u +%Y%m%dT%H%M%SZ)"
 STAGE="$(mktemp -d /tmp/scottie-deploy.XXXXXX)"
-tar -xzf - -C "$STAGE"
+tar -xzf /tmp/scottie-deploy.tgz -C "$STAGE" 2>/dev/null
+rm -f /tmp/scottie-deploy.tgz
+find "$STAGE" -name '._*' -delete   # belt and braces against AppleDouble leftovers
 
 # keep the previous tree
 mkdir -p "$P/services.bak-$TS"
