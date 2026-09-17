@@ -51,7 +51,7 @@ class FaceoffReportSection:
     events: list[dict[str, Any]] = field(default_factory=list)
     recommendations: list[dict[str, Any]] = field(default_factory=list)
     drills: list[dict[str, Any]] = field(default_factory=list)
-    game_title: str = "NHL 26"
+    game_title: str = "unspecified"
     legacy_knowledge_excluded: bool = True
 
     def to_dict(self) -> dict[str, Any] | None:
@@ -154,7 +154,7 @@ def load_faceoff_events(
 def evaluate_faceoffs(
     events: list[FaceoffEvent],
     *,
-    game_title: str = "NHL 26",
+    game_title: str = "unspecified",
     player_role: str | None = None,
     control_lookup: Any | None = None,
     player_context: dict[str, Any] | None = None,
@@ -420,7 +420,7 @@ def attach_faceoff_section(
     gameplay_context: dict[str, Any] | None,
     metadata: dict[str, Any] | None,
     frame_metas: list[dict[str, Any]] | None = None,
-    game_title: str = "NHL 26",
+    game_title: str = "unspecified",
     player_context: dict[str, Any] | None = None,
     control_registry: Any | None = None,
     control_enabled: bool = False,

@@ -213,7 +213,12 @@ export function buildPerformanceEstimate(input: {
   frameCount: number;
   durationSec: number;
   rubricVersion: string;
+  /** Sections the gateway's repair path invented (`repair.synthesized`). */
+  synthesized?: string[];
 }): { estimate: PerformanceEstimate | null; issue?: string } {
+  if (input.synthesized?.includes("metrics")) {
+    return { estimate: null, issue: "the gateway synthesized the rubric scores (model returned none); the Chel Rating was withheld" };
+  }
   const scorecard = isDict(input.report.scorecard) ? input.report.scorecard : {};
   const rating = num(scorecard.chelRating ?? input.report.chelRating);
   if (rating === null || rating < 0 || rating > 1000) return { estimate: null };
@@ -255,9 +260,25 @@ export function buildPerformanceEstimate(input: {
   };
 }
 
+/** What the gateway's repair path invented, as it reports it (`repair.synthesized`); empty when unrepaired. */
+export function synthesizedSections(report: Dict): string[] {
+  const rep = isDict(report.repair) && report.repair.applied === true ? report.repair : null;
+  return rep ? strList(rep.synthesized, 12, 40) : [];
+}
+
 export function mapScottieReport(input: MapScottieReportInput): { report: ScottyReport; issues: string[] } {
   const { submission, report, frameTimestampsSec } = input;
   const issues: string[] = [];
+  const synthesized = synthesizedSections(report);
+  if (synthesized.includes("coachingMoments")) {
+    // A placeholder moment is not an observation. The gateway now refuses this itself; keep the
+    // check here so an older gateway cannot ship one through us either.
+    throw Object.assign(new Error("REPORT_VALIDATION_FAILED"), {
+      code: "REPORT_VALIDATION_FAILED",
+      detail: "Scottie synthesized coaching moments (the model returned none)",
+    });
+  }
+  if (synthesized.length) issues.push(`gateway repair synthesized: ${synthesized.join(", ")}`);
   const nowIso = input.now.toISOString();
   const durationSec = submission.mediaMetadata.durationSec;
   const platform = submission.playerContext.platform;
@@ -456,7 +477,12 @@ export function mapScottieReport(input: MapScottieReportInput): { report: Scotty
     frameCount: frameTimestampsSec.length,
     durationSec,
     rubricVersion: str(report.rubricVersion, 64) || "chelcoach-rubric-v1",
+    synthesized,
   });
+  const placeholderText = synthesized.filter((s) => s !== "metrics");
+  if (placeholderText.length) {
+    disclosures.push(`Placeholder text from the gateway's repair path, not model output: ${placeholderText.join(", ")}.`);
+  }
   if (estimateIssue) issues.push(estimateIssue);
   if (performanceEstimate) {
     disclosures.push(

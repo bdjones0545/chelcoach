@@ -1,28 +1,18 @@
-# Scottie analysis gateway — source snapshot
+# Scottie analysis gateway
 
-This directory is a **byte-for-byte snapshot** of the code that runs ChelCoach's production
-analysis on orgo-desktop. Until this PR, that code existed in no repository: it lived only under
-`/root/.hermes/profiles/scottie/` on the VM (not a git checkout). The rubric, prompt, attribution
-gate, identity validator, and the control/strategy registries that define what a ChelCoach
-report *is* were unreviewable.
+**This directory is the source of truth** for the code that runs ChelCoach's production analysis
+on orgo-desktop. It started (PR #39) as a byte-for-byte snapshot of the unversioned tree under
+`/root/.hermes/profiles/scottie/`; since then it is edited here, tested in CI, and shipped with
+`ops/orgo-desktop/scottie/deploy.sh`. A change made on the VM and not here will show up as a
+manifest mismatch (`deploy.sh --check`).
 
 | | |
 | --- | --- |
-| Source host | `orgo-desktop`, Hermes profile `scottie` |
-| Source paths | `services/{gateway,controls,strategies,faceoffs,research}`, `scripts/run_scottie_*.sh` |
-| Snapshot taken | 2026-09-17 |
-| Files on the VM last modified | 2026-07-31 (all of them) |
-| Integrity | `MANIFEST.sha256` — verified equal to `sha256sum` output on the VM at snapshot time |
-| Excluded | `.env`, `secrets/`, `state/`, `__pycache__`, the Cloudflare tunnel token |
-
-**Deployment has not changed.** The VM still runs its own copy under supervisord
-(`scottie-gateway`, loopback `127.0.0.1:2340`, published as `https://scottie.chelcoach.io`).
-`ops/orgo-desktop/scottie/apply.sh` configures it. Editing files here does nothing until someone
-copies them to the VM and restarts the service — see "Making this the source of truth" below.
-
-To re-verify, hash the same file set on the VM (`find … -type f ! -path '*__pycache__*' ! -name
-'*.pyc' | sort | xargs sha256sum`, plus the two scripts), strip the `services/` prefix, and diff
-against `MANIFEST.sha256` (which uses `./` paths). A one-line difference means the VM drifted.
+| Runs on | `orgo-desktop`, Hermes profile `scottie`, supervisord `scottie-gateway`, loopback `127.0.0.1:2340`, published as `https://scottie.chelcoach.io` |
+| Deploy | `bash ops/orgo-desktop/scottie/deploy.sh` (tests → ship → verify manifest → restart → `/ready`) |
+| Verify drift | `bash ops/orgo-desktop/scottie/deploy.sh --check` |
+| Tests | `python3 -m unittest -v` here (stdlib only; also a CI step) |
+| Not in git | `.env`, `secrets/`, `state/`, the Cloudflare tunnel token — `ops/orgo-desktop/scottie/apply.sh` manages those |
 
 ## What is in here
 
@@ -30,12 +20,14 @@ against `MANIFEST.sha256` (which uses `./` paths). A one-line difference means t
   `confirm-player`, `cancel`, `/health`, `/ready`. Bearer + HMAC verification in `auth.py`
   (the ChelCoach side is `server/src/provider/scottyRemote/client.ts`).
 - `gateway/provider.py` — the model call and **the system prompt** (`system_prompt()`), plus the
-  deterministic `FakeProvider` used for CI.
+  deterministic `FakeProvider` used for tests.
 - `gateway/rubric.py` — `chelcoach-rubric-v1`: six 0–100 metrics, weights, the 0–1000 Chel Rating
   fold (`chel_rating_from_metrics`), and the honest band labels (`percentile_label`).
-- `gateway/validator.py` — normalizes the model's JSON into the wire report; **its repair path
-  fills every metric with 55 when the model returned none** and strips its own `_repaired`
-  marker. ChelCoach's mapper detects the flat rubric and withholds the rating.
+- `gateway/validator.py` — normalizes the model's JSON into the wire report. Its bounded repair
+  path (`attempt_repair`) may fill gaps with placeholder content; everything it invents is listed
+  in `report.repair.synthesized` and survives to the wire.
+- `gateway/analysis.py` — the job pipeline. A repair that had to synthesize `coachingMoments`
+  fails the job (`invalid_report`) rather than shipping a placeholder as an observation.
 - `gateway/player_identity.py`, `attribution.py` — controlled-player identification before
   scoring, and the "grade only the controlled skater" gate.
 - `controls/`, `strategies/`, `faceoffs/` — the per-title registries. Only an **NHL 26** fixture
@@ -43,25 +35,26 @@ against `MANIFEST.sha256` (which uses `./` paths). A one-line difference means t
   `SCOTTIE_STRATEGY_GUIDANCE_ENABLED=false`, so neither attaches anything to a production report.
 - `research/` — the registry research loop the `research_hook.py` files call into.
 - `scripts/` — the supervisord entry points. They read secrets from files; none are embedded.
+- `tests/` — unit tests pinning the defects below.
 
-## Known defects visible in the snapshot (not fixed here — this PR is a copy, not a change)
+## Wire contract additions since the snapshot
 
-1. `gateway/config.py:111` defaults `SCOTTIE_PUBLIC_HOSTNAME` to `scottie.chelcoach.com`.
-   chelcoach.com is not ours (it is parked on Afternic); production overrides this in `.env` to
-   `scottie.chelcoach.io`. The default should change.
-2. `gateway/validator.py` repair path (above): a fabricated flat rubric is indistinguishable on
-   the wire from a scored one. A `repaired: true` flag that survives to the response would let
-   ChelCoach stop guessing.
-3. `gateway/analysis.py` defaults the game title to `"NHL 26"` in three places when the request
-   carries none; ChelCoach always sends one, so this is inert today.
-4. `gateway/scottie.supervisord.conf` sets `SCOTTIE_PROVIDER="fake"`; the profile `.env`
-   (`SCOTTIE_PROVIDER=xai`) wins because `run_scottie_gateway.sh` sources it after the
-   supervisord environment. Fragile ordering, worth making explicit.
+- `report.repair` — present only when the repair path ran:
+  `{"applied": true, "synthesized": ["metrics", "commentary", …], "notes": [...]}`.
+  ChelCoach (`server/src/provider/scottyRemote/reportMapper.ts`) withholds the Chel Rating when
+  `metrics` is listed, discloses any placeholder prose, and refuses a report listing
+  `coachingMoments`.
 
-## Making this the source of truth
+## Defects found in the 2026-09-17 audit — fixed
 
-Not done in this PR. The path is: a deploy script under `ops/orgo-desktop/scottie/` that syncs
-this directory to `/root/.hermes/profiles/scottie/services/` + `scripts/`, verifies the manifest
-on the VM, and restarts `scottie-gateway`; then a CI job that runs the gateway's own tests (there
-are none yet) with `SCOTTIE_PROVIDER=fake`. Until then, any change on the VM that is not mirrored
-here will show up as a manifest mismatch.
+1. ~~`gateway/config.py` defaulted the public hostname to `scottie.chelcoach.com`~~ (not our
+   domain) → `scottie.chelcoach.io`. Test: `HostnameDefault`.
+2. ~~The repair path's fabricated flat rubric was indistinguishable on the wire; its `_repaired`
+   marker never survived `validate_report()`~~ → `report.repair` (above); synthesized moments
+   fail the job. Test: `RepairProvenance`.
+3. ~~`"NHL 26"` hardcoded as the fallback title in `analysis.py`, `controls/registry.py`,
+   `faceoffs/engine.py`~~ → `_resolve_game_title()` takes it from the request or returns
+   `"unspecified"` with a warning; a test greps the tree for literal NHL years.
+4. ~~supervisord set `SCOTTIE_PROVIDER="fake"` and the `.env` won only by sourcing order~~ →
+   the conf no longer sets it; `run_scottie_gateway.sh` sources `.env` first, applies `fake` only
+   as a last resort, and prints the provider it chose. Test: `ProviderPrecedence`.

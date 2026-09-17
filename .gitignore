@@ -37,3 +37,4 @@ server/src/config/vercelApp.bundle.mjs
 
 # Vercel CLI project link
 .vercel
+__pycache__/

@@ -494,6 +494,35 @@ describe("report mapping", () => {
     assert.ok(!none.report.uncertaintyDisclosures.some((d) => d.includes("Chel Rating")));
   });
 
+  it("honors the gateway's repair provenance: withholds synthesized scores, refuses synthesized moments, discloses placeholder text", () => {
+    const ts = [4, 20];
+    const base = scottieReportFixture(ts);
+    // scores invented → no rating even though the numbers are not flat
+    const metricsOnly = { ...base, repair: { applied: true, synthesized: ["metrics"], notes: ["metrics.spacing: missing"] } };
+    const a = mapScottieReport({ externalJobId: "x", submission: submission(), report: metricsOnly, frameTimestampsSec: ts, now: NOW });
+    assert.equal(a.report.performanceEstimate, undefined);
+    assert.ok(a.issues.some((i) => i.includes("synthesized the rubric scores")));
+    assert.equal(a.report.qualityValidation.passed, false);
+
+    // placeholder prose → disclosed, rating kept
+    const prose = { ...base, repair: { applied: true, synthesized: ["commentary", "strengths"], notes: [] } };
+    const b = mapScottieReport({ externalJobId: "x", submission: submission(), report: prose, frameTimestampsSec: ts, now: NOW });
+    assert.equal(b.report.performanceEstimate?.chelRating, 742);
+    assert.ok(b.report.uncertaintyDisclosures.some((d) => d.includes("Placeholder text") && d.includes("commentary, strengths")));
+
+    // invented moments → the report is refused outright
+    const moments = { ...base, repair: { applied: true, synthesized: ["coachingMoments"], notes: [] } };
+    assert.throws(
+      () => mapScottieReport({ externalJobId: "x", submission: submission(), report: moments, frameTimestampsSec: ts, now: NOW }),
+      (err: unknown) => (err as { code?: string; detail?: string }).code === "REPORT_VALIDATION_FAILED" && /synthesized coaching moments/.test((err as { detail?: string }).detail ?? ""),
+    );
+
+    // a repair block that was not applied is ignored
+    const notApplied = { ...base, repair: { applied: false, synthesized: ["coachingMoments", "metrics"] } };
+    const c = mapScottieReport({ externalJobId: "x", submission: submission(), report: notApplied, frameTimestampsSec: ts, now: NOW });
+    assert.equal(c.report.performanceEstimate?.chelRating, 742);
+  });
+
   it("synthesizes an insufficient-evidence strategy when Scottie attaches none, and fails without moments", () => {
     const ts = [4, 20];
     const base = scottieReportFixture(ts);
