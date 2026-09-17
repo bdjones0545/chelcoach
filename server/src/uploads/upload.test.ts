@@ -254,7 +254,7 @@ describe("game support + platform context", () => {
     });
   });
 
-  it("rejects unsupported and released-not-supported games", async () => {
+  it("rejects unknown games and derives support from the shared catalog, not the client's claim", async () => {
     await withServer(async (base, token) => {
       const unsupported = await fetch(`${base}/api/uploads`, {
         method: "POST",
@@ -275,26 +275,31 @@ describe("game support + platform context", () => {
       });
       assert.equal(unsupported.status, 422);
 
-      const notYet = await fetch(`${base}/api/uploads`, {
-        method: "POST",
-        headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
-        body: JSON.stringify({
-          filename: "a.mp4",
-          contentType: "video/mp4",
-          sizeBytes: 100,
-          context: xboxContext({
-            gameContext: {
-              selectedGameTitle: "NHL 26",
-              canonicalGameId: "nhl-26",
-              supportStatus: "supported",
-              mismatchState: "none",
-            },
+      // The current title is accepted; the stored status comes from the catalog (legacy for NHL 25)
+      // even when the client asserts "supported".
+      for (const [id, title, expectedStatus] of [
+        ["nhl-27", "NHL 27", "supported"],
+        ["nhl-26", "NHL 26", "supported"],
+        ["nhl-25", "NHL 25", "legacy_supported"],
+      ] as const) {
+        const res = await fetch(`${base}/api/uploads`, {
+          method: "POST",
+          headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+          body: JSON.stringify({
+            filename: "a.mp4",
+            contentType: "video/mp4",
+            sizeBytes: 100,
+            context: xboxContext({
+              gameContext: { selectedGameTitle: title, canonicalGameId: id, supportStatus: "supported", mismatchState: "none" },
+            }),
           }),
-        }),
-      });
-      assert.equal(notYet.status, 422);
-      const body = (await notYet.json()) as { error: string };
-      assert.equal(body.error, "GAME_NOT_YET_SUPPORTED");
+        });
+        assert.equal(res.status, 201, `${title} should be accepted`);
+        const { uploadId } = (await res.json()) as { uploadId: string };
+        const stored = await getUploadRepository().get(uploadId);
+        assert.ok(stored, `${title} record persisted`);
+        assert.equal(stored.context.gameContext.supportStatus, expectedStatus, `${title} stored status comes from the catalog`);
+      }
     });
   });
 });

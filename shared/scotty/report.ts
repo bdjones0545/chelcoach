@@ -57,6 +57,32 @@ export type PlayerAttribution = z.infer<typeof playerAttributionSchema>;
 /**
  * Full Scotty coaching report — no chain-of-thought / raw model reasoning.
  */
+/**
+ * A rubric-based estimate of overall play, computed by the analysis provider from the sampled
+ * frames. It is an estimate, not a measurement: the basis (frame count, duration) and confidence
+ * travel with it so the UI can say so. Absent when the provider produced no rubric scores.
+ */
+export const performanceMetricSchema = z.object({
+  key: z.string().trim().min(1).max(64),
+  label: z.string().trim().min(1).max(80),
+  score: z.number().int().min(0).max(100),
+  note: z.string().trim().max(300).optional(),
+});
+export type PerformanceMetric = z.infer<typeof performanceMetricSchema>;
+
+export const performanceEstimateSchema = z.object({
+  /** 0–1000, the weighted rubric average. */
+  chelRating: z.number().int().min(0).max(1000),
+  metrics: z.array(performanceMetricSchema).max(12),
+  basis: z.object({
+    frameCount: z.number().int().min(0).max(200),
+    durationSec: z.number().nonnegative().max(1800),
+    rubricVersion: z.string().trim().min(1).max(64),
+  }),
+  confidence: evidenceConfidenceLabelSchema,
+});
+export type PerformanceEstimate = z.infer<typeof performanceEstimateSchema>;
+
 export const scottyReportSchema = z.object({
   contractVersion: scottyContractVersionSchema.default(SCOTTY_CONTRACT_VERSION),
   reportId: z.string().trim().min(1).max(128),
@@ -66,6 +92,7 @@ export const scottyReportSchema = z.object({
   gameContext: gameContextSchema,
   playerAttribution: playerAttributionSchema,
   controlledPlayerConfidence: evidenceConfidenceLabelSchema,
+  performanceEstimate: performanceEstimateSchema.optional(),
   playerSpecificObservations: z.array(scottyObservationSchema).max(40),
   strengths: z.array(z.string().trim().max(240)).max(10),
   priorityImprovements: z.array(z.string().trim().max(240)).max(10),

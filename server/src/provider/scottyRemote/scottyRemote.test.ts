@@ -63,7 +63,14 @@ export function scottieReportFixture(ts: number[]): Record<string, unknown> {
       overallGrade: "B",
       eventsAnalyzed: ts.length,
       gameContext: "Frame-sampled EASHL shift review.",
-      metrics: [{ key: "offensive-positioning", label: "Offensive Positioning", value: 71, icon: "sports_hockey", tone: "warn", note: "n" }],
+      metrics: [
+        { key: "offensive_positioning", label: "Offensive Positioning", value: 71, icon: "sports_hockey", tone: "warn", note: "Slot arrivals late on 0:36 and 0:52." },
+        { key: "defensive_positioning", label: "Defensive Positioning", value: 64, icon: "shield", tone: "warn", note: "" },
+        { key: "decision_making", label: "Decision Making", value: 80, icon: "psychology", tone: "good", note: "" },
+        { key: "puck_movement", label: "Puck Movement", value: 77, icon: "swap_horiz", tone: "good", note: "" },
+        { key: "spacing", label: "Spacing", value: 70, icon: "grid_on", tone: "warn", note: "" },
+        { key: "transition_play", label: "Transition Play", value: 83, icon: "trending_up", tone: "good", note: "" },
+      ],
       biggestStrength: { title: "Support availability in transition", detail: "Outlet distance stays playable." },
       biggestWeakness: { title: "Strong-side over-commitment", detail: "Middle ice left light late." },
     },
@@ -446,6 +453,45 @@ describe("report mapping", () => {
     assert.equal(report.reportVersion, "scottie-remote-v1");
     assert.equal(report.qualityValidation.passed, false);
     assert.ok(issues.some((i) => i.includes("dropped")));
+  });
+
+  it("carries the gateway's Chel Rating as a labelled estimate with its basis, and never as a measurement", () => {
+    const ts = [4, 20, 36, 52, 68, 84];
+    const { report } = mapScottieReport({ externalJobId: "x", submission: submission(), report: scottieReportFixture(ts), frameTimestampsSec: ts, now: NOW });
+    const est = report.performanceEstimate;
+    assert.ok(est, "estimate present when the gateway scored the rubric");
+    assert.equal(est.chelRating, 742);
+    assert.equal(est.metrics.length, 6);
+    assert.deepEqual(est.metrics.map((m) => m.key), ["offensive_positioning", "defensive_positioning", "decision_making", "puck_movement", "spacing", "transition_play"]);
+    assert.equal(est.metrics[0]!.score, 71);
+    assert.equal(est.metrics[0]!.label, "Offensive Positioning");
+    assert.equal(est.metrics[0]!.note, "Slot arrivals late on 0:36 and 0:52.");
+    assert.equal(est.metrics[1]!.note, undefined, "empty notes are dropped");
+    assert.equal(est.basis.frameCount, 6);
+    assert.equal(est.basis.rubricVersion, "chelcoach-rubric-v1");
+    assert.ok(report.uncertaintyDisclosures.some((d) => d.includes("rubric estimate from 6 sampled frames")));
+  });
+
+  it("reads the raw model shape too, and withholds the rating when the rubric is flat or missing", () => {
+    const ts = [4, 20];
+    const base = scottieReportFixture(ts);
+    delete base.scorecard;
+    // raw shape (top-level chelRating + metrics dict), as the model emits before the validator
+    const raw = { ...base, chelRating: 610, metrics: { offensive_positioning: 60, defensive_positioning: 55, decision_making: 68 }, metricNotes: { decision_making: "Chip out under pressure at 0:20." } };
+    const a = mapScottieReport({ externalJobId: "x", submission: submission(), report: raw, frameTimestampsSec: ts, now: NOW });
+    assert.equal(a.report.performanceEstimate?.chelRating, 610);
+    assert.equal(a.report.performanceEstimate?.metrics.find((m) => m.key === "decision_making")?.note, "Chip out under pressure at 0:20.");
+    assert.equal(a.report.performanceEstimate?.metrics[0]!.label, "Offensive positioning", "labels are derived when the wire has none");
+
+    // the gateway's repair path fills every metric with 55 — that is not a rating
+    const flat = { ...base, scorecard: { chelRating: 550, metrics: [55, 55, 55, 55, 55, 55].map((v, i) => ({ key: `m${i}`, value: v })) } };
+    const b = mapScottieReport({ externalJobId: "x", submission: submission(), report: flat, frameTimestampsSec: ts, now: NOW });
+    assert.equal(b.report.performanceEstimate, undefined);
+    assert.ok(b.issues.some((i) => i.includes("flat")));
+
+    const none = mapScottieReport({ externalJobId: "x", submission: submission(), report: base, frameTimestampsSec: ts, now: NOW });
+    assert.equal(none.report.performanceEstimate, undefined);
+    assert.ok(!none.report.uncertaintyDisclosures.some((d) => d.includes("Chel Rating")));
   });
 
   it("synthesizes an insufficient-evidence strategy when Scottie attaches none, and fails without moments", () => {

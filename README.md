@@ -31,7 +31,14 @@ preview of what membership will include; there is no billing yet and the copy sa
 `shared/scotty/games.ts` (mirrored for the UI in `src/data/gameCatalog.ts`) is the catalog of
 EA NHL titles the Upload screen offers and which of them are accepted. "Supported" is a
 product flag: the coaching pipeline is not title-specific, and the gateway's per-title
-control/strategy registries are disabled in production.
+control/strategy registries are disabled in production. The catalog is newest-first and the
+Upload screen defaults to the first entry; `src/data/gameCatalog.test.ts` keeps the mirror equal.
+
+The report's **Chel Rating** is the provider's rubric estimate (`performanceEstimate` in
+`shared/scotty/report.ts`): six 0–100 metrics folded into a 0–1000 number, carried with its
+basis (frame count, duration, rubric version) and confidence, and always shown as an estimate.
+A flat rubric (every metric identical — what the gateway emits when the model scored nothing)
+is withheld rather than shown.
 
 ## Architecture
 

@@ -13,9 +13,10 @@ export interface GameCatalogEntry {
 }
 
 export const GAME_CATALOG: GameCatalogEntry[] = [
-  { canonicalGameId: "nhl-25", title: "NHL 25", supportStatus: "supported" },
+  { canonicalGameId: "nhl-27", title: "NHL 27", supportStatus: "supported" },
+  { canonicalGameId: "nhl-26", title: "NHL 26", supportStatus: "supported" },
+  { canonicalGameId: "nhl-25", title: "NHL 25", supportStatus: "legacy_supported" },
   { canonicalGameId: "nhl-24", title: "NHL 24", supportStatus: "legacy_supported" },
-  { canonicalGameId: "nhl-26", title: "NHL 26", supportStatus: "released_not_yet_supported" },
 ];
 
 export const RELEASED_NOT_SUPPORTED_MESSAGE =

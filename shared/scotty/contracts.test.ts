@@ -31,6 +31,7 @@ import {
   gameplayProfileUpdateSchema,
   createUploadSessionRequestSchema,
   buildGameContextFromSelection,
+  GAME_CATALOG,
   isGameAcceptableForUpload,
   RELEASED_NOT_SUPPORTED_MESSAGE,
   findGameById,
@@ -493,17 +494,31 @@ describe("Scotty contracts — Step 2 profile / games / classification", () => {
   });
 
   it("validates create-upload-session context and rejects unsupported game selection helpers", () => {
-    const nhl25 = findGameById("nhl-25");
-    assert.ok(nhl25);
-    assert.equal(isGameAcceptableForUpload(nhl25.supportStatus), true);
+    const nhl27 = findGameById("nhl-27");
+    assert.ok(nhl27);
+    assert.equal(nhl27.supportStatus, "supported");
+    assert.equal(isGameAcceptableForUpload(nhl27.supportStatus), true);
 
     const nhl26 = findGameById("nhl-26");
     assert.ok(nhl26);
-    assert.equal(isGameAcceptableForUpload(nhl26.supportStatus), false);
+    assert.equal(isGameAcceptableForUpload(nhl26.supportStatus), true);
+
+    const nhl25 = findGameById("nhl-25");
+    assert.ok(nhl25);
+    assert.equal(nhl25.supportStatus, "legacy_supported");
+    assert.equal(isGameAcceptableForUpload(nhl25.supportStatus), true);
+
+    // The newest catalog entry is always the current EA title and always uploadable.
+    assert.equal(GAME_CATALOG[0].canonicalGameId, "nhl-27");
+    assert.equal(isGameAcceptableForUpload(GAME_CATALOG[0].supportStatus), true);
     assert.match(RELEASED_NOT_SUPPORTED_MESSAGE, /still being verified/);
 
-    const ctx = buildGameContextFromSelection("nhl-26");
-    assert.equal(ctx.supportStatus, "released_not_yet_supported");
+    const ctx = buildGameContextFromSelection("nhl-27");
+    assert.equal(ctx.supportStatus, "supported");
+    assert.equal(ctx.mismatchState, "none");
+
+    const unknown = buildGameContextFromSelection("nhl-99");
+    assert.equal(unknown.mismatchState, "unsupported_selection");
 
     const req = createUploadSessionRequestSchema.parse({
       filename: "clip.mp4",

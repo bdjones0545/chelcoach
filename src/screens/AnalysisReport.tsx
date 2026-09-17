@@ -305,10 +305,47 @@ export default function AnalysisReport() {
                       tone="neutral"
                     />
                   </div>
-                  {/* Overall score omitted — ScottyReport contract has no overall score field. */}
-                  <div data-testid="overall-score-absent" className="sr-only">
-                    No overall score in report
-                  </div>
+                  {view.overallScore ? (
+                    <div
+                      data-testid="chel-rating-estimate"
+                      className="rounded-xl border border-white/10 border-t-2 border-t-primary bg-surface-container/40 p-5"
+                    >
+                      <div className="flex flex-wrap items-end justify-between gap-4">
+                        <div>
+                          <p className="font-label-sm text-label-sm uppercase tracking-widest text-on-surface-variant">
+                            Estimated Chel Rating
+                          </p>
+                          <p className="font-headline-xl text-[44px] leading-none text-primary md:text-headline-xl">
+                            {view.overallScore.chelRating}
+                            <span className="ml-1 font-label-md text-label-md text-on-surface-variant">/ 1000</span>
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-label-md text-label-md text-on-surface">{view.overallScore.band}</p>
+                          <p className="font-label-sm text-label-sm text-on-surface-variant">{view.overallScore.confidence}</p>
+                        </div>
+                      </div>
+                      <p className="mt-3 font-label-sm text-label-sm text-on-surface-variant">{view.overallScore.basis}</p>
+                      {view.overallScore.metrics.length > 0 && (
+                        <ul className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                          {view.overallScore.metrics.map((m) => (
+                            <li key={m.key} className="rounded-lg border border-white/5 bg-surface-container/60 p-3">
+                              <div className="flex items-baseline justify-between gap-2">
+                                <span className="font-label-sm text-label-sm text-on-surface-variant">{m.label}</span>
+                                <span className="font-headline-md text-headline-md text-on-surface">{m.score}</span>
+                              </div>
+                              <p className="font-label-sm text-label-sm text-primary">{m.qualitative}</p>
+                              {m.note && <p className="mt-1 font-body-md text-on-surface-variant">{m.note}</p>}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  ) : (
+                    <div data-testid="overall-score-absent" className="sr-only">
+                      No overall score in report
+                    </div>
+                  )}
                 </GlassPanel>
               </section>
 
