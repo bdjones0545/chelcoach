@@ -29,9 +29,16 @@ readinessRouter.get("/admin/readiness", requireOwnerAuth, (_req, res) => {
   res.json(body);
 });
 
-/** GET /api/health/readiness — coarse public gate (no secrets, no detailed misconfig). */
+/**
+ * GET /api/health/readiness — coarse public gate (no secrets, no detailed misconfig).
+ * The response stays coarse on purpose; the reason codes go to the server log so an operator
+ * reading runtime logs can see *why* submission is closed without an owner session.
+ */
 readinessRouter.get("/health/readiness", (_req, res) => {
   const readiness = computeReadiness();
+  if (!readiness.analysisSubmissionEnabled) {
+    console.warn(`[chelcoach-readiness] analysisSubmission=disabled reasons=${readiness.reasons.join(",") || "-"}`);
+  }
   res.setHeader("Cache-Control", "no-store");
   res.status(readiness.analysisSubmissionEnabled ? 200 : 503).json({
     analysisSubmission: readiness.analysisSubmissionEnabled ? "enabled" : "disabled",
