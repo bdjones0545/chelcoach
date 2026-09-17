@@ -21,7 +21,6 @@ vi.mock("../lib/analysisClient", () => ({
 
 vi.mock("../lib/apiBase", () => ({
   API_BASE_URL: "http://localhost:3001",
-  USE_BACKEND_REPORTS: true,
 }));
 
 function renderReport(route: string) {

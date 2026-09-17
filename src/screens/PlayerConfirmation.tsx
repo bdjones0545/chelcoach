@@ -9,7 +9,6 @@ import {
   submitGameplayAnalysis,
   type AnalysisSubmitUiState,
 } from "../lib/analysisApi";
-import { USE_BACKEND_REPORTS } from "../lib/reportApi";
 import {
   confirmPlayer,
   correctIdentification,
@@ -62,11 +61,6 @@ export default function PlayerConfirmation() {
     const urlsToRevoke: string[] = [];
 
     (async () => {
-      if (!USE_BACKEND_REPORTS) {
-        // Mock path — keep conversion loop moving without backend.
-        navigate("/processing");
-        return;
-      }
       if (!uploadId) {
         setError("No ready upload found. Upload a clip first.");
         setState("error");
@@ -279,14 +273,14 @@ export default function PlayerConfirmation() {
                     navigate(
                       acceptedRequestId
                         ? `/analysis/${encodeURIComponent(acceptedRequestId)}`
-                        : "/processing",
+                        : "/analysis-status",
                     )
                   }
                 >
                   Track analysis status
                 </Button>
-                <Button variant="ghost" onClick={() => navigate("/processing")}>
-                  Continue to demo scorecard
+                <Button variant="ghost" onClick={() => navigate("/scorecard")}>
+                  See a sample report
                 </Button>
               </div>
             ) : (

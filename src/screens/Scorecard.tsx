@@ -7,6 +7,7 @@ import MetricCard from "../components/MetricCard";
 import StatePanel from "../components/StatePanel";
 import TopAppBar from "../components/TopAppBar";
 import { stateCopy } from "../data/mockData";
+import SampleReportBanner from "../components/SampleReportBanner";
 import { useReport } from "../state/ReportContext";
 
 export default function Scorecard() {
@@ -43,17 +44,19 @@ export default function Scorecard() {
         <div className="pointer-events-none absolute right-0 top-0 -z-0 h-[600px] w-[600px] rounded-full bg-primary/5 blur-[120px]" />
         <div className="pointer-events-none absolute bottom-0 left-0 -z-0 h-[400px] w-[400px] rounded-full bg-tertiary/5 blur-[100px]" />
 
+        <SampleReportBanner />
+
         {/* Header + rating */}
         <section className="relative mb-10 flex flex-col justify-between gap-6 text-center md:flex-row md:items-end md:text-left">
           <div>
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-surface-container-highest px-3 py-1">
               <Icon name="verified" className="text-[16px] text-tertiary" fill />
               <span className="font-label-sm text-label-sm text-tertiary">
-                AI analyzed {scorecard.eventsAnalyzed}+ gameplay events
+                Sample: {scorecard.eventsAnalyzed}+ gameplay events
               </span>
             </div>
             <h1 className="mb-2 font-headline-xl text-[32px] uppercase text-white md:text-headline-xl">
-              Your Chel Rating
+              Sample Chel Rating
             </h1>
             <p className="max-w-xl font-body-lg text-on-surface-variant">{scorecard.gameContext}</p>
           </div>

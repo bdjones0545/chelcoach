@@ -12,8 +12,13 @@ import {
   type GameCatalogEntry,
 } from "../data/gameCatalog";
 import { uploadErrors, uploadRules } from "../data/mockData";
-import { USE_BACKEND_REPORTS } from "../lib/reportApi";
 import { storeReadyUploadId } from "../lib/playerIdentificationApi";
+import {
+  ANALYSIS_CLOSED_MESSAGE,
+  ANALYSIS_UNKNOWN_MESSAGE,
+  fetchAnalysisReadiness,
+  type AnalysisReadiness,
+} from "../lib/readinessApi";
 import {
   cancelUpload,
   createUploadSession,
@@ -198,6 +203,8 @@ export default function Upload() {
   const [consoleGeneration, setConsoleGeneration] = useState("");
   const [saveAsDefaults, setSaveAsDefaults] = useState(false);
   const [profileLoaded, setProfileLoaded] = useState(false);
+  const [readiness, setReadiness] = useState<AnalysisReadiness | "loading">("loading");
+  const analysisOpen = readiness === "enabled";
 
   const selectedGame: GameCatalogEntry | undefined = GAME_CATALOG.find((g) => g.canonicalGameId === gameId);
   const gameOk = selectedGame ? isGameAcceptableForUpload(selectedGame.supportStatus) : false;
@@ -286,10 +293,19 @@ export default function Upload() {
     };
   }, []);
 
+  // Ask the server whether analysis is open before offering to upload anything.
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchAnalysisReadiness(controller.signal).then((r) => {
+      if (!controller.signal.aborted) setReadiness(r);
+    });
+    return () => controller.abort();
+  }, []);
+
   // Reload recovery — resume inspection polling from ?uploadId=
   useEffect(() => {
     const resumeId = searchParams.get("uploadId");
-    if (!resumeId || !USE_BACKEND_REPORTS) return;
+    if (!resumeId) return;
     let cancelled = false;
     (async () => {
       try {
@@ -369,13 +385,7 @@ export default function Upload() {
   };
 
   const startUpload = async () => {
-    if (!file || !selectedGame || !gameOk || !singlePlayer) return;
-
-    if (!USE_BACKEND_REPORTS) {
-      // Mock conversion loop — context collected for UX, analysis still demo.
-      navigate("/processing");
-      return;
-    }
+    if (!file || !selectedGame || !gameOk || !singlePlayer || !analysisOpen) return;
 
     setError(null);
     setUiState("preparing");
@@ -472,6 +482,7 @@ export default function Upload() {
     Boolean(controlScheme) &&
     Boolean(position) &&
     Boolean(gameMode) &&
+    analysisOpen &&
     !busy;
 
   return (
@@ -758,6 +769,23 @@ export default function Upload() {
               )}
             </GlassPanel>
 
+            {readiness === "disabled" && (
+              <GlassPanel
+                role="status"
+                data-testid="analysis-closed-notice"
+                className="flex items-start gap-3 border-l-4 border-l-secondary p-4"
+              >
+                <Icon name="schedule" className="mt-0.5 text-secondary" />
+                <p className="font-body-md text-on-surface-variant">{ANALYSIS_CLOSED_MESSAGE}</p>
+              </GlassPanel>
+            )}
+            {readiness === "unknown" && (
+              <GlassPanel role="alert" className="flex items-start gap-3 border-l-4 border-l-error p-4">
+                <Icon name="cloud_off" className="mt-0.5 text-error" />
+                <p className="font-body-md text-on-surface-variant">{ANALYSIS_UNKNOWN_MESSAGE}</p>
+              </GlassPanel>
+            )}
+
             <Button
               className="h-16 w-full"
               icon={busy ? "cloud_upload" : "psychology"}
@@ -766,7 +794,9 @@ export default function Upload() {
             >
               {busy
                 ? `${statusLabel(uiState, inspectionLabel)}${uiState === "uploading" ? ` ${progress}%` : ""}`
-                : "Get My Chel Rating"}
+                : readiness === "disabled"
+                  ? "Analysis opens soon"
+                  : "Get My Chel Rating"}
             </Button>
 
             <p className="text-center font-label-sm text-label-sm text-on-surface-variant">

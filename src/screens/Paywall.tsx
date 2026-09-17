@@ -4,6 +4,7 @@ import GlassPanel from "../components/GlassPanel";
 import Icon from "../components/Icon";
 import Logo from "../components/Logo";
 import { paywallBenefits } from "../data/mockData";
+import SampleReportBanner from "../components/SampleReportBanner";
 import { usePremium } from "../state/PremiumContext";
 import PREVIEW_IMG from "../assets/dashboard-preview.svg";
 
@@ -11,8 +12,9 @@ export default function Paywall() {
   const navigate = useNavigate();
   const { unlock } = usePremium();
 
-  const startTrial = () => {
-    unlock(); // mock — no real payment
+  // Preview only: there is no billing behind this screen, so the CTA says so.
+  const previewFullFilmRoom = () => {
+    unlock();
     navigate("/film-room");
   };
 
@@ -30,6 +32,9 @@ export default function Paywall() {
       </header>
 
       <main className="relative overflow-hidden px-gutter pb-16 pt-24">
+        <div className="relative z-10 mx-auto max-w-4xl">
+          <SampleReportBanner />
+        </div>
         <div className="relative z-10 mx-auto flex max-w-4xl flex-col items-center text-center">
           {/* Visual hook */}
           <div className="relative mb-10">
@@ -74,22 +79,22 @@ export default function Paywall() {
           {/* CTAs */}
           <div className="flex w-full max-w-sm flex-col gap-3">
             <p className="font-label-sm text-label-sm text-on-surface-variant">
-              Free for 7 days. Cancel anytime — you won't be charged today.
+              Membership isn't available yet. Preview what the full film room will include.
             </p>
             <button
-              onClick={startTrial}
+              onClick={previewFullFilmRoom}
               className="ice-gradient premium-glow rounded-xl py-4 font-headline-md text-headline-md uppercase tracking-wide text-on-primary-fixed shadow-lg transition-transform hover:brightness-110 active:scale-95"
             >
-              Start My Free Trial
+              Preview the Full Film Room
             </button>
             <div className="flex items-center justify-center gap-4 font-label-sm text-label-sm text-on-surface-variant/80">
               <span className="flex items-center gap-1">
                 <Icon name="lock" className="text-[14px]" />
-                No charge today
+                No payment, no trial
               </span>
               <span className="flex items-center gap-1">
                 <Icon name="check" className="text-[14px]" />
-                Cancel in two taps
+                Sample content
               </span>
             </div>
             <button

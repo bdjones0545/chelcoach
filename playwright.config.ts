@@ -125,7 +125,6 @@ export default defineConfig({
       timeout: 120_000,
       env: {
         ...process.env,
-        VITE_USE_BACKEND_REPORTS: "true",
         VITE_API_BASE_URL: API_URL,
         VITE_ALLOW_IDENTITY_FIXTURES: "true",
       },
