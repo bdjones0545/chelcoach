@@ -24,6 +24,32 @@ describe("buildCoachingReportView", () => {
     expect(view.overallScore).toBeNull();
   });
 
+  it("presents the provider's rubric scores as a labelled estimate, never a measurement", () => {
+    const view = buildCoachingReportView(
+      makeReportPayload({
+        report: {
+          performanceEstimate: {
+            chelRating: 742,
+            confidence: "moderate",
+            basis: { frameCount: 12, durationSec: 90, rubricVersion: "chelcoach-rubric-v1" },
+            metrics: [
+              { key: "decision_making", label: "Decision making", score: 80, note: "Chip out under pressure at 0:20." },
+              { key: "spacing", label: "Spacing", score: 52 },
+            ],
+          },
+        },
+      }),
+    );
+    expect(view.overallScore).not.toBeNull();
+    expect(view.overallScore?.chelRating).toBe(742);
+    expect(view.overallScore?.band).toBe("Above-average band");
+    expect(view.overallScore?.confidence).toBe("Moderate confidence");
+    expect(view.overallScore?.basis).toMatch(/Estimate from 12 frames/);
+    expect(view.overallScore?.basis).toMatch(/Not a full-game measurement/);
+    expect(view.overallScore?.metrics.map((m) => m.qualitative)).toEqual(["Strong", "Needs attention"]);
+    expect(view.overallScore?.metrics[0]?.note).toBe("Chip out under pressure at 0:20.");
+  });
+
   it("omits faceoffs when count is zero / absent", () => {
     const view = buildCoachingReportView(makeReportPayload());
     expect(view.faceoffs).toBeNull();

@@ -191,7 +191,8 @@ export default function Upload() {
   const [ownerToken, setOwnerToken] = useState<string | null>(null);
 
   // Gameplay context — prefilled from profile when available.
-  const [gameId, setGameId] = useState("nhl-25");
+  // Default to the current EA title (catalog is newest-first); the saved profile overrides it.
+  const [gameId, setGameId] = useState(GAME_CATALOG[0]!.canonicalGameId);
   const [platform, setPlatform] = useState("xbox_series");
   const [controlScheme, setControlScheme] = useState("skill_stick");
   const [position, setPosition] = useState("C");

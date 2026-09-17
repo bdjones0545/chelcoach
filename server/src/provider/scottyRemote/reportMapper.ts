@@ -15,6 +15,7 @@ import {
   type EvidenceConfidenceLabel,
   type PracticeDrill,
   type ScottyAnalysisSubmission,
+  type PerformanceEstimate,
   type ScottyReport,
 } from "../../scottyContract";
 
@@ -180,6 +181,78 @@ export interface MapScottieReportInput {
   providerMetadata?: Dict;
   frameTimestampsSec: number[];
   now: Date;
+}
+
+/** Gateway rubric metric keys → display labels (chelcoach-rubric-v1). Unknown keys are titled from the key. */
+const RUBRIC_METRIC_LABELS: Record<string, string> = {
+  offensive_positioning: "Offensive positioning",
+  defensive_positioning: "Defensive positioning",
+  decision_making: "Decision making",
+  puck_movement: "Puck movement",
+  spacing: "Spacing",
+  transition_play: "Transition play",
+};
+
+function metricLabel(key: string): string {
+  const known = RUBRIC_METRIC_LABELS[key];
+  if (known) return known;
+  const words = key.replace(/[_-]+/g, " ").trim();
+  return words ? words[0].toUpperCase() + words.slice(1) : key;
+}
+
+/**
+ * The gateway scores the rubric (0–100 per metric) and folds it into a 0–1000 Chel Rating under
+ * `scorecard` (`chelRating`, `metrics[{key,label,value,note}]`); raw model output puts the same
+ * data at the top level (`chelRating`, `metrics{key: value}`). Carry it as an *estimate* with its
+ * basis. Omit it entirely — never fabricate — when the rating is missing or out of range, or when
+ * the rubric is flat (every metric identical), which is what the gateway's repair path emits when
+ * the model returned no scores at all.
+ */
+export function buildPerformanceEstimate(input: {
+  report: Dict;
+  frameCount: number;
+  durationSec: number;
+  rubricVersion: string;
+}): { estimate: PerformanceEstimate | null; issue?: string } {
+  const scorecard = isDict(input.report.scorecard) ? input.report.scorecard : {};
+  const rating = num(scorecard.chelRating ?? input.report.chelRating);
+  if (rating === null || rating < 0 || rating > 1000) return { estimate: null };
+
+  const rawMetrics = scorecard.metrics ?? input.report.metrics;
+  const notes = isDict(input.report.metricNotes) ? input.report.metricNotes : {};
+  const metrics: PerformanceEstimate["metrics"] = [];
+  const push = (key: unknown, value: unknown, label: unknown, note: unknown) => {
+    const score = num(value);
+    const k = str(key, 64);
+    if (!k || score === null || score < 0 || score > 100 || metrics.length >= 12) return;
+    const n = str(note, 300);
+    metrics.push({ key: k, label: str(label, 80) || metricLabel(k), score: Math.round(score), ...(n ? { note: n } : {}) });
+  };
+  if (Array.isArray(rawMetrics)) {
+    for (const m of rawMetrics) if (isDict(m)) push(m.key, m.value ?? m.score, m.label, m.note);
+  } else if (isDict(rawMetrics)) {
+    for (const [key, value] of Object.entries(rawMetrics)) {
+      const v = isDict(value) ? value.value ?? value.score : value;
+      push(key, v, undefined, isDict(value) ? value.note : notes[key]);
+    }
+  }
+
+  if (metrics.length >= 3 && metrics.every((m) => m.score === metrics[0].score)) {
+    return { estimate: null, issue: "rubric scores were flat (every metric identical); the Chel Rating was withheld" };
+  }
+
+  return {
+    estimate: {
+      chelRating: Math.round(rating),
+      metrics,
+      basis: {
+        frameCount: Math.max(0, Math.min(200, Math.round(input.frameCount))),
+        durationSec: Math.max(0, Math.min(1800, input.durationSec)),
+        rubricVersion: input.rubricVersion,
+      },
+      confidence: confidenceLabel(input.report.confidence ?? scorecard.confidence),
+    },
+  };
 }
 
 export function mapScottieReport(input: MapScottieReportInput): { report: ScottyReport; issues: string[] } {
@@ -378,6 +451,19 @@ export function mapScottieReport(input: MapScottieReportInput): { report: Scotty
   const provisional = guidance.filter((g) => g.verificationStatus !== "verified").length;
   if (provisional > 0) disclosures.push(`${provisional} control input${provisional === 1 ? "" : "s"} are provisional — confirm against your in-game settings.`);
 
+  const { estimate: performanceEstimate, issue: estimateIssue } = buildPerformanceEstimate({
+    report,
+    frameCount: frameTimestampsSec.length,
+    durationSec,
+    rubricVersion: str(report.rubricVersion, 64) || "chelcoach-rubric-v1",
+  });
+  if (estimateIssue) issues.push(estimateIssue);
+  if (performanceEstimate) {
+    disclosures.push(
+      `The Chel Rating is a rubric estimate from ${performanceEstimate.basis.frameCount} sampled frames, not a full-game measurement.`,
+    );
+  }
+
   const candidate = {
     contractVersion: submission.contractVersion,
     reportId: `rpt_${randomUUID()}`,
@@ -401,6 +487,7 @@ export function mapScottieReport(input: MapScottieReportInput): { report: Scotty
     practiceDrills,
     uncertaintyDisclosures: disclosures.slice(0, 20),
     rubricVersion: str(report.rubricVersion, 64) || "chelcoach-rubric-v1",
+    ...(performanceEstimate ? { performanceEstimate } : {}),
     strategyKnowledgeVersion: sa && str(sa.strategyId, 64) ? "scottie-strategy-registry" : "none",
     controlKnowledgeVersion: guidance.length ? "scottie-controls-registry" : "none",
     reportVersion: "scottie-remote-v1",

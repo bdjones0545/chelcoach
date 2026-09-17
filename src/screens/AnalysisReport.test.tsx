@@ -73,6 +73,38 @@ describe("AnalysisReport route", () => {
     expect(window.sessionStorage.length).toBe(0);
   });
 
+  it("renders the Chel Rating tile as an estimate when the report carries one", async () => {
+    getAnalysisStatus.mockResolvedValue(
+      makeJob({
+        status: "completed",
+        terminal: true,
+        reportAvailable: true,
+        reportReady: true,
+        pollAfterMs: null,
+      }),
+    );
+    getAnalysisReport.mockResolvedValue(
+      makeReportPayload({
+        report: {
+          performanceEstimate: {
+            chelRating: 742,
+            confidence: "moderate",
+            basis: { frameCount: 12, durationSec: 90, rubricVersion: "chelcoach-rubric-v1" },
+            metrics: [{ key: "spacing", label: "Spacing", score: 70 }],
+          },
+        },
+      }),
+    );
+    renderReport("/analysis/req-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/report");
+    const tile = await screen.findByTestId("chel-rating-estimate");
+    expect(tile).toHaveTextContent("Estimated Chel Rating");
+    expect(tile).toHaveTextContent("742");
+    expect(tile).toHaveTextContent("Above-average band");
+    expect(tile).toHaveTextContent("Not a full-game measurement");
+    expect(tile).toHaveTextContent("Spacing");
+    expect(screen.queryByTestId("overall-score-absent")).not.toBeInTheDocument();
+  });
+
   it("validates request id and shows not-ready without report fetch", async () => {
     renderReport("/analysis/bad!/report");
     await waitFor(() => {

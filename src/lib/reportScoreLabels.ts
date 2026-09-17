@@ -1,7 +1,6 @@
 /**
  * Centralized qualitative score labels (Step 8).
- * Only used when the report actually includes numeric scores.
- * ScottyReport currently has no overall/dimension scores — helpers remain ready.
+ * Only used when the report actually includes numeric scores (`performanceEstimate`).
  */
 
 export type ScoreQualitativeLabel = "Elite" | "Strong" | "Developing" | "Needs attention";
@@ -28,4 +27,17 @@ export function confidenceDisplayLabel(
   }
   if (confidence === "moderate") return "Moderate confidence";
   return "Limited evidence";
+}
+
+/**
+ * Band for a 0–1000 Chel Rating. Mirrors the gateway's `percentile_label` bands and, like it, is
+ * an honest band label — not a claim about where the player sits in a real population.
+ */
+export function chelRatingBandLabel(rating: number): string {
+  if (rating >= 900) return "Elite band";
+  if (rating >= 800) return "High band";
+  if (rating >= 700) return "Above-average band";
+  if (rating >= 600) return "Average band";
+  if (rating >= 500) return "Developing band";
+  return "Foundational band";
 }

@@ -3,13 +3,13 @@
  * Organizes, groups, and labels — never invents observations, scores, or controls.
  */
 import type { AnalysisReportResponse } from "../../shared/scotty/report-envelope";
-import type { ScottyObservation, ScottyReport } from "../../shared/scotty/report";
+import type { PerformanceEstimate, ScottyObservation, ScottyReport } from "../../shared/scotty/report";
 import type { ControlGuidance } from "../../shared/scotty/controls";
 import type { FaceoffAnalysis } from "../../shared/scotty/faceoffs";
 import type { PracticeDrill } from "../../shared/scotty/drills";
 import type { StrategyAnalysis } from "../../shared/scotty/strategies";
 import type { PlayerPosition, SupportedPlatform, ControlScheme } from "../../shared/scotty/enums";
-import { confidenceDisplayLabel } from "./reportScoreLabels";
+import { chelRatingBandLabel, confidenceDisplayLabel, qualitativeScoreLabel, type ScoreQualitativeLabel } from "./reportScoreLabels";
 
 export type ReportNavSectionId =
   | "overview"
@@ -138,6 +138,14 @@ export type NextGameFocusView = {
   successCondition: string;
 };
 
+export type PerformanceEstimateView = {
+  chelRating: number;
+  band: string;
+  confidence: string;
+  basis: string;
+  metrics: { key: string; label: string; score: number; qualitative: ScoreQualitativeLabel; note?: string }[];
+};
+
 export type CoachingReportView = {
   applicationRequestId: string;
   uploadId: string;
@@ -168,8 +176,11 @@ export type CoachingReportView = {
     highestPriority: string;
     nextSessionObjective: string;
   };
-  /** Numeric overall score — omitted when the contract has none. */
-  overallScore: null;
+  /**
+   * The provider's rubric estimate — null when the report carries none. Always presented as an
+   * estimate with its basis; never as a measured statistic.
+   */
+  overallScore: PerformanceEstimateView | null;
   focusAreas: FocusAreaCard[];
   strengths: StrengthCard[];
   priorities: PriorityCard[];
@@ -617,6 +628,24 @@ function buildNextFocus(priorities: PriorityCard[], strategy: StrategyAnalysis):
   };
 }
 
+function buildPerformanceEstimate(estimate: PerformanceEstimate | undefined): PerformanceEstimateView | null {
+  if (!estimate) return null;
+  const duration = formatDuration(estimate.basis.durationSec);
+  return {
+    chelRating: estimate.chelRating,
+    band: chelRatingBandLabel(estimate.chelRating),
+    confidence: confidenceDisplayLabel(estimate.confidence),
+    basis: `Estimate from ${estimate.basis.frameCount} frames sampled across ${duration ?? "the clip"} (${estimate.basis.rubricVersion}). Not a full-game measurement.`,
+    metrics: estimate.metrics.map((m) => ({
+      key: m.key,
+      label: m.label,
+      score: m.score,
+      qualitative: qualitativeScoreLabel(m.score),
+      ...(m.note ? { note: m.note } : {}),
+    })),
+  };
+}
+
 export function buildCoachingReportView(payload: AnalysisReportResponse): CoachingReportView {
   const { report } = payload;
   const moments = buildMoments(report);
@@ -703,7 +732,7 @@ export function buildCoachingReportView(payload: AnalysisReportResponse): Coachi
       nextSessionObjective:
         practiceDrills[0]?.drill.objective ?? nextGameFocus.primaryFocus,
     },
-    overallScore: null,
+    overallScore: buildPerformanceEstimate(report.performanceEstimate),
     focusAreas,
     strengths,
     priorities,

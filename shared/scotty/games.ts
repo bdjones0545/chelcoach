@@ -15,12 +15,28 @@ export const gameCatalogEntrySchema = z.object({
 });
 export type GameCatalogEntry = z.infer<typeof gameCatalogEntrySchema>;
 
-/** Curated list — extend as titles are verified. */
+/**
+ * Curated list, newest first. "supported" is a product decision, not a technical one: the
+ * coaching pipeline is title-agnostic (frames + rubric + Skill Stick defaults), so a new title
+ * is added here the week it ships. src/data/gameCatalog.ts mirrors this; a test keeps them equal.
+ */
 export const GAME_CATALOG: readonly GameCatalogEntry[] = [
+  {
+    canonicalGameId: "nhl-27",
+    title: "NHL 27",
+    supportStatus: "supported",
+    releaseYear: 2026,
+  },
+  {
+    canonicalGameId: "nhl-26",
+    title: "NHL 26",
+    supportStatus: "supported",
+    releaseYear: 2025,
+  },
   {
     canonicalGameId: "nhl-25",
     title: "NHL 25",
-    supportStatus: "supported",
+    supportStatus: "legacy_supported",
     releaseYear: 2024,
   },
   {
@@ -28,12 +44,6 @@ export const GAME_CATALOG: readonly GameCatalogEntry[] = [
     title: "NHL 24",
     supportStatus: "legacy_supported",
     releaseYear: 2023,
-  },
-  {
-    canonicalGameId: "nhl-26",
-    title: "NHL 26",
-    supportStatus: "released_not_yet_supported",
-    releaseYear: 2025,
   },
 ] as const;
 
