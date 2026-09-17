@@ -14,10 +14,13 @@ import Login from "./screens/Login";
 import Signup from "./screens/Signup";
 import ForgotPassword from "./screens/ForgotPassword";
 import ResetPassword from "./screens/ResetPassword";
+import WebMcpBridge from "./webmcp/WebMcpBridge";
 
 export default function App() {
   return (
-    <Routes>
+    <>
+      <WebMcpBridge />
+      <Routes>
       {/* Public */}
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
@@ -82,6 +85,7 @@ export default function App() {
       <Route path="/paywall" element={<Paywall />} />
       <Route path="/film-room" element={<FilmRoom />} />
       <Route path="*" element={<Landing />} />
-    </Routes>
+      </Routes>
+    </>
   );
 }
