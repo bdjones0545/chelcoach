@@ -1,14 +1,16 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AtmosphereBackground from "../components/AtmosphereBackground";
 import Button from "../components/Button";
 import GlassPanel from "../components/GlassPanel";
 import Icon from "../components/Icon";
 import Logo from "../components/Logo";
+import { fetchAnalysisReadiness, type AnalysisReadiness } from "../lib/readinessApi";
 import { useAnalysis } from "../state/AnalysisContext";
 
 const steps = [
   { icon: "cloud_upload", title: "Upload a clip", detail: "Drop in one MP4 or MOV of your NHL game." },
-  { icon: "query_stats", title: "Get your Chel Rating", detail: "A free coach-grade scorecard in under a minute." },
+  { icon: "query_stats", title: "Get your Chel Rating", detail: "A free coach-grade scorecard, usually within a few minutes." },
   { icon: "lock_open", title: "Unlock coaching insights", detail: "See every mistake — and exactly how to fix it." },
   { icon: "trending_up", title: "Win your next game", detail: "Walk in knowing your top priorities." },
 ];
@@ -16,6 +18,15 @@ const steps = [
 export default function Landing() {
   const navigate = useNavigate();
   const { markAnalyzed } = useAnalysis();
+  const [readiness, setReadiness] = useState<AnalysisReadiness | "loading">("loading");
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchAnalysisReadiness(controller.signal).then((r) => {
+      if (!controller.signal.aborted) setReadiness(r);
+    });
+    return () => controller.abort();
+  }, []);
 
   // The demo report populates the whole flow (scorecard + film room) with sample data.
   const viewDemo = () => {
@@ -97,9 +108,13 @@ export default function Landing() {
       </main>
 
       <footer className="relative z-10 flex flex-col items-center justify-between gap-4 px-gutter py-8 text-on-surface-variant md:flex-row">
-        <span className="flex items-center gap-2 font-label-sm text-label-sm">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-tertiary" />
-          AI Core Online
+        <span className="flex items-center gap-2 font-label-sm text-label-sm" data-testid="analysis-availability">
+          <span
+            className={`h-2 w-2 rounded-full ${
+              readiness === "enabled" ? "animate-pulse bg-tertiary" : readiness === "loading" ? "bg-outline" : "bg-secondary"
+            }`}
+          />
+          {readiness === "enabled" ? "Analysis open" : readiness === "loading" ? "Checking analysis status…" : "Analysis opening soon"}
         </span>
         <span className="font-label-sm text-label-sm">ChelCoach · NHL Gameplay Coaching</span>
       </footer>

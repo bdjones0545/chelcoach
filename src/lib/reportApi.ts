@@ -1,9 +1,8 @@
 /**
- * Backend report read-path + upload (behind the VITE_USE_BACKEND_REPORTS flag).
+ * Legacy clip read-path (init → PUT bytes → commit → poll → static sample report).
  *
- * Phase 2 adds real upload: init → PUT bytes (with progress) → commit → poll → report.
- * There is still no AI: the backend returns the deterministic sample report. When the flag
- * is off, none of this runs and the app uses local mock data unchanged.
+ * The product flow no longer goes through here — uploads use scottyUploadApi and reports
+ * come from analysisApi. This module stays for the server smoke test's `/api/clips` loop.
  *
  * Types are imported TYPE-ONLY from the shared contract, so `zod` never enters the bundle.
  */
@@ -15,10 +14,10 @@ import {
   type GameReport,
 } from "../data/mockData";
 
-import { API_BASE_URL, USE_BACKEND_REPORTS } from "./apiBase";
+import { API_BASE_URL } from "./apiBase";
 
 // One definition of the API base for every client — see apiBase.ts for the same-origin rule.
-export { API_BASE_URL, USE_BACKEND_REPORTS };
+export { API_BASE_URL };
 
 /** Deterministic demo clip id used when no real upload has happened (flag on). */
 const DEMO_CLIP_ID = "static-demo-clip";

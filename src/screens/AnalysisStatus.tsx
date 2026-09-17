@@ -33,7 +33,6 @@ import {
   getAnalysisStatusPresentation,
 } from "../lib/analysisStatusPresentation";
 import { getPlayerIdentification } from "../lib/playerIdentificationApi";
-import { USE_BACKEND_REPORTS } from "../lib/apiBase";
 
 const isDevLike =
   import.meta.env.DEV || import.meta.env.MODE === "test" || import.meta.env.MODE === "development";
@@ -94,10 +93,6 @@ export default function AnalysisStatus() {
   }, [parsedRoute.ok, legacyId, navigate]);
 
   useEffect(() => {
-    if (!USE_BACKEND_REPORTS) {
-      navigate("/processing");
-      return;
-    }
     if (!applicationRequestId) return;
 
     emitAnalysisTelemetry("route_recovery_completed", {

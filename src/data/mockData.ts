@@ -64,7 +64,7 @@ export const scorecard: Scorecard = {
   percentile: "Top 18% of Players",
   overallGrade: "B-",
   eventsAnalyzed: 250,
-  gameContext: "Your free coach-grade breakdown of your last uploaded game — every core skill graded, no sign-up required.",
+  gameContext: "A sample scorecard showing what a ChelCoach breakdown looks like — every core skill graded with a coaching note.",
   metrics: [
     {
       key: "offensive-iq",
@@ -216,7 +216,7 @@ export const paywallBenefits: PaywallBenefit[] = [
   {
     icon: "cloud_upload",
     title: "Break down every game you play",
-    detail: "Unlimited uploads build a season-long tactical profile of how you play.",
+    detail: "Every game you upload builds a season-long tactical profile of how you play.",
   },
   {
     icon: "verified",

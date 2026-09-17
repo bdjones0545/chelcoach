@@ -6,6 +6,7 @@ import Icon from "../components/Icon";
 import StatePanel from "../components/StatePanel";
 import TopAppBar from "../components/TopAppBar";
 import { stateCopy } from "../data/mockData";
+import SampleReportBanner from "../components/SampleReportBanner";
 import { toneBar, toneText } from "../components/tone";
 import { usePremium } from "../state/PremiumContext";
 import { useAnalysis } from "../state/AnalysisContext";
@@ -82,7 +83,10 @@ export default function FilmRoom() {
       />
 
       <main className="mx-auto max-w-container-max px-4 pt-20 md:px-gutter">
-        <div className="mb-6 mt-6 flex flex-wrap items-center gap-3">
+        <div className="mt-6">
+          <SampleReportBanner />
+        </div>
+        <div className="mb-6 flex flex-wrap items-center gap-3">
           <h1 className="font-headline-xl text-[32px] uppercase md:text-headline-xl">Full Film Room</h1>
           <span
             className={`rounded-full px-3 py-1 font-label-sm text-label-sm uppercase tracking-widest ${
@@ -91,7 +95,7 @@ export default function FilmRoom() {
                 : "bg-surface-container-highest text-on-surface-variant"
             }`}
           >
-            {isPremium ? "Premium Active" : "Demo"}
+            {isPremium ? "Sample — full view" : "Sample — locked view"}
           </span>
         </div>
 

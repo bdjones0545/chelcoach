@@ -24,7 +24,6 @@ import {
   analysisStatusPath,
   parseApplicationRequestIdParam,
 } from "../lib/analysisRequestId";
-import { USE_BACKEND_REPORTS } from "../lib/apiBase";
 import {
   buildCoachingReportView,
   type CoachingMomentView,
@@ -63,10 +62,6 @@ export default function AnalysisReport() {
   const reloadToken = useRef(0);
 
   const loadReport = async () => {
-    if (!USE_BACKEND_REPORTS) {
-      navigate("/scorecard");
-      return;
-    }
     if (!applicationRequestId) {
       setLoadState({
         kind: "error",

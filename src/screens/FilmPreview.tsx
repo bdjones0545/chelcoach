@@ -3,6 +3,7 @@ import BottomNav from "../components/BottomNav";
 import Button from "../components/Button";
 import CoachingMomentCard from "../components/CoachingMomentCard";
 import Icon from "../components/Icon";
+import SampleReportBanner from "../components/SampleReportBanner";
 import TopAppBar from "../components/TopAppBar";
 import { usePremium } from "../state/PremiumContext";
 import { useReport } from "../state/ReportContext";
@@ -20,6 +21,7 @@ export default function FilmPreview() {
       <TopAppBar />
 
       <main className="mx-auto max-w-container-max px-4 pb-8 pt-24 md:px-margin-desktop">
+        <SampleReportBanner />
         <div className="mb-12">
           <div className="mb-2 flex items-center gap-2">
             <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-primary" />

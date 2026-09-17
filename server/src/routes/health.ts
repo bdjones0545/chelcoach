@@ -4,12 +4,11 @@ import { getStorage } from "../storage";
 
 export const healthRouter = Router();
 
-/** Liveness probe for the Replit deployment. */
+/** Liveness probe. Capability lives in /api/health/readiness, not here. */
 healthRouter.get("/", (_req, res) => {
   res.json({
     status: "ok",
     service: "chelcoach-api",
-    phase: 2,
     dbConfigured: isDbConfigured(),
     storageBackend: getStorage().backend,
     time: new Date().toISOString(),
