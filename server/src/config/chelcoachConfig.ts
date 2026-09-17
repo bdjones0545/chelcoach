@@ -4,6 +4,7 @@
  * Never expose this object (or secrets) to the browser bundle.
  */
 import { analysisProviderSchema, type AnalysisProvider } from "../scottyContract";
+import { sessionPoolerUrlFromIntegration } from "./databaseConfig";
 import { isSimulatorScenario, type SimulatorScenario } from "../provider/simulator/scenarios";
 
 /**
@@ -250,6 +251,16 @@ function isPlaceholderSecret(value: string): boolean {
 let cached: ChelCoachConfig | undefined;
 
 /** Load configuration from env. Does not validate production fail-closed rules. */
+/**
+ * Whether a durable database URL is available — the same rule loadDatabaseConfig() applies:
+ * an explicit DATABASE_URL, or the Supabase↔Vercel integration's POSTGRES_URL. Readiness used
+ * to check DATABASE_URL literally and reported "no durable database" while the pool was
+ * connected through the integration.
+ */
+export function durableDatabaseUrlConfigured(env: NodeJS.ProcessEnv): boolean {
+  return Boolean((env.DATABASE_URL ?? "").trim() || sessionPoolerUrlFromIntegration(env));
+}
+
 export function loadChelCoachConfig(env: NodeJS.ProcessEnv = process.env): ChelCoachConfig {
   const nodeEnv = env.NODE_ENV ?? "development";
   const isProduction = nodeEnv === "production";
@@ -388,12 +399,12 @@ export function loadChelCoachConfig(env: NodeJS.ProcessEnv = process.env): ChelC
       callbackSigningConfigured: Boolean(callbackSecret) && !isPlaceholderSecret(callbackSecret),
     },
     retention: {
-      ready: Boolean((env.DATABASE_URL ?? "").trim()) && !forceMemoryRepos,
+      ready: durableDatabaseUrlConfigured(env) && !forceMemoryRepos,
     },
     storage: {
       mode: storageMode,
       productionMediaStorageReady,
-      databaseUrlConfigured: Boolean((env.DATABASE_URL ?? "").trim()),
+      databaseUrlConfigured: durableDatabaseUrlConfigured(env),
       forceMemoryRepos,
       gameplayBucket,
       derivedMediaBucket,
