@@ -72,7 +72,7 @@ const POSITION_SWITCHES = { value: "unknown", label: "Switches (I control the wh
 
 /** EASHL and World of Chel lock you to one skater; every other mode auto-switches. */
 const SINGLE_SKATER_MODES: ReadonlySet<string> = new Set(["eashl", "world_of_chel"]);
-export function isSingleSkaterMode(gameMode: string): boolean {
+function isSingleSkaterMode(gameMode: string): boolean {
   return SINGLE_SKATER_MODES.has(gameMode);
 }
 
