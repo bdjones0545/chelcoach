@@ -47,7 +47,7 @@ is withheld rather than shown.
 | Frontend | `src/` — React 19, Vite, TypeScript, Tailwind | Static build served by Vercel |
 | API | `server/` — Express 5 on Vercel functions via `api/index.ts` | Own npm project, runs with `tsx` |
 | Shared contract | `shared/scotty/` — Zod schemas | Upload, identification, job, report shapes |
-| Auth | Supabase Auth, verified server-side (`server/src/auth/`) | App tables have RLS on with no policies; the API uses its own role |
+| Auth | Supabase Auth (email/password + Google OAuth via PKCE), verified server-side (`server/src/auth/`) | Google needs a Web OAuth client in Google Cloud with redirect `https://<project-ref>.supabase.co/auth/v1/callback`, entered under Supabase → Authentication → Providers → Google. Any provider's user id is the ChelCoach owner id |
 | Storage | Supabase Storage (TUS uploads) | `CHELCOACH_MEDIA_STORAGE_MODE` |
 | Database | Postgres via Drizzle (`server/drizzle/`) | Migrations 0000–0006 |
 | Analysis | Provider `scotty` → Scottie gateway on orgo-desktop | source `services/scottie-gateway/`, deploy `ops/orgo-desktop/scottie/deploy.sh` |
