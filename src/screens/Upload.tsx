@@ -848,7 +848,7 @@ export default function Upload() {
         </div>
       </main>
 
-      <BottomNav active="film" />
+      <BottomNav active="upload" />
     </div>
   );
 }

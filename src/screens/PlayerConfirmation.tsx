@@ -5,6 +5,7 @@ import Button from "../components/Button";
 import GlassPanel from "../components/GlassPanel";
 import Icon from "../components/Icon";
 import TopAppBar from "../components/TopAppBar";
+import { useAnalysis } from "../state/AnalysisContext";
 import {
   submitGameplayAnalysis,
   type AnalysisSubmitUiState,
@@ -33,6 +34,7 @@ function fieldOrNotVisible(value: string | number | null | undefined): string {
 
 export default function PlayerConfirmation() {
   const navigate = useNavigate();
+  const { setCurrentAnalysisId } = useAnalysis();
   const [params] = useSearchParams();
   const uploadId = params.get("uploadId") || readReadyUploadId();
   const statusId = useId();
@@ -149,6 +151,7 @@ export default function PlayerConfirmation() {
     try {
       const result = await submitGameplayAnalysis(uploadId);
       setAcceptedRequestId(result.applicationRequestId);
+      setCurrentAnalysisId(result.applicationRequestId);
       setSubmitState("accepted");
       // Prefer the status screen for async provider workflows (simulator / future Scotty).
       navigate(`/analysis/${encodeURIComponent(result.applicationRequestId)}`);
@@ -483,7 +486,7 @@ export default function PlayerConfirmation() {
           </GlassPanel>
         )}
       </main>
-      <BottomNav active="film" />
+      <BottomNav active="analysis" />
     </div>
   );
 }

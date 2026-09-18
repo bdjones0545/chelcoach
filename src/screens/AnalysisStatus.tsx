@@ -27,6 +27,7 @@ import {
   parseApplicationRequestIdParam,
 } from "../lib/analysisRequestId";
 import { emitAnalysisTelemetry } from "../lib/analysisClientTelemetry";
+import { useAnalysis } from "../state/AnalysisContext";
 import { createAnalysisPollingController } from "../lib/analysisStatusPoller";
 import {
   analysisStagesForStatus,
@@ -46,6 +47,7 @@ type CancelUiState =
 
 export default function AnalysisStatus() {
   const navigate = useNavigate();
+  const { setCurrentAnalysisId } = useAnalysis();
   const routeParams = useParams();
   const [searchParams] = useSearchParams();
 
@@ -65,7 +67,11 @@ export default function AnalysisStatus() {
   const [job, setJob] = useState<AnalysisJobView | null>(null);
   const [clientError, setClientError] = useState<AnalysisClientError | null>(null);
   const [accessError, setAccessError] = useState<string | null>(
-    malformed || !applicationRequestId ? "We could not access this analysis." : null,
+    malformed
+      ? "We could not access this analysis."
+      : !applicationRequestId
+        ? "No analysis is in progress in this tab yet. Upload a clip to start one."
+        : null,
   );
   const [cancelUi, setCancelUi] = useState<CancelUiState>("idle");
   const [confirmBusy, setConfirmBusy] = useState(false);
@@ -113,6 +119,7 @@ export default function AnalysisStatus() {
         }
         setJob(next);
         setAccessError(null);
+        setCurrentAnalysisId(applicationRequestId);
         if (next.status === "cancelled") setCancelUi("cancelled");
         else if (cancelUiRef.current === "requesting_cancellation" && !next.terminal) {
           setCancelUi("cancellation_pending");
@@ -140,7 +147,7 @@ export default function AnalysisStatus() {
       poller.dispose();
       pollerRef.current = null;
     };
-  }, [applicationRequestId, navigate]);
+  }, [applicationRequestId, navigate, setCurrentAnalysisId]);
 
   // Provider-level confirmation candidates (distinct from Step 3 upload-level confirmation).
   useEffect(() => {
@@ -485,7 +492,7 @@ export default function AnalysisStatus() {
           ) : null}
         </GlassPanel>
       </main>
-      <BottomNav active="film" />
+      <BottomNav active="analysis" />
     </div>
   );
 }

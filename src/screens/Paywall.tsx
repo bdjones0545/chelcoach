@@ -121,7 +121,7 @@ export default function Paywall() {
         </div>
       </main>
 
-      <BottomNav active="insights" />
+      <BottomNav active="sample" />
     </div>
   );
 }

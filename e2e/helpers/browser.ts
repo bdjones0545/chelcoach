@@ -37,7 +37,8 @@ export async function fillGameplayProfile(
   await selects.nth(2).selectOption({ label: opts?.schemeLabel ?? "Skill Stick" });
   await selects.nth(3).selectOption({ label: opts?.positionLabel ?? "Center" });
   await selects.nth(4).selectOption({ label: opts?.modeLabel ?? "EASHL" });
-  await page.getByLabel(/I control one player/i).check();
+  // EASHL wording; team-control modes use "controlling the skater with the indicator" (PR #51).
+  await page.getByLabel(/I control one skater|controlling the skater with the indicator/i).check();
 }
 
 export async function uploadFixture(
