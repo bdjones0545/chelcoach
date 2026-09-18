@@ -67,6 +67,15 @@ const POSITIONS = [
   { value: "G", label: "Goalie" },
 ] as const;
 
+/** Offered only in team-control modes, where the controlled skater changes with the puck. */
+const POSITION_SWITCHES = { value: "unknown", label: "Switches (I control the whole team)" } as const;
+
+/** EASHL and World of Chel lock you to one skater; every other mode auto-switches. */
+const SINGLE_SKATER_MODES: ReadonlySet<string> = new Set(["eashl", "world_of_chel"]);
+function isSingleSkaterMode(gameMode: string): boolean {
+  return SINGLE_SKATER_MODES.has(gameMode);
+}
+
 const GAME_MODES = [
   { value: "eashl", label: "EASHL" },
   { value: "world_of_chel", label: "World of Chel" },
@@ -196,7 +205,17 @@ export default function Upload() {
   const [platform, setPlatform] = useState("xbox_series");
   const [controlScheme, setControlScheme] = useState("skill_stick");
   const [position, setPosition] = useState("C");
-  const [gameMode, setGameMode] = useState("eashl");
+  const [gameMode, setGameModeState] = useState("eashl");
+  const setGameMode = (next: string) => {
+    setGameModeState(next);
+    if (!isSingleSkaterMode(next)) {
+      // Team-control mode: "switches" is the truthful default — a preselected "C" would be a
+      // claim about the clip the user never made. They can still pick a position deliberately.
+      setPosition("unknown");
+    } else {
+      setPosition((p) => (p === "unknown" ? "C" : p));
+    }
+  };
   const [singlePlayer, setSinglePlayer] = useState(true);
   const [jerseyNumber, setJerseyNumber] = useState("");
   const [indicatorColor, setIndicatorColor] = useState("");
@@ -207,6 +226,11 @@ export default function Upload() {
   const [readiness, setReadiness] = useState<AnalysisReadiness | "loading">("loading");
   const analysisOpen = readiness === "enabled";
 
+  const singleSkaterMode = isSingleSkaterMode(gameMode);
+  // In a single-skater mode a real position is required; in team-control modes "switches" is the
+  // truthful answer and a fixed position is optional.
+  const positionOk = singleSkaterMode ? position !== "" && position !== "unknown" : position !== "";
+  const positionOptions = singleSkaterMode ? [...POSITIONS] : [POSITION_SWITCHES, ...POSITIONS];
   const selectedGame: GameCatalogEntry | undefined = GAME_CATALOG.find((g) => g.canonicalGameId === gameId);
   const gameOk = selectedGame ? isGameAcceptableForUpload(selectedGame.supportStatus) : false;
   const busy = uiState === "preparing" || uiState === "uploading" || uiState === "verifying" || uiState === "inspecting";
@@ -481,7 +505,7 @@ export default function Upload() {
     singlePlayer &&
     Boolean(platform) &&
     Boolean(controlScheme) &&
-    Boolean(position) &&
+    positionOk &&
     Boolean(gameMode) &&
     analysisOpen &&
     !busy;
@@ -649,10 +673,10 @@ export default function Upload() {
                 />
                 <SelectField
                   label="Position"
-                  required
+                  required={singleSkaterMode}
                   value={position}
                   onChange={setPosition}
-                  options={[...POSITIONS]}
+                  options={positionOptions}
                 />
                 <SelectField
                   label="Game mode"
@@ -721,7 +745,9 @@ export default function Upload() {
                   className="mt-1"
                 />
                 <span className="font-body-md text-on-surface">
-                  I control one player in this clip *
+                  {singleSkaterMode
+                    ? "I control one skater in this clip *"
+                    : "This is my own gameplay — I'm controlling the skater with the indicator *"}
                 </span>
               </label>
 
