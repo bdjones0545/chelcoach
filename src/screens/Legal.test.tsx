@@ -49,6 +49,12 @@ describe("legal pages", () => {
     expect(screen.queryByText(/free trial|cancel anytime/i)).not.toBeInTheDocument();
   });
 
+  it("shows the legal contact mailbox on both pages", () => {
+    at("/privacy", <Privacy />);
+    const link = screen.getByRole("link", { name: "bryan.jones@efficiencystrengthtraining.com" });
+    expect(link).toHaveAttribute("href", "mailto:bryan.jones@efficiencystrengthtraining.com");
+  });
+
   it("/terms says the rating is an estimate and the service is free with no billing", () => {
     at("/terms", <Terms />);
     expect(screen.getByRole("heading", { name: /terms of service/i })).toBeInTheDocument();

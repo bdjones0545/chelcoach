@@ -6,7 +6,7 @@
  */
 
 /** Set this to a monitored mailbox before public launch. Empty = the contact line is not shown. */
-export const LEGAL_CONTACT_EMAIL = "";
+export const LEGAL_CONTACT_EMAIL = "bryan.jones@efficiencystrengthtraining.com";
 
 export const LEGAL_LAST_UPDATED = "2026-09-17";
 
