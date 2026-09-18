@@ -694,7 +694,7 @@ export default function AnalysisReport() {
           </div>
         )}
       </main>
-      <BottomNav active="film" />
+      <BottomNav active="analysis" />
     </div>
   );
 }

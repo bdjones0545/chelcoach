@@ -31,7 +31,7 @@ export default function Scorecard() {
             secondary={{ label: "Back to Home", onClick: () => navigate("/") }}
           />
         </main>
-        <BottomNav active="roster" />
+        <BottomNav active="sample" />
       </div>
     );
   }
@@ -143,7 +143,7 @@ export default function Scorecard() {
         </section>
       </main>
 
-      <BottomNav active="roster" />
+      <BottomNav active="sample" />
     </div>
   );
 }

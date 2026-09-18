@@ -2,6 +2,7 @@ import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { AnalysisProvider } from "../state/AnalysisContext";
 import AnalysisReport from "./AnalysisReport";
 import { makeJob } from "../test/analysisJobFixtures";
 import {
@@ -29,11 +30,13 @@ function renderReport(route: string) {
       initialEntries={[route]}
       future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
     >
+      <AnalysisProvider>
       <Routes>
         <Route path="/analysis/:applicationRequestId/report" element={<AnalysisReport />} />
         <Route path="/analysis/:applicationRequestId" element={<div>status page</div>} />
         <Route path="/upload" element={<div>upload</div>} />
       </Routes>
+      </AnalysisProvider>
     </MemoryRouter>,
   );
 }

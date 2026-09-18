@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import Upload from "./Upload";
+import { AnalysisProvider } from "../state/AnalysisContext";
 
 const createUploadSession = vi.fn();
 const fetchAnalysisReadiness = vi.fn();
@@ -25,11 +26,13 @@ vi.mock("../lib/playerIdentificationApi", () => ({ storeReadyUploadId: vi.fn() }
 function renderUpload() {
   return render(
     <MemoryRouter initialEntries={["/upload"]}>
-      <Routes>
-        <Route path="/upload" element={<Upload />} />
-        <Route path="/processing" element={<div>MOCK PROCESSING ROUTE</div>} />
-        <Route path="/player-confirmation" element={<div>player confirmation</div>} />
-      </Routes>
+      <AnalysisProvider>
+        <Routes>
+          <Route path="/upload" element={<Upload />} />
+          <Route path="/processing" element={<div>MOCK PROCESSING ROUTE</div>} />
+          <Route path="/player-confirmation" element={<div>player confirmation</div>} />
+        </Routes>
+      </AnalysisProvider>
     </MemoryRouter>,
   );
 }

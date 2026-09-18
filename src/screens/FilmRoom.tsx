@@ -20,7 +20,7 @@ function FilmRoomStateLayout({ children }: { children: ReactNode }) {
       <main className="mx-auto flex max-w-container-max items-center justify-center px-4 pt-32 md:px-gutter">
         {children}
       </main>
-      <BottomNav active="film" />
+      <BottomNav active="sample" />
     </div>
   );
 }
@@ -310,7 +310,7 @@ export default function FilmRoom() {
         </div>
       </main>
 
-      <BottomNav active="film" />
+      <BottomNav active="sample" />
     </div>
   );
 }

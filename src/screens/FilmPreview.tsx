@@ -65,7 +65,7 @@ export default function FilmPreview() {
         </section>
       </main>
 
-      <BottomNav active="insights" />
+      <BottomNav active="sample" />
     </div>
   );
 }

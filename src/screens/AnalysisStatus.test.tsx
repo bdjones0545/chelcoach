@@ -2,6 +2,7 @@ import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, screen, waitFor, render } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { AnalysisProvider } from "../state/AnalysisContext";
 import AnalysisStatus from "./AnalysisStatus";
 import AnalysisReport from "./AnalysisReport";
 import { makeJob, makeStatus } from "../test/analysisJobFixtures";
@@ -36,6 +37,7 @@ vi.mock("../lib/apiBase", () => ({
 function renderStatus(route: string) {
   return render(
     <MemoryRouter initialEntries={[route]}>
+      <AnalysisProvider>
       <Routes>
         <Route path="/analysis/:applicationRequestId" element={<AnalysisStatus />} />
         <Route path="/analysis/:applicationRequestId/confirm-player" element={<AnalysisStatus />} />
@@ -44,6 +46,7 @@ function renderStatus(route: string) {
         <Route path="/upload" element={<div>upload</div>} />
         <Route path="/scorecard" element={<div>scorecard</div>} />
       </Routes>
+      </AnalysisProvider>
     </MemoryRouter>,
   );
 }
