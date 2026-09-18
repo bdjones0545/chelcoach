@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import App from "../App";
@@ -8,6 +8,22 @@ import { ReportProvider } from "../state/ReportContext";
 import Privacy from "./Privacy";
 import Terms from "./Terms";
 import Upload from "./Upload";
+
+// Upload talks to the API on mount; keep those calls out of a copy test so nothing resolves
+// after the environment is torn down.
+vi.mock("../lib/scottyUploadApi", () => ({
+  cancelUpload: vi.fn(),
+  createUploadSession: vi.fn(),
+  ensureOwnerSession: vi.fn(async () => "owner-token"),
+  fetchGameplayProfile: vi.fn(async () => null),
+  getUpload: vi.fn(),
+  uploadDirect: vi.fn(),
+}));
+vi.mock("../lib/readinessApi", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/readinessApi")>();
+  return { ...actual, fetchAnalysisReadiness: vi.fn(async () => "enabled" as const) };
+});
+vi.mock("../lib/playerIdentificationApi", () => ({ storeReadyUploadId: vi.fn() }));
 
 function at(path: string, node: React.ReactNode) {
   return render(
