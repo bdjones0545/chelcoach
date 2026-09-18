@@ -104,6 +104,9 @@ CI (`.github/workflows/ci.yml`) runs all of the above against a Postgres service
 - Health: `GET /api/health` (liveness). Capability: `GET /api/health/readiness` — analysis
   submission is only enabled when auth, durable storage, media storage, the provider, and
   `CHELCOACH_ANALYSIS_SUBMISSION_ENABLED=1` are all in place.
+- Alarm: `.github/workflows/uptime.yml` probes `/api/health`, `/api/health/readiness` (which
+  itself probes the gateway's `/ready`) and `scottie.chelcoach.io/health` every 15 minutes; a
+  failed scheduled run emails the repo owner. Run it by hand from the Actions tab to test.
 - Gateway: `ops/orgo-desktop/scottie/apply.sh` installs keys/provider config on the VM;
   `ops/orgo-desktop/scottie/deploy.sh` ships `services/scottie-gateway/` and restarts it.
 
