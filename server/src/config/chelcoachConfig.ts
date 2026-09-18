@@ -108,6 +108,8 @@ export interface ChelCoachConfig {
     maxDailySubmissionsPerUser: number;
     /** Ceiling on submissions per rolling 24h across ALL users — the spend cap behind free sign-up. */
     maxDailySubmissionsGlobal: number;
+    /** "Ask Scottie" turns per user per rolling 24h — each is a model call on the gateway. */
+    maxDailyChatMessagesPerUser: number;
     maxConcurrentUploadsPerUser: number;
     maxPendingUploadsPerUser: number;
   };
@@ -427,6 +429,7 @@ export function loadChelCoachConfig(env: NodeJS.ProcessEnv = process.env): ChelC
       maxActiveJobsPerUser: intEnv(env, "CHELCOACH_MAX_ACTIVE_JOBS_PER_USER", 5, 1, 100),
       maxDailySubmissionsPerUser: intEnv(env, "CHELCOACH_MAX_DAILY_SUBMISSIONS_PER_USER", 20, 1, 1000),
       maxDailySubmissionsGlobal: intEnv(env, "CHELCOACH_MAX_DAILY_SUBMISSIONS_GLOBAL", 200, 1, 100_000),
+      maxDailyChatMessagesPerUser: intEnv(env, "CHELCOACH_MAX_DAILY_CHAT_MESSAGES_PER_USER", 60, 1, 10_000),
       maxConcurrentUploadsPerUser: intEnv(env, "CHELCOACH_MAX_CONCURRENT_UPLOADS_PER_USER", 3, 1, 50),
       maxPendingUploadsPerUser: intEnv(env, "CHELCOACH_MAX_PENDING_UPLOADS_PER_USER", 3, 1, 50),
     },

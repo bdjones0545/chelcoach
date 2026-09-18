@@ -104,6 +104,13 @@ export const limits = {
     key: (req) => `confirm:${ownerKey(req)}`,
     code: "CONFIRMATION_RATE_LIMITED",
   }),
+  /** Per-instance burst guard for chat; the durable per-user daily cap lives in the chat service. */
+  chat: rateLimit({
+    windowMs: 60_000,
+    max: 12,
+    key: (req) => `chat:${ownerKey(req)}`,
+    code: "RATE_LIMITED",
+  }),
   cancellation: rateLimit({
     windowMs: 60_000,
     max: 30,

@@ -7,6 +7,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import BottomNav from "../components/BottomNav";
 import Button from "../components/Button";
 import GlassPanel from "../components/GlassPanel";
+import AskScottie from "../components/report/AskScottie";
 import TopAppBar from "../components/TopAppBar";
 import { ControlBadges } from "../components/report/ControlBadges";
 import GameplayMoments from "../components/report/GameplayMoments";
@@ -620,6 +621,8 @@ export default function AnalysisReport() {
                   </p>
                 </GlassPanel>
               </section>
+
+              {applicationRequestId && <AskScottie applicationRequestId={applicationRequestId} />}
 
               <section id="about" aria-labelledby="about-heading" data-testid="report-metadata">
                 <h2 id="about-heading" className="mb-3 font-headline-lg text-headline-lg uppercase text-on-surface">

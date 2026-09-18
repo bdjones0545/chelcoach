@@ -23,6 +23,7 @@ export type ReportNavSectionId =
   | "faceoffs"
   | "practice"
   | "next"
+  | "chat"
   | "about";
 
 export type EvidenceSeverity = "good_decision" | "improvement_opportunity" | "key_mistake" | "neutral";
@@ -677,6 +678,7 @@ export function buildCoachingReportView(payload: AnalysisReportResponse): Coachi
   if (faceoffs) navigation.push({ id: "faceoffs", label: "Faceoffs" });
   if (practiceDrills.length > 0) navigation.push({ id: "practice", label: "Practice Plan" });
   navigation.push({ id: "next", label: "Next Game" });
+  navigation.push({ id: "chat", label: "Ask Scottie" });
   navigation.push({ id: "about", label: "About" });
 
   const durationLabel = formatDuration(payload.mediaDurationSec);

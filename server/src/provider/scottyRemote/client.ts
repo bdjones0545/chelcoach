@@ -214,6 +214,20 @@ export class ScottieClient {
     return (await this.call<ScottieJob>("POST", `/v1/jobs/${encodeURIComponent(jobId)}/cancel`, {})).body;
   }
 
+  async chat(input: { reportContext: Record<string, unknown>; turns: Array<{ role: "user" | "assistant"; content: string }> }): Promise<{ reply: string; provider: string; model?: string }> {
+    const { body } = await this.call<{ reply?: unknown; provider?: unknown; model?: unknown }>(
+      "POST",
+      "/v1/chat",
+      { reportContext: input.reportContext, messages: input.turns },
+      this.cfg.requestTimeoutMs, // a model round-trip, not a status read
+    );
+    const reply = typeof body.reply === "string" ? body.reply.trim() : "";
+    if (!reply) {
+      throw new ProviderError("REPORT_VALIDATION_FAILED", "Scottie returned an empty reply.", "invalid_response", { provider: "scotty", retryable: true });
+    }
+    return { reply, provider: typeof body.provider === "string" ? body.provider : "scotty", ...(typeof body.model === "string" ? { model: body.model } : {}) };
+  }
+
   async health(): Promise<{ ok: boolean; status: number; provider?: string }> {
     const fetchImpl = this.cfg.fetchImpl ?? fetch;
     try {

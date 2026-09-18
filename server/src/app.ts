@@ -20,6 +20,7 @@ import { loadLocalEnvFiles } from "./config/loadEnv";
 import { loadScottyProviderConfig, ProviderConfigError } from "./provider/config";
 import { createScottyProvider, setScottyProviderForTests } from "./provider/factory";
 import { analysisRouter } from "./routes/analysis";
+import { chatRouter } from "./routes/chat";
 import { clipsRouter } from "./routes/clips";
 import { healthRouter } from "./routes/health";
 import { internalMediaRouter } from "./routes/internalMedia";
@@ -167,6 +168,7 @@ export function createApp() {
   app.use("/api", playerIdentificationRouter);
   // Scotty Step 4 provider-independent analysis submission.
   app.use("/api", analysisRouter);
+  app.use("/api", chatRouter);
   app.use("/api", internalMediaRouter);
 
   // Legacy Phase-2 clip upload path — disabled in production by default.

@@ -42,4 +42,26 @@ export interface ScottyProvider {
   cancelJob?(input: ScottyCancelRequest): Promise<ScottyCancelResponse>;
 
   health?(): Promise<ScottyProviderHealth>;
+
+  /**
+   * Chat with Scottie about one completed report. The provider is stateless: the caller passes
+   * the report context and the recent turns (last one from the user) and gets a reply.
+   */
+  chat?(input: ScottyChatInput): Promise<ScottyChatResult>;
+}
+
+export interface ScottyChatTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface ScottyChatInput {
+  reportContext: Record<string, unknown>;
+  turns: ScottyChatTurn[];
+}
+
+export interface ScottyChatResult {
+  reply: string;
+  provider: string;
+  model?: string;
 }
