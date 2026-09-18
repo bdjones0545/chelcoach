@@ -14,6 +14,8 @@ import Login from "./screens/Login";
 import Signup from "./screens/Signup";
 import ForgotPassword from "./screens/ForgotPassword";
 import ResetPassword from "./screens/ResetPassword";
+import Privacy from "./screens/Privacy";
+import Terms from "./screens/Terms";
 import WebMcpBridge from "./webmcp/WebMcpBridge";
 
 export default function App() {
@@ -27,6 +29,8 @@ export default function App() {
       <Route path="/signup" element={<Signup />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/privacy" element={<Privacy />} />
+      <Route path="/terms" element={<Terms />} />
 
       {/* Protected product surfaces (backend still enforces auth). */}
       <Route
