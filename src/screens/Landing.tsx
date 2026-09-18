@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import AtmosphereBackground from "../components/AtmosphereBackground";
 import Button from "../components/Button";
 import GlassPanel from "../components/GlassPanel";
@@ -116,7 +116,11 @@ export default function Landing() {
           />
           {readiness === "enabled" ? "Analysis open" : readiness === "loading" ? "Checking analysis status…" : "Analysis opening soon"}
         </span>
-        <span className="font-label-sm text-label-sm">ChelCoach · NHL Gameplay Coaching</span>
+        <span className="flex items-center gap-4 font-label-sm text-label-sm">
+          <span>ChelCoach · NHL Gameplay Coaching</span>
+          <Link to="/privacy" className="hover:text-primary">Privacy</Link>
+          <Link to="/terms" className="hover:text-primary">Terms</Link>
+        </span>
       </footer>
     </div>
   );

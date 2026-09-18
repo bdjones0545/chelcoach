@@ -80,6 +80,11 @@ export default function Signup() {
           <Button type="submit" disabled={submitting} className="w-full">
             {submitting ? "Creating…" : "Sign up"}
           </Button>
+          <p className="text-center font-label-sm text-label-sm text-on-surface-variant">
+            By creating an account you agree to the{" "}
+            <Link to="/terms" className="text-primary hover:underline">Terms</Link> and{" "}
+            <Link to="/privacy" className="text-primary hover:underline">Privacy Policy</Link>.
+          </p>
         </form>
         <Link to="/login" className="text-sm text-primary hover:underline">
           Already have an account? Sign in

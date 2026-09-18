@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import BottomNav from "../components/BottomNav";
 import Button from "../components/Button";
 import GlassPanel from "../components/GlassPanel";
@@ -810,7 +810,12 @@ export default function Upload() {
                 Privacy
               </p>
               <p className="font-body-md text-on-surface-variant">
-                We only ask for gameplay context needed for coaching — not your real name, gamertag, or email.
+                We ask only for the gameplay context coaching needs — never your real name or gamertag. Your video is
+                deleted automatically after analysis; a few sampled frames go to the analysis model, never the full
+                clip.{" "}
+                <Link to="/privacy" className="text-primary hover:underline">
+                  Privacy Policy
+                </Link>
               </p>
             </GlassPanel>
           </div>
