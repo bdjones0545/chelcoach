@@ -1,0 +1,48 @@
+name: Uptime
+
+# The cheapest real alarm: a scheduled check that turns red — and GitHub emails the repo owner on
+# a failed scheduled run — when production stops answering. It probes the same things a player
+# depends on, from outside every environment we control:
+#   1. chelcoach.io/api/health           the API is up
+#   2. chelcoach.io/api/health/readiness analysis is open (this also probes the gateway; see
+#                                        server/src/routes/readiness.ts)
+#   3. scottie.chelcoach.io/health       the analysis gateway on orgo-desktop, via its tunnel
+# A closed readiness gate is a failure on purpose: once analysis is open, it going dark is an
+# incident, and the log line [chelcoach-readiness] in Vercel says why.
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: API liveness
+        run: |
+          set -euo pipefail
+          body="$(curl -sS -m 15 -f https://chelcoach.io/api/health)"
+          echo "$body"
+          echo "$body" | grep -q '"status":"ok"'
+
+      - name: Analysis readiness (API + gateway probe)
+        run: |
+          set -euo pipefail
+          code="$(curl -sS -m 20 -o /tmp/readiness.json -w '%{http_code}' https://chelcoach.io/api/health/readiness || true)"
+          cat /tmp/readiness.json; echo
+          if [ "$code" != "200" ]; then
+            echo "::error::analysis submission is closed (HTTP $code) — check Vercel runtime logs for [chelcoach-readiness] reasons"
+            exit 1
+          fi
+
+      - name: Gateway health (tunnel + supervisord)
+        run: |
+          set -euo pipefail
+          body="$(curl -sS -m 15 -f https://scottie.chelcoach.io/health)"
+          echo "$body"
+          echo "$body" | grep -q '"status":"ok"'
