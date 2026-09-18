@@ -76,3 +76,38 @@ describe("Upload — production flow, no mock fallback", () => {
     expect(screen.queryByText("MOCK PROCESSING ROUTE")).not.toBeInTheDocument();
   });
 });
+
+describe("Upload — position is only mandatory in single-skater modes", () => {
+  it("HUT (team control) defaults position to 'switches', accepts it, and keeps the submit enabled", async () => {
+    fetchAnalysisReadiness.mockResolvedValue("enabled");
+    createUploadSession.mockRejectedValue(new Error("stop here"));
+    renderUpload();
+    await waitFor(() => expect(fetchAnalysisReadiness).toHaveBeenCalled());
+    fillForm();
+    fireEvent.change(screen.getByLabelText("Game mode"), { target: { value: "hut" } });
+
+    const position = screen.getByLabelText("Position") as HTMLSelectElement;
+    expect(position.value).toBe("unknown");
+    expect(screen.getByRole("option", { name: /switches/i })).toBeInTheDocument();
+    expect(screen.getByText(/controlling the skater with the indicator/i)).toBeInTheDocument();
+
+    const submit = screen.getByRole("button", { name: /get my chel rating/i });
+    await waitFor(() => expect(submit).toBeEnabled());
+    fireEvent.click(submit);
+    await waitFor(() => expect(createUploadSession).toHaveBeenCalledTimes(1));
+    const ctx = (createUploadSession.mock.calls[0]![1] as { context: { playerContext: { position: string; gameMode: string } } }).context;
+    expect(ctx.playerContext).toMatchObject({ position: "unknown", gameMode: "hut" });
+  });
+
+  it("EASHL requires a real position and offers no 'switches' option", async () => {
+    fetchAnalysisReadiness.mockResolvedValue("enabled");
+    renderUpload();
+    await waitFor(() => expect(fetchAnalysisReadiness).toHaveBeenCalled());
+    fillForm();
+    fireEvent.change(screen.getByLabelText("Game mode"), { target: { value: "hut" } });
+    fireEvent.change(screen.getByLabelText("Game mode"), { target: { value: "eashl" } });
+    expect(screen.queryByRole("option", { name: /switches/i })).not.toBeInTheDocument();
+    expect((screen.getByLabelText("Position") as HTMLSelectElement).value).not.toBe("unknown");
+    expect(screen.getByText(/I control one skater/i)).toBeInTheDocument();
+  });
+});
