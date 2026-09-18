@@ -47,6 +47,11 @@ type AuthContextValue = {
   signUp: (email: string, password: string) => Promise<{ needsEmailConfirmation: boolean }>;
   signOut: () => Promise<void>;
   requestPasswordReset: (email: string) => Promise<void>;
+  /**
+   * Google via Supabase Auth (PKCE). Navigates away to Google; on return the client exchanges the
+   * code and onAuthStateChange sets the session. `returnTo` must be a same-origin path.
+   */
+  signInWithGoogle: (returnTo: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -150,6 +155,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { needsEmailConfirmation };
   }, []);
 
+  const signInWithGoogle = useCallback(async (returnTo: string) => {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) {
+      throw new AuthActionError("AUTH_PROVIDER_UNAVAILABLE", "Authentication is not configured.");
+    }
+    const redirectTo = typeof window !== "undefined" ? `${window.location.origin}${safeRedirectTo(returnTo)}` : undefined;
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo, queryParams: { prompt: "select_account" } },
+    });
+    if (error) {
+      throw new AuthActionError("AUTH_PROVIDER_UNAVAILABLE", "Google sign-in is not available right now. Use your email and password.");
+    }
+  }, []);
+
   const signOut = useCallback(async () => {
     clearDevOwnerToken();
     const supabase = getSupabaseBrowserClient();
@@ -186,8 +206,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signUp,
       signOut,
       requestPasswordReset,
+      signInWithGoogle,
     }),
-    [mode, user, session, loading, signIn, signUp, signOut, requestPasswordReset],
+    [mode, user, session, loading, signIn, signUp, signOut, requestPasswordReset, signInWithGoogle],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

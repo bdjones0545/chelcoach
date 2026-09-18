@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AuthUnavailable from "../components/AuthUnavailable";
 import Button from "../components/Button";
+import GoogleSignInButton from "../components/GoogleSignInButton";
 import { AuthActionError, useAuth } from "../state/AuthContext";
 
 export default function Signup() {
@@ -46,6 +47,12 @@ export default function Signup() {
           <p className="text-on-surface-variant text-sm mt-2">
             Email and password — no OAuth in this phase.
           </p>
+        </div>
+        <GoogleSignInButton returnTo="/upload" onError={setError} label="Sign up with Google" />
+        <div className="flex items-center gap-3 text-on-surface-variant">
+          <span className="h-px flex-1 bg-white/10" />
+          <span className="font-label-sm text-label-sm uppercase">or</span>
+          <span className="h-px flex-1 bg-white/10" />
         </div>
         <form className="space-y-4" onSubmit={onSubmit}>
           <label className="block space-y-1">
