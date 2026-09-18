@@ -9,6 +9,7 @@ import urllib.request
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
+from .chat import MAX_REPLY_TOKENS, ChatResult, build_messages, fake_reply
 from .contracts import METRIC_KEYS, format_mmss
 from .rubric import METRICS, chel_rating_from_metrics, rubric_prompt_block
 
@@ -38,6 +39,8 @@ class Provider(Protocol):
         gameplay_context: dict[str, Any],
         jpeg_payloads: list[bytes] | None = None,
     ) -> ProviderResult: ...
+
+    def chat(self, *, report_context: dict[str, Any], turns: list[dict[str, str]]) -> ChatResult: ...
 
 
 def system_prompt() -> str:
@@ -311,6 +314,17 @@ class FakeProvider:
         )
 
 
+    def chat(self, *, report_context: dict[str, Any], turns: list[dict[str, str]]) -> ChatResult:
+        t0 = time.time()
+        return ChatResult(
+            ok=True,
+            reply=fake_reply(report_context, turns),
+            provider=self.name,
+            model=self.model,
+            latency_ms=int((time.time() - t0) * 1000),
+        )
+
+
 class OpenAICompatibleVisionProvider:
     """Optional real provider via OpenAI-compatible chat/completions with images."""
 
@@ -437,6 +451,57 @@ class OpenAICompatibleVisionProvider:
             latency_ms=int((time.time() - t0) * 1000),
             retries=max(0, attempts - 1),
         )
+
+
+    def chat(self, *, report_context: dict[str, Any], turns: list[dict[str, str]]) -> ChatResult:
+        """Text-only chat/completions over the report; no images, no JSON mode, bounded reply."""
+        body = {
+            "model": self.model,
+            "temperature": 0.4,
+            "max_tokens": MAX_REPLY_TOKENS,
+            "messages": build_messages(report_context, turns),
+        }
+        raw_body = json.dumps(body).encode("utf-8")
+        url = f"{self.base_url}/chat/completions"
+        attempts = 0
+        last_err = ""
+        t0 = time.time()
+        while attempts <= self.retries:
+            attempts += 1
+            req = urllib.request.Request(
+                url,
+                data=raw_body,
+                method="POST",
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                    "User-Agent": "scottie-gateway/1.0",
+                },
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=self.timeout_s) as resp:
+                    payload = json.loads(resp.read().decode("utf-8"))
+                text = str(payload["choices"][0]["message"]["content"] or "").strip()
+                if not text:
+                    last_err = "empty_reply"
+                    continue
+                usage = payload.get("usage") or {}
+                return ChatResult(
+                    ok=True,
+                    reply=text,
+                    provider=self.name,
+                    model=self.model,
+                    input_tokens=int(usage.get("prompt_tokens") or 0),
+                    output_tokens=int(usage.get("completion_tokens") or 0),
+                    latency_ms=int((time.time() - t0) * 1000),
+                )
+            except urllib.error.HTTPError as e:
+                last_err = f"http_{e.code}"
+                time.sleep(min(2 * attempts, 5))
+            except Exception as e:  # noqa: BLE001
+                last_err = type(e).__name__
+                time.sleep(min(2 * attempts, 5))
+        return ChatResult(ok=False, error=last_err or "provider_failed", provider=self.name, model=self.model, latency_ms=int((time.time() - t0) * 1000))
 
 
 def build_provider(cfg: dict[str, Any]) -> Provider:

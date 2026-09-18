@@ -24,6 +24,12 @@ vi.mock("../lib/apiBase", () => ({
   API_BASE_URL: "http://localhost:3001",
 }));
 
+// The report mounts Ask Scottie, which loads the conversation on mount; keep it off the network.
+vi.mock("../lib/chatApi", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/chatApi")>();
+  return { ...actual, getChat: vi.fn(async () => []), sendChat: vi.fn() };
+});
+
 function renderReport(route: string) {
   return render(
     <MemoryRouter
@@ -71,6 +77,7 @@ describe("AnalysisReport route", () => {
     expect(screen.getByTestId("report-gameplay-moments")).toBeInTheDocument();
     expect(screen.getByTestId("report-practice-plan")).toBeInTheDocument();
     expect(screen.getByTestId("report-next-game-focus")).toBeInTheDocument();
+    expect(screen.getByTestId("report-ask-scottie")).toBeInTheDocument();
     expect(screen.getByTestId("overall-score-absent")).toBeInTheDocument();
     expect(window.localStorage.length).toBe(0);
     expect(window.sessionStorage.length).toBe(0);

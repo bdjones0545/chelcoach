@@ -696,3 +696,21 @@ export type MediaInspectionJobRow = typeof mediaInspectionJobs.$inferSelect;
 /** Compile-time guard: lease JSON shape stays aligned with the shared contract. */
 export type _LeaseShapeCheck = ProcessingLease;
 export type _PlayerContextCheck = PlayerContext;
+
+/** Chat with Scottie — one row per turn, tied to a completed analysis and its owner. */
+export const scottyChatMessages = pgTable(
+  "scotty_chat_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    applicationRequestId: text("application_request_id").notNull(),
+    ownerId: text("owner_id").notNull(),
+    role: text("role").notNull(),
+    content: text("content").notNull(),
+    model: text("model"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    requestIdx: index("scotty_chat_messages_request_idx").on(t.applicationRequestId, t.createdAt),
+    ownerIdx: index("scotty_chat_messages_owner_idx").on(t.ownerId, t.createdAt),
+  }),
+);

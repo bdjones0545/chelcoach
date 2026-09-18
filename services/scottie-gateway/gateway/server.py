@@ -34,6 +34,7 @@ from gateway.contracts import (  # noqa: E402
     validate_analysis_request,
 )
 from gateway.jobs import JobStore, JobWorker  # noqa: E402
+from gateway.chat import ChatError, validate_chat_request  # noqa: E402
 from gateway.provider import build_provider  # noqa: E402
 
 logging.basicConfig(
@@ -254,6 +255,9 @@ class ScottieHandler(BaseHTTPRequestHandler):
         if path == "/v1/analyze":
             self._handle_analyze(raw)
             return
+        if path == "/v1/chat":
+            self._handle_chat(raw)
+            return
         if path.startswith("/v1/jobs/") and path.endswith("/confirm-player"):
             job_id = path[len("/v1/jobs/") : -len("/confirm-player")].strip("/")
             self._handle_confirm_player(job_id, raw)
@@ -268,6 +272,38 @@ class ScottieHandler(BaseHTTPRequestHandler):
             return
 
         self._send_json(404, {"error": "not_found"})
+
+    def _handle_chat(self, raw: bytes) -> None:
+        """Stateless: the report and the turns arrive in the body; nothing is stored here."""
+        assert STATE is not None
+        try:
+            body = json.loads(raw.decode("utf-8") or "{}")
+        except Exception:
+            self._send_json(400, {"error": "malformed_payload", "message": "Invalid JSON"})
+            return
+        try:
+            report_context, turns = validate_chat_request(body)
+        except ChatError as e:
+            self._send_json(413 if e.code == "oversized_request" else 400, {"error": e.code, "message": e.message})
+            return
+        result = STATE.provider.chat(report_context=report_context, turns=turns)
+        log.info(
+            "chat provider=%s model=%s ok=%s latency_ms=%s turns=%s",
+            result.provider, result.model, result.ok, result.latency_ms, len(turns),
+        )
+        if not result.ok:
+            self._send_json(502, {"error": "provider_failed", "message": result.error or "The coach is unavailable right now."})
+            return
+        self._send_json(
+            200,
+            {
+                "reply": result.reply,
+                "provider": result.provider,
+                "model": result.model,
+                "usage": {"inputTokens": result.input_tokens, "outputTokens": result.output_tokens},
+                "latencyMs": result.latency_ms,
+            },
+        )
 
     def _handle_confirm_player(self, job_id: str, raw: bytes) -> None:
         assert STATE is not None

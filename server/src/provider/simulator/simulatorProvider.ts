@@ -23,7 +23,7 @@ import {
 } from "../../scottyContract";
 import { ProviderError } from "../errors";
 import { computeSubmissionFingerprint } from "../fakeProvider";
-import type { ScottyProvider } from "../types";
+import type { ScottyChatInput, ScottyChatResult, ScottyProvider } from "../types";
 import type { Clock } from "./clock";
 import { SystemClock } from "./clock";
 import { deriveSimulatorJobState } from "./lifecycle";
@@ -460,6 +460,15 @@ export class SimulatorScottyProvider implements ScottyProvider {
       status: "cancelled",
       cancelledAt: updated.cancelledAt!,
     });
+  }
+
+  async chat(input: ScottyChatInput): Promise<ScottyChatResult> {
+    const obs = (input.reportContext.playerSpecificObservations as Array<{ timestampSec?: number; observedAction?: string }> | undefined)?.[0];
+    const q = input.turns[input.turns.length - 1]?.content ?? "";
+    const reply = obs
+      ? `Looking at your report, the clearest thing the sampled frames show is ${obs.observedAction ?? "the first observation"}${typeof obs.timestampSec === "number" ? ` around ${obs.timestampSec}s` : ""}. I can only speak to what the sampled frames showed, so if "${q.slice(0, 60)}" is about something between frames, the report will not have it.`
+      : "I can only speak to what the sampled frames showed, and this report has no frame-cited observations to point at.";
+    return { reply, provider: this.mode, model: "canned" };
   }
 
   async health(): Promise<ScottyProviderHealth> {

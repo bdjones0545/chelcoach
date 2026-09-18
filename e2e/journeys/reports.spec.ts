@@ -138,3 +138,23 @@ test("full-game faceoff totals are consistent when present", async ({ page }) =>
     await expect(omitted).toBeVisible();
   }
 });
+
+test("Ask Scottie: a question gets a grounded reply and the conversation survives reload", async ({ page }) => {
+  const session = await createSession();
+  await seedOwnerSession(page, session.token);
+  await prepareReadyToAnalyze(page);
+  const applicationRequestId = await submitAnalysis(page);
+  await waitForReportReady(page);
+  await page.goto(`/analysis/${applicationRequestId}/report`);
+  await expect(page.getByTestId("report-ask-scottie")).toBeVisible();
+
+  await page.getByLabel(/Ask Scottie about this clip/).fill("What should I fix first?");
+  await page.getByRole("button", { name: /^ask$/i }).click();
+  const reply = page.getByTestId("chat-assistant").first();
+  await expect(reply).toBeVisible({ timeout: 20_000 });
+  await expect(reply).toContainText(/sampled frames/i);
+
+  await page.reload();
+  await expect(page.getByTestId("chat-user").first()).toContainText("What should I fix first?");
+  await expect(page.getByTestId("chat-assistant").first()).toContainText(/sampled frames/i);
+});

@@ -19,6 +19,7 @@ restart → `/ready`). `deploy.sh --check` reports drift between the VM and the 
 | `GET /v1/jobs/{id}/report` | The Scottie report (scorecard, coaching moments, film room, execution, drills, strategy, faceoffs). `409` until ready. |
 | `POST /v1/jobs/{id}/confirm-player` | Forwards ChelCoach's already-confirmed identity when the gateway asks. |
 | `POST /v1/jobs/{id}/cancel` | Mirrors a ChelCoach cancellation. |
+| `POST /v1/chat` | Ask Scottie about one completed report: `{reportContext, messages[≤20]}` (last message from the user) → `{reply, provider, model, usage}`. Stateless on the gateway; ChelCoach keeps the turns in `scotty_chat_messages`. |
 
 Every request carries `Authorization: Bearer $SCOTTY_API_KEY`, `X-ChelCoach-Timestamp` (ms) and
 `X-ChelCoach-Signature: t=<ms>,sha256=<hex hmac(SCOTTY_SIGNING_SECRET, "{ts}.{METHOD}.{path}." + body)>`.

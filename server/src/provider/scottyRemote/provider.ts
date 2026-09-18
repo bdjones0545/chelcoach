@@ -30,7 +30,7 @@ import { computeSubmissionFingerprint } from "../fakeProvider";
 import { getScottyWorkerJobRepository, type ScottyWorkerJobRepository } from "../scottyWorker/repository";
 import { isTerminalWorkerStatus, workerJobToStatus } from "../scottyWorker/provider";
 import type { ScottyWorkerJob } from "../scottyWorker/types";
-import type { ScottyProvider } from "../types";
+import type { ScottyChatInput, ScottyChatResult, ScottyProvider } from "../types";
 import { ScottieClient, type ScottieClientConfig } from "./client";
 
 export const SCOTTY_REMOTE_POLL_MS = 4000;
@@ -203,6 +203,13 @@ export class ScottyRemoteProvider implements ScottyProvider {
     }
     logEvent("job_cancelled", { applicationRequestId: updated.applicationRequestId, externalJobId: updated.externalJobId });
     return scottyCancelResponseSchema.parse({ externalJobId: updated.externalJobId, status: "cancelled", cancelledAt: updated.cancelledAt ?? now });
+  }
+
+  async chat(input: ScottyChatInput): Promise<ScottyChatResult> {
+    if (!this.cfg.configured) {
+      throw new ProviderError("PROVIDER_MISCONFIGURED", "Scottie is not configured.", "configuration", { provider: "scotty", retryable: false });
+    }
+    return this.client().chat(input);
   }
 
   async health(): Promise<ScottyProviderHealth> {

@@ -49,7 +49,7 @@ is withheld rather than shown.
 | Shared contract | `shared/scotty/` — Zod schemas | Upload, identification, job, report shapes |
 | Auth | Supabase Auth, verified server-side (`server/src/auth/`) | App tables have RLS on with no policies; the API uses its own role |
 | Storage | Supabase Storage (TUS uploads) | `CHELCOACH_MEDIA_STORAGE_MODE` |
-| Database | Postgres via Drizzle (`server/drizzle/`) | Migrations 0000–0005 on main (0006 in PR #36) |
+| Database | Postgres via Drizzle (`server/drizzle/`) | Migrations 0000–0006 |
 | Analysis | Provider `scotty` → Scottie gateway on orgo-desktop | source `services/scottie-gateway/`, deploy `ops/orgo-desktop/scottie/deploy.sh` |
 | Scheduling | Vercel crons in `vercel.json` | media cleanup, storage reconcile, inspection worker, analysis worker |
 
@@ -114,6 +114,15 @@ CI (`.github/workflows/ci.yml`) runs all of the above against a Postgres service
 
 `docs/` holds the step-by-step build records (`scotty-*.md`, `supabase-*.md`,
 `vercel-*.md`). `docs/phase-status.md` is the historical build log.
+
+### Ask Scottie
+
+Every completed report has a chat panel. `GET/POST /api/analysis/:id/chat` (owner-only, report
+must exist) sends the report plus the recent turns to the gateway's `POST /v1/chat`; turns are
+stored in `scotty_chat_messages` (migration 0006) so a conversation survives reload. Scottie
+answers only from the report and says so when a question is outside the sampled frames. Each
+question is a model call: `CHELCOACH_MAX_DAILY_CHAT_MESSAGES_PER_USER` (60) is the durable
+per-user cap; a failed reply is never counted.
 
 ### Spend ceilings
 

@@ -3,6 +3,7 @@
  * CI and local demos default to memory; production with Postgres uses Drizzle.
  * When DATABASE_URL is configured outside test mode, production must not silently use memory.
  */
+import { DrizzleChatRepository, setChatRepositoryForTests } from "./chat/repository";
 import { assertDatabaseReady, isDbConfigured } from "./db/client";
 import { DrizzleIdentificationRepository } from "./identification/drizzleRepository";
 import {
@@ -76,9 +77,10 @@ export function wirePersistence(): void {
   setIdentificationRepositoryForTests(new DrizzleIdentificationRepository());
   setRetentionRepositoryForTests(new DrizzleRetentionRepository());
   setInspectionJobRepositoryForTests(new DrizzleInspectionJobRepository());
+  setChatRepositoryForTests(new DrizzleChatRepository());
   backend = "drizzle";
   console.log(
-    "[chelcoach] persistence=drizzle (profiles + uploads + identification + retention + analysis_jobs + simulator_jobs + worker_jobs + inspection_jobs)",
+    "[chelcoach] persistence=drizzle (profiles + uploads + identification + retention + analysis_jobs + simulator_jobs + worker_jobs + inspection_jobs + chat)",
   );
 
   // Fail closed: configured DATABASE_URL must be reachable. Do not silently use memory.

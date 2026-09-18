@@ -39,6 +39,11 @@ manifest mismatch (`deploy.sh --check`).
 
 ## Wire contract additions since the snapshot
 
+- `POST /v1/chat` — Ask Scottie about one completed report. Body `{reportContext, messages}`
+  (≤20 turns, ≤1500 chars each, last from the user; report ≤40 KB). Reply from the same provider
+  as analysis (`gateway/chat.py`), text-only, ≤450 tokens, under a system prompt that forbids
+  anything not in the report. Stateless: nothing is stored on the gateway.
+
 - `report.repair` — present only when the repair path ran:
   `{"applied": true, "synthesized": ["metrics", "commentary", …], "notes": [...]}`.
   ChelCoach (`server/src/provider/scottyRemote/reportMapper.ts`) withholds the Chel Rating when
