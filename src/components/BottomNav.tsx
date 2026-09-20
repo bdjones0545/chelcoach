@@ -4,7 +4,7 @@ import { useAnalysis } from "../state/AnalysisContext";
 import Icon from "./Icon";
 
 /** Only screens that exist. The old Tactics / Roster / AI Insights tabs pointed into the demo. */
-type NavKey = "upload" | "analysis" | "sample";
+type NavKey = "upload" | "analysis" | "scottie" | "sample";
 
 interface NavItem {
   key: NavKey;
@@ -22,6 +22,7 @@ const items: NavItem[] = [
     // The analysis this tab is working on; otherwise the status screen explains there is none yet.
     to: (id) => (id ? analysisStatusPath(id) : "/analysis-status"),
   },
+  { key: "scottie", label: "Scottie", icon: "forum", to: () => "/scottie" },
   { key: "sample", label: "Sample report", icon: "movie_filter", to: () => "/scorecard" },
 ];
 

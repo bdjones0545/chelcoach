@@ -15,6 +15,7 @@ import Signup from "./screens/Signup";
 import ForgotPassword from "./screens/ForgotPassword";
 import ResetPassword from "./screens/ResetPassword";
 import AuthCallback from "./screens/AuthCallback";
+import ScottieChat from "./screens/ScottieChat";
 import Privacy from "./screens/Privacy";
 import Terms from "./screens/Terms";
 import WebMcpBridge from "./webmcp/WebMcpBridge";
@@ -35,6 +36,14 @@ export default function App() {
       <Route path="/terms" element={<Terms />} />
 
       {/* Protected product surfaces (backend still enforces auth). */}
+      <Route
+        path="/scottie"
+        element={
+          <RequireAuth>
+            <ScottieChat />
+          </RequireAuth>
+        }
+      />
       <Route
         path="/upload"
         element={

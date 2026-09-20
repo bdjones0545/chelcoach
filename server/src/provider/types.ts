@@ -55,8 +55,12 @@ export interface ScottyChatTurn {
   content: string;
 }
 
+export type ScottyChatMode = "report" | "coach";
+
 export interface ScottyChatInput {
-  reportContext: Record<string, unknown>;
+  /** "report": about one report (required). "coach": standing coaching chat; report optional. */
+  mode?: ScottyChatMode;
+  reportContext: Record<string, unknown> | null;
   turns: ScottyChatTurn[];
 }
 

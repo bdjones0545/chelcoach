@@ -173,3 +173,66 @@ describe("Ask Scottie", () => {
     assert.ok("playerSpecificObservations" in ctx && "uncertaintyDisclosures" in ctx);
   });
 });
+
+describe("Scottie coach chat (standing, per owner)", () => {
+  it("works with no report at all: Scottie says it has not seen the film, and the thread persists", async () => {
+    await boot(new FakeScottyProvider("accept"));
+    const token = createOwnerSession().token;
+    const h = { authorization: `Bearer ${token}`, "content-type": "application/json" };
+
+    const empty = await fetch(`${base}/api/scottie/chat`, { headers: h });
+    assert.equal(empty.status, 200);
+    assert.deepEqual(await empty.json(), { messages: [], grounding: null });
+
+    const res = await fetch(`${base}/api/scottie/chat`, { method: "POST", headers: h, body: JSON.stringify({ message: "How do I stop getting walked on the rush?" }) });
+    assert.equal(res.status, 200, await res.clone().text());
+    const body = (await res.json()) as { reply: { content: string }; messages: unknown[]; grounding: unknown };
+    assert.match(body.reply.content, /have not seen your film/);
+    assert.equal(body.grounding, null);
+    assert.equal(body.messages.length, 2);
+
+    const again = (await (await fetch(`${base}/api/scottie/chat`, { headers: h })).json()) as { messages: unknown[] };
+    assert.equal(again.messages.length, 2, "coach thread survives reload");
+  });
+
+  it("grounds in the owner's latest completed report and says which one", async () => {
+    await boot(new FakeScottyProvider("accept"));
+    const token = createOwnerSession().token;
+    const id = await completedAnalysis(token);
+    const h = { authorization: `Bearer ${token}`, "content-type": "application/json" };
+
+    const listed = (await (await fetch(`${base}/api/scottie/chat`, { headers: h })).json()) as { grounding: { applicationRequestId: string; gameTitle: string } | null };
+    assert.equal(listed.grounding?.applicationRequestId, id);
+    assert.equal(listed.grounding?.gameTitle, "NHL 27");
+
+    const res = await fetch(`${base}/api/scottie/chat`, { method: "POST", headers: h, body: JSON.stringify({ message: "What should I fix first?" }) });
+    assert.equal(res.status, 200, await res.clone().text());
+    const body = (await res.json()) as { reply: { content: string }; grounding: { applicationRequestId: string } };
+    assert.match(body.reply.content, /late slot arrival on the weak side around 20s/, "answered from the report");
+    assert.equal(body.grounding.applicationRequestId, id);
+
+    // The coach thread and the report thread are separate conversations.
+    const reportThread = (await (await fetch(`${base}/api/analysis/${id}/chat`, { headers: h })).json()) as { messages: unknown[] };
+    assert.equal(reportThread.messages.length, 0);
+  });
+
+  it("is per owner and shares the daily cap with report chat", async () => {
+    process.env.CHELCOACH_MAX_DAILY_CHAT_MESSAGES_PER_USER = "2";
+    resetChelCoachConfigCacheForTests();
+    await boot(new FakeScottyProvider("accept"));
+    const a = createOwnerSession().token;
+    const b = createOwnerSession().token;
+    const ha = { authorization: `Bearer ${a}`, "content-type": "application/json" };
+    const hb = { authorization: `Bearer ${b}`, "content-type": "application/json" };
+    const id = await completedAnalysis(a);
+
+    assert.equal((await fetch(`${base}/api/scottie/chat`, { method: "POST", headers: ha, body: JSON.stringify({ message: "one" }) })).status, 200);
+    assert.equal((await fetch(`${base}/api/analysis/${id}/chat`, { method: "POST", headers: ha, body: JSON.stringify({ message: "two" }) })).status, 200);
+    const capped = await fetch(`${base}/api/scottie/chat`, { method: "POST", headers: ha, body: JSON.stringify({ message: "three" }) });
+    assert.equal(capped.status, 429, "coach + report turns count against one cap");
+
+    const other = (await (await fetch(`${base}/api/scottie/chat`, { headers: hb })).json()) as { messages: unknown[]; grounding: unknown };
+    assert.deepEqual(other, { messages: [], grounding: null }, "another owner sees nothing of A's thread or report");
+    assert.equal((await fetch(`${base}/api/scottie/chat`, { headers: {} })).status, 401);
+  });
+});

@@ -214,11 +214,18 @@ export class ScottieClient {
     return (await this.call<ScottieJob>("POST", `/v1/jobs/${encodeURIComponent(jobId)}/cancel`, {})).body;
   }
 
-  async chat(input: { reportContext: Record<string, unknown>; turns: Array<{ role: "user" | "assistant"; content: string }> }): Promise<{ reply: string; provider: string; model?: string }> {
+  async chat(input: {
+    mode?: "report" | "coach";
+    reportContext: Record<string, unknown> | null;
+    turns: Array<{ role: "user" | "assistant"; content: string }>;
+  }): Promise<{ reply: string; provider: string; model?: string }> {
+    const mode = input.mode ?? "report";
     const { body } = await this.call<{ reply?: unknown; provider?: unknown; model?: unknown }>(
       "POST",
       "/v1/chat",
-      { reportContext: input.reportContext, messages: input.turns },
+      // reportContext is omitted (not null) when there is none so older gateways reject it
+      // loudly in report mode instead of treating null as a report.
+      { mode, ...(input.reportContext ? { reportContext: input.reportContext } : {}), messages: input.turns },
       this.cfg.requestTimeoutMs, // a model round-trip, not a status read
     );
     const reply = typeof body.reply === "string" ? body.reply.trim() : "";

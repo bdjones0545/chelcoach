@@ -2,7 +2,7 @@ import { Router } from "express";
 import { requireOwnerAuth, type AuthedRequest } from "../auth/session";
 import { limits } from "../security/rateLimit";
 import { AnalysisStatusError } from "../provider/statusService";
-import { ChatServiceError, listChat, sendChat } from "../chat/service";
+import { ChatServiceError, listChat, listCoachChat, sendChat, sendCoachChat } from "../chat/service";
 
 export const chatRouter = Router();
 
@@ -43,6 +43,31 @@ chatRouter.post("/analysis/:applicationRequestId/chat", requireOwnerAuth, limits
     const { ownerId } = req as AuthedRequest;
     const body = (req.body ?? {}) as { message?: unknown };
     const result = await sendChat({ ownerId, applicationRequestId: requestIdParam(req), message: body.message });
+    res.setHeader("Cache-Control", "no-store, private");
+    res.json(result);
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+/** GET /api/scottie/chat — the player's standing coaching conversation + what it is grounded in. */
+chatRouter.get("/scottie/chat", requireOwnerAuth, limits.reportRead, async (req, res) => {
+  try {
+    const { ownerId } = req as AuthedRequest;
+    const result = await listCoachChat({ ownerId });
+    res.setHeader("Cache-Control", "no-store, private");
+    res.json(result);
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+/** POST /api/scottie/chat { message } — ask Scottie; grounded in the latest completed report when there is one. */
+chatRouter.post("/scottie/chat", requireOwnerAuth, limits.chat, async (req, res) => {
+  try {
+    const { ownerId } = req as AuthedRequest;
+    const body = (req.body ?? {}) as { message?: unknown };
+    const result = await sendCoachChat({ ownerId, message: body.message });
     res.setHeader("Cache-Control", "no-store, private");
     res.json(result);
   } catch (err) {
