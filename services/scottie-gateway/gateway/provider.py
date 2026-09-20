@@ -40,7 +40,7 @@ class Provider(Protocol):
         jpeg_payloads: list[bytes] | None = None,
     ) -> ProviderResult: ...
 
-    def chat(self, *, report_context: dict[str, Any], turns: list[dict[str, str]]) -> ChatResult: ...
+    def chat(self, *, report_context: dict[str, Any] | None, turns: list[dict[str, str]], mode: str = "report") -> ChatResult: ...
 
 
 def system_prompt() -> str:
@@ -314,11 +314,11 @@ class FakeProvider:
         )
 
 
-    def chat(self, *, report_context: dict[str, Any], turns: list[dict[str, str]]) -> ChatResult:
+    def chat(self, *, report_context: dict[str, Any] | None, turns: list[dict[str, str]], mode: str = "report") -> ChatResult:
         t0 = time.time()
         return ChatResult(
             ok=True,
-            reply=fake_reply(report_context, turns),
+            reply=fake_reply(report_context, turns, mode),
             provider=self.name,
             model=self.model,
             latency_ms=int((time.time() - t0) * 1000),
@@ -453,13 +453,13 @@ class OpenAICompatibleVisionProvider:
         )
 
 
-    def chat(self, *, report_context: dict[str, Any], turns: list[dict[str, str]]) -> ChatResult:
-        """Text-only chat/completions over the report; no images, no JSON mode, bounded reply."""
+    def chat(self, *, report_context: dict[str, Any] | None, turns: list[dict[str, str]], mode: str = "report") -> ChatResult:
+        """Text-only chat/completions; no images, no JSON mode, bounded reply."""
         body = {
             "model": self.model,
             "temperature": 0.4,
             "max_tokens": MAX_REPLY_TOKENS,
-            "messages": build_messages(report_context, turns),
+            "messages": build_messages(report_context, turns, mode),
         }
         raw_body = json.dumps(body).encode("utf-8")
         url = f"{self.base_url}/chat/completions"

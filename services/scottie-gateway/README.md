@@ -39,7 +39,7 @@ manifest mismatch (`deploy.sh --check`).
 
 ## Wire contract additions since the snapshot
 
-- `POST /v1/chat` — Ask Scottie about one completed report. Body `{reportContext, messages}`
+- `POST /v1/chat` — Ask Scottie. Body `{mode?, reportContext?, messages}`; `mode` is `report` (default: about one completed report, `reportContext` required) or `coach` (the standing coaching chat: `reportContext` optional — the player's latest report when there is one — and the prompt makes Scottie say it has not seen their film otherwise).
   (≤20 turns, ≤1500 chars each, last from the user; report ≤40 KB). Reply from the same provider
   as analysis (`gateway/chat.py`), text-only, ≤450 tokens, under a system prompt that forbids
   anything not in the report. Stateless: nothing is stored on the gateway.

@@ -21,7 +21,7 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
       "Gameplay profile: the platform, control scheme, position, game mode, and (optionally) the jersey number, indicator color and team side you enter on the upload screen.",
       "Gameplay video: the MP4 or MOV clip you upload, and still frames sampled from it.",
       "Coaching reports: the analysis produced for each clip.",
-      "Coaching chat: the questions you ask Scottie about a report, and the replies.",
+      "Coaching chat: the questions you ask Scottie — about a report, or in the standing Scottie tab — and the replies.",
       "We do not collect your real name, gamertag, payment details, or location, and we run no advertising or analytics trackers.",
     ],
   },
@@ -30,7 +30,7 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
     paragraphs: [
       "Your clip is stored privately and used for one thing: producing your coaching report. A small number of frames (at most twelve) are sampled from it and sent to our analysis service, which uses a third-party vision model (currently xAI's Grok) to describe what is visible in those frames. The full video is never sent to the model provider.",
       "Frames shown to you on the confirmation screen are kept only as long as the video is.",
-      "When you ask Scottie a question, your report and your recent questions in that conversation are sent to the same model to produce the reply. Chat never sends video or frames.",
+      "When you ask Scottie a question, your recent questions in that conversation are sent to the same model to produce the reply, together with the report you are asking about (or, in the Scottie tab, your most recent completed report, if you have one). Chat never sends video or frames.",
     ],
   },
   {

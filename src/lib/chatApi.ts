@@ -1,5 +1,6 @@
 /**
- * "Ask Scottie" — chat about one completed report. Owner-only; the API keeps the turns.
+ * "Ask Scottie" — chat about one completed report — and the standing Scottie coaching chat.
+ * Owner-only; the API keeps the turns.
  */
 import { API_BASE_URL } from "./apiBase";
 import { authenticatedFetch } from "./authenticatedFetch";
@@ -51,4 +52,38 @@ export async function sendChat(applicationRequestId: string, message: string): P
   });
   if (!res.ok) return parseError(res);
   return (await res.json()) as { reply: ChatMessage; messages: ChatMessage[] };
+}
+
+/** What the coaching chat is grounded in right now (the owner's latest completed report), if anything. */
+export interface CoachGrounding {
+  applicationRequestId: string;
+  gameTitle: string | null;
+  gameMode: string | null;
+  completedAt: string | null;
+}
+
+export interface CoachChatState {
+  messages: ChatMessage[];
+  grounding: CoachGrounding | null;
+}
+
+export async function getCoachChat(signal?: AbortSignal): Promise<CoachChatState> {
+  const res = await authenticatedFetch(`${API_BASE_URL}/api/scottie/chat`, {
+    headers: { accept: "application/json" },
+    cache: "no-store",
+    signal,
+  });
+  if (!res.ok) return parseError(res);
+  const body = (await res.json()) as Partial<CoachChatState>;
+  return { messages: Array.isArray(body.messages) ? body.messages : [], grounding: body.grounding ?? null };
+}
+
+export async function sendCoachChat(message: string): Promise<{ reply: ChatMessage } & CoachChatState> {
+  const res = await authenticatedFetch(`${API_BASE_URL}/api/scottie/chat`, {
+    method: "POST",
+    headers: { accept: "application/json", "content-type": "application/json" },
+    body: JSON.stringify({ message }),
+  });
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as { reply: ChatMessage } & CoachChatState;
 }

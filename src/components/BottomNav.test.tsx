@@ -35,15 +35,18 @@ describe("BottomNav", () => {
     expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label") ?? b.querySelector("span:last-child")?.textContent)).toEqual([
       "Upload",
       "Analysis",
+      "Scottie",
       "Sample report",
     ]);
     expect(screen.queryByText(/tactics|roster|ai insights/i)).not.toBeInTheDocument();
   });
 
-  it("Upload → /upload, Sample report → /scorecard", () => {
+  it("Upload → /upload, Scottie → /scottie, Sample report → /scorecard", () => {
     mount();
     fireEvent.click(screen.getByRole("button", { name: "Upload" }));
     expect(screen.getByTestId("where")).toHaveTextContent("/upload");
+    fireEvent.click(screen.getByRole("button", { name: "Scottie" }));
+    expect(screen.getByTestId("where")).toHaveTextContent("/scottie");
     fireEvent.click(screen.getByRole("button", { name: "Sample report" }));
     expect(screen.getByTestId("where")).toHaveTextContent("/scorecard");
   });

@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # Cloudflare Tunnel for Scottie — token file required; no-op loop if missing.
+# The tunnel ("scottie", created with `cloudflared tunnel create`) has no remote ingress, so the
+# origin MUST be passed with --url or cloudflared answers 503 for every request.
 set -euo pipefail
 export HOME="${HOME:-/root}"
 TOKEN_FILE="${SCOTTIE_TUNNEL_TOKEN_FILE:-/root/.hermes/profiles/scottie/secrets/cloudflared-scottie.token}"
@@ -18,4 +20,4 @@ if [[ -z "$TOKEN" ]]; then
 fi
 
 echo "[scottie-tunnel] starting cloudflared metrics=${METRICS} origin=${ORIGIN}"
-exec cloudflared tunnel --no-autoupdate --metrics "$METRICS" run --token "$TOKEN"
+exec cloudflared tunnel --no-autoupdate --metrics "$METRICS" run --token "$TOKEN" --url "$ORIGIN"

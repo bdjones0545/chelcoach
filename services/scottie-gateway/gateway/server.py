@@ -282,14 +282,14 @@ class ScottieHandler(BaseHTTPRequestHandler):
             self._send_json(400, {"error": "malformed_payload", "message": "Invalid JSON"})
             return
         try:
-            report_context, turns = validate_chat_request(body)
+            mode, report_context, turns = validate_chat_request(body)
         except ChatError as e:
             self._send_json(413 if e.code == "oversized_request" else 400, {"error": e.code, "message": e.message})
             return
-        result = STATE.provider.chat(report_context=report_context, turns=turns)
+        result = STATE.provider.chat(report_context=report_context, turns=turns, mode=mode)
         log.info(
-            "chat provider=%s model=%s ok=%s latency_ms=%s turns=%s",
-            result.provider, result.model, result.ok, result.latency_ms, len(turns),
+            "chat mode=%s grounded=%s provider=%s model=%s ok=%s latency_ms=%s turns=%s",
+            mode, report_context is not None, result.provider, result.model, result.ok, result.latency_ms, len(turns),
         )
         if not result.ok:
             self._send_json(502, {"error": "provider_failed", "message": result.error or "The coach is unavailable right now."})

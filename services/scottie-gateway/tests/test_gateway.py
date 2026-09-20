@@ -223,7 +223,8 @@ class ChatWithScottie(unittest.TestCase):
         from gateway.chat import ChatError, MAX_TURNS, validate_chat_request
 
         good = {"reportContext": self._report(), "messages": [{"role": "user", "content": "What should I fix first?"}]}
-        report, turns = validate_chat_request(good)
+        mode, report, turns = validate_chat_request(good)
+        self.assertEqual(mode, "report")
         self.assertEqual(turns[-1]["role"], "user")
         self.assertIn("playerSpecificObservations", report)
 
@@ -236,6 +237,10 @@ class ChatWithScottie(unittest.TestCase):
             ({"reportContext": self._report(), "messages": [{"role": "user", "content": "x" * 2000}]}, "oversized_request"),
             ({"reportContext": self._report(), "messages": [{"role": "user", "content": "q"}] * (MAX_TURNS + 1)}, "oversized_request"),
             ({"reportContext": {"pad": "x" * 50_000}, "messages": [{"role": "user", "content": "q"}]}, "oversized_request"),
+            # report mode never runs without a report; coach mode never accepts a fake empty one.
+            ({"messages": [{"role": "user", "content": "q"}]}, "malformed_payload"),
+            ({"mode": "coach", "reportContext": {}, "messages": [{"role": "user", "content": "q"}]}, "malformed_payload"),
+            ({"mode": "therapist", "messages": [{"role": "user", "content": "q"}]}, "malformed_payload"),
         ]
         for body, code in bad:
             with self.assertRaises(ChatError) as ctx:
@@ -261,3 +266,31 @@ class ChatWithScottie(unittest.TestCase):
         self.assertIn("late slot arrival", r.reply)
         self.assertIn("20s", r.reply)
         self.assertEqual(r.provider, "fake")
+
+    def test_coach_mode_runs_with_or_without_a_report_and_says_which(self) -> None:
+        from gateway.chat import COACH_SYSTEM_PROMPT, build_messages, validate_chat_request
+        from gateway.provider import FakeProvider
+
+        turns = [{"role": "user", "content": "How do I stop getting walked on the rush?"}]
+        mode, report, got = validate_chat_request({"mode": "coach", "messages": turns})
+        self.assertEqual((mode, report), ("coach", None))
+
+        ungrounded = build_messages(None, got, mode="coach")
+        self.assertEqual(ungrounded[0], {"role": "system", "content": COACH_SYSTEM_PROMPT})
+        self.assertIn("have not seen this player's film", ungrounded[1]["content"])
+        self.assertIn("never describe or grade their play", COACH_SYSTEM_PROMPT)
+
+        grounded = build_messages(self._report(), got, mode="coach")
+        self.assertIn("latest coaching report", grounded[1]["content"])
+        self.assertIn("late slot arrival", grounded[1]["content"])
+
+        r = FakeProvider().chat(report_context=None, turns=got, mode="coach")
+        self.assertTrue(r.ok)
+        self.assertIn("have not seen your film", r.reply)
+        self.assertNotIn("late slot arrival", r.reply)
+
+    def test_report_mode_refuses_to_build_without_a_report(self) -> None:
+        from gateway.chat import ChatError, build_messages
+
+        with self.assertRaises(ChatError):
+            build_messages(None, [{"role": "user", "content": "hi"}])
