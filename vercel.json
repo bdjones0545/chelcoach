@@ -10,6 +10,14 @@
       "includeFiles": "server/node_modules/@ff*-installer/**"
     }
   },
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "www.chelcoach.io" }],
+      "destination": "https://chelcoach.io/:path*",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }

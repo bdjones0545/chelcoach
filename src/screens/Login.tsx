@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import AuthUnavailable from "../components/AuthUnavailable";
 import Button from "../components/Button";
 import GoogleSignInButton from "../components/GoogleSignInButton";
@@ -12,7 +12,7 @@ function safeReturnPath(raw: unknown): string {
 }
 
 export default function Login() {
-  const { mode, signIn, loading: authLoading } = useAuth();
+  const { mode, signIn, loading: authLoading, authenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = safeReturnPath((location.state as { from?: string } | null)?.from);
@@ -24,6 +24,11 @@ export default function Login() {
 
   if (mode !== "supabase") {
     return <AuthUnavailable title="Sign in" onDevContinue={() => navigate("/upload")} />;
+  }
+
+  // Already signed in (e.g. back from Google) — go where the player was headed, don't re-ask.
+  if (!authLoading && authenticated) {
+    return <Navigate to={from} replace />;
   }
 
   async function onSubmit(e: FormEvent) {

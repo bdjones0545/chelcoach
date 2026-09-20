@@ -14,6 +14,7 @@ import Login from "./screens/Login";
 import Signup from "./screens/Signup";
 import ForgotPassword from "./screens/ForgotPassword";
 import ResetPassword from "./screens/ResetPassword";
+import AuthCallback from "./screens/AuthCallback";
 import Privacy from "./screens/Privacy";
 import Terms from "./screens/Terms";
 import WebMcpBridge from "./webmcp/WebMcpBridge";
@@ -29,6 +30,7 @@ export default function App() {
       <Route path="/signup" element={<Signup />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/privacy" element={<Privacy />} />
       <Route path="/terms" element={<Terms />} />
 

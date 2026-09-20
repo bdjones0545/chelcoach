@@ -17,6 +17,7 @@ import {
   isSupabaseBrowserConfigured,
 } from "../lib/supabaseClient";
 import { clearDevOwnerToken } from "../lib/authToken";
+import { OAUTH_CALLBACK_PATH, rememberOAuthReturnTo, safeRedirectTo } from "../lib/oauthReturn";
 
 export type AuthMode = "supabase" | "development_session" | "disabled";
 
@@ -48,8 +49,9 @@ type AuthContextValue = {
   signOut: () => Promise<void>;
   requestPasswordReset: (email: string) => Promise<void>;
   /**
-   * Google via Supabase Auth (PKCE). Navigates away to Google; on return the client exchanges the
-   * code and onAuthStateChange sets the session. `returnTo` must be a same-origin path.
+   * Google via Supabase Auth (PKCE). Navigates away to Google; Supabase returns the browser to
+   * OAUTH_CALLBACK_PATH on the same origin, where the client exchanges the code and AuthCallback
+   * forwards to `returnTo` (a same-origin path, kept in sessionStorage across the round trip).
    */
   signInWithGoogle: (returnTo: string) => Promise<void>;
 };
@@ -79,13 +81,6 @@ function mapSignUpError(message: string): AuthActionError {
     return new AuthActionError("WEAK_PASSWORD", "Choose a stronger password (at least 6 characters).");
   }
   return new AuthActionError("UNKNOWN", "Unable to create account. Try again.");
-}
-
-function safeRedirectTo(path: string): string {
-  // Only same-origin relative paths — prevent open redirects.
-  if (!path.startsWith("/") || path.startsWith("//")) return "/";
-  if (path.includes("://")) return "/";
-  return path;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -160,7 +155,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!supabase) {
       throw new AuthActionError("AUTH_PROVIDER_UNAVAILABLE", "Authentication is not configured.");
     }
-    const redirectTo = typeof window !== "undefined" ? `${window.location.origin}${safeRedirectTo(returnTo)}` : undefined;
+    let redirectTo: string | undefined;
+    if (typeof window !== "undefined") {
+      rememberOAuthReturnTo(returnTo);
+      redirectTo = `${window.location.origin}${OAUTH_CALLBACK_PATH}`;
+    }
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo, queryParams: { prompt: "select_account" } },

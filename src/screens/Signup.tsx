@@ -1,12 +1,12 @@
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import AuthUnavailable from "../components/AuthUnavailable";
 import Button from "../components/Button";
 import GoogleSignInButton from "../components/GoogleSignInButton";
 import { AuthActionError, useAuth } from "../state/AuthContext";
 
 export default function Signup() {
-  const { mode, signUp } = useAuth();
+  const { mode, signUp, authenticated, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -16,6 +16,11 @@ export default function Signup() {
 
   if (mode !== "supabase") {
     return <AuthUnavailable title="Sign up" onDevContinue={() => navigate("/upload")} />;
+  }
+
+  // Already signed in (e.g. back from Google) — never show the form a second time.
+  if (!authLoading && authenticated) {
+    return <Navigate to="/upload" replace />;
   }
 
   async function onSubmit(e: FormEvent) {
@@ -45,7 +50,7 @@ export default function Signup() {
           <p className="font-label-md text-primary uppercase tracking-wider mb-2">ChelCoach</p>
           <h1 className="font-headline text-3xl uppercase text-on-surface">Create account</h1>
           <p className="text-on-surface-variant text-sm mt-2">
-            Email and password — no OAuth in this phase.
+            Google or email and password.
           </p>
         </div>
         <GoogleSignInButton returnTo="/upload" onError={setError} label="Sign up with Google" />
